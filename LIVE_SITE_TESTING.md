@@ -80,3 +80,24 @@ Additional implemented test targets:
 - Storefront cart and test checkout creating real customer/order records
 
 These features are **not marked PASS** until manually verified on the live build.
+
+
+## Incident — controls not responding (2026-09-26)
+
+User reported that website editing, preview/view, and multiple controls were not responding in the production UI.
+
+### Hotfix applied
+
+- Made **Start free** open onboarding in guest mode so the editor can be tested without an account.
+- Added local fallbacks for product, customer, order, media, campaign, and discount actions when not signed in.
+- Made **Website editor → Live preview** navigate to the storefront preview.
+- Made **Save** persist editor state locally and sync to cloud when authenticated.
+- Connected **Settings**, **Help**, header **Search**, brief preview/print, and analytics refresh actions.
+- Added normalization for older saved onboarding/editor state to prevent missing-array crashes.
+- Added a React error boundary with a recovery screen instead of leaving the interface frozen on runtime errors.
+- Deployed hotfix commit `1c8d14191b269b8094fd2de8158f2dd70709e544` to Railway successfully.
+
+### Verification status
+
+Build/deploy: **PASS** (Railway deployment SUCCESS)
+Manual button verification in browser: **PENDING USER RETEST**
