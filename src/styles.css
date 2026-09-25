@@ -64,3 +64,14 @@
 .store-cart-indicator b{position:absolute;right:-9px;top:-10px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#171717;color:#fff;font-size:10px;display:grid;place-items:center}
 .sf-add-cart{margin-top:10px;border:1px solid currentColor;background:transparent;padding:9px 12px;border-radius:8px;cursor:pointer;font:inherit}
 .table-card a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
+.precision-controls{border-top:1px solid #e8e5df;margin-top:18px;padding-top:18px}
+.settings-form input[type="range"]{width:100%}
+.settings-form input[type="color"]{width:100%;height:44px;padding:4px;border:1px solid #ddd;border-radius:8px;background:#fff}
+.sf-custom-block{margin:var(--section-gap,32px) 0;overflow:hidden}
+.sf-custom-inner{max-width:1180px;margin:0 auto}
+.sf-custom-inner img{width:100%;display:block;border-radius:var(--card-radius,0)}
+.sf-custom-inner h2{margin:0 0 12px;font-size:clamp(24px,3vw,44px)}
+.sf-custom-inner p,.sf-custom-inner li{line-height:1.7}
+.sf-custom-inner ul{margin:0;padding-left:20px}
+.storefront>section{margin-bottom:var(--section-gap,32px)}
