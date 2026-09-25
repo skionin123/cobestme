@@ -58,3 +58,25 @@ Run tests in this order so failures are easier to isolate:
 ## Change log
 
 - 2026-09-26 — Created production smoke-test record after cobest.me began serving the CoBest application.
+
+
+## Functional MVP deployment update — 2026-09-26
+
+The production build now includes real authentication and persistent Supabase-backed data for workspace state, products, customers, orders, discounts, campaigns, and media records.
+
+Additional implemented test targets:
+- Real signup/login/password recovery
+- Cloud workspace save/reload
+- Persistent product creation
+- Persistent customer creation
+- Persistent order creation
+- Basic sales/order/customer analytics
+- Persistent campaign and discount records
+- Basic media records by hosted URL
+- Add-page workflow
+- Visual content block builder
+- 1–4 column block grids
+- Block background/text/padding controls
+- Storefront cart and test checkout creating real customer/order records
+
+These features are **not marked PASS** until manually verified on the live build.
