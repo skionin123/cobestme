@@ -78,6 +78,24 @@ const defaultEditor = {
   blocks: []
 }
 
+function normalizeOnboarding(value = {}) {
+  const merged = { ...defaultOnboarding, ...(value || {}) }
+  for (const key of ['goals','styles','personalities','pages','features','contentReady']) {
+    if (!Array.isArray(merged[key])) merged[key] = [...defaultOnboarding[key]]
+  }
+  return merged
+}
+
+function normalizeEditor(value = {}) {
+  const merged = { ...defaultEditor, ...(value || {}) }
+  merged.hero = { ...defaultEditor.hero, ...((value || {}).hero || {}) }
+  merged.featured = { ...defaultEditor.featured, ...((value || {}).featured || {}) }
+  merged.story = { ...defaultEditor.story, ...((value || {}).story || {}) }
+  merged.theme = { ...defaultEditor.theme, ...((value || {}).theme || {}) }
+  merged.blocks = Array.isArray((value || {}).blocks) ? value.blocks : []
+  return merged
+}
+
 function useStoredState(key, initial) {
   const [value, setValue] = useState(() => {
     try {
@@ -293,9 +311,9 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName 
       <div className="sidebar-top"><Logo inverse/><button className="mobile-close" onClick={()=>setMobile(false)}><X/></button></div>
       <div className="store-switch"><div className="store-avatar">{(businessName||'C').charAt(0)}</div><div><strong>{businessName||'Your Store'}</strong><span>Online store</span></div><ChevronDown size={15}/></div>
       <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
-      <div className="sidebar-bottom"><button><Settings size={18}/> Settings</button><button><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
+      <div className="sidebar-bottom"><button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button><button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
     </aside>
-    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{children}</main>
+    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{children}</main>
   </div>
 }
 
@@ -324,7 +342,7 @@ function Brief({data}) {
     ['Content readiness', [['Assets ready',data.contentReady.join(', ')],['Existing website',data.currentWebsite||'None provided'],['Target launch',data.launchDate||'Not set']]],
     ['Website structure', [['Pages',data.pages.join(', ')],['Features',data.features.join(', ')]]]
   ]
-  return <div className="page-wrap brief-page"><div className="page-head"><div><p className="overline">SINGLE SOURCE OF TRUTH</p><h1>Website brief</h1><p>Everything captured during onboarding, organized for the project.</p></div><Button variant="secondary"><Eye size={15}/> Preview brief</Button></div><div className="brief-layout"><aside className="brief-index"><span>Contents</span>{sections.map((x,i)=><a key={x[0]} href={`#brief-${i}`}>{String(i+1).padStart(2,'0')} {x[0]}</a>)}</aside><div className="brief-doc"><div className="brief-cover"><span>WEBSITE PROJECT BRIEF</span><h2>{data.businessName}</h2><p>{data.websiteType} · {data.styles.join(' + ')}</p><div className="brief-colors">{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}}/>)}</div></div>{sections.map((s,i)=><section key={s[0]} id={`brief-${i}`}><p className="overline">{String(i+1).padStart(2,'0')}</p><h3>{s[0]}</h3>{s[1].map(([label,val])=><div className="brief-row" key={label}><span>{label}</span><p>{val||'Not provided'}</p></div>)}</section>)}</div></div></div>
+  return <div className="page-wrap brief-page"><div className="page-head"><div><p className="overline">SINGLE SOURCE OF TRUTH</p><h1>Website brief</h1><p>Everything captured during onboarding, organized for the project.</p></div><Button variant="secondary" onClick={()=>window.print()}><Eye size={15}/> Preview / print brief</Button></div><div className="brief-layout"><aside className="brief-index"><span>Contents</span>{sections.map((x,i)=><a key={x[0]} href={`#brief-${i}`}>{String(i+1).padStart(2,'0')} {x[0]}</a>)}</aside><div className="brief-doc"><div className="brief-cover"><span>WEBSITE PROJECT BRIEF</span><h2>{data.businessName}</h2><p>{data.websiteType} · {data.styles.join(' + ')}</p><div className="brief-colors">{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}}/>)}</div></div>{sections.map((s,i)=><section key={s[0]} id={`brief-${i}`}><p className="overline">{String(i+1).padStart(2,'0')}</p><h3>{s[0]}</h3>{s[1].map(([label,val])=><div className="brief-row" key={label}><span>{label}</span><p>{val||'Not provided'}</p></div>)}</section>)}</div></div></div>
 }
 
 function Products({products,setProducts,onCreate}) {
@@ -389,7 +407,7 @@ function OperationsPage({type,orders=[],customers=[],items=[],onCreate}) {
   }
   if(type==='analytics') {
     const revenue=orders.filter(o=>o.payment_status==='Paid').reduce((sum,o)=>sum+Number(o.total||0),0)
-    return <div className="page-wrap"><div className="page-head"><div><p className="overline">ANALYTICS</p><h1>Store performance</h1><p>Review sales and storefront activity from one business view.</p></div><Button variant="secondary">Live account data</Button></div><div className="stat-grid"><Stat title="Sales" value={formatPrice(revenue)} note="Paid order revenue" icon={BarChart3}/><Stat title="Orders" value={String(orders.length)} note="Recorded orders" icon={ShoppingBag}/><Stat title="Average order" value={orders.length?formatPrice(orders.reduce((s,o)=>s+Number(o.total||0),0)/orders.length):'—'} note="All orders" icon={Store}/><Stat title="Customers" value={String(customers.length)} note="Customer records" icon={Users}/></div><div className="panel"><div className="panel-head"><div><span>Data source</span><h3>Persistent commerce data</h3></div></div><p>These totals are calculated from the authenticated account's stored orders and customers rather than sample data.</p></div></div>
+    return <div className="page-wrap"><div className="page-head"><div><p className="overline">ANALYTICS</p><h1>Store performance</h1><p>Review sales and storefront activity from one business view.</p></div><Button variant="secondary" onClick={()=>window.location.reload()}>Refresh data</Button></div><div className="stat-grid"><Stat title="Sales" value={formatPrice(revenue)} note="Paid order revenue" icon={BarChart3}/><Stat title="Orders" value={String(orders.length)} note="Recorded orders" icon={ShoppingBag}/><Stat title="Average order" value={orders.length?formatPrice(orders.reduce((s,o)=>s+Number(o.total||0),0)/orders.length):'—'} note="All orders" icon={Store}/><Stat title="Customers" value={String(customers.length)} note="Customer records" icon={Users}/></div><div className="panel"><div className="panel-head"><div><span>Data source</span><h3>Persistent commerce data</h3></div></div><p>These totals are calculated from the authenticated account's stored orders and customers rather than sample data.</p></div></div>
   }
   if(type==='marketing') {
     const saveCampaign=async()=>{if(!campaignDraft.name)return;setBusy(true);setError('');try{await onCreate?.(campaignDraft);setCampaignDraft({name:'',channel:'email',status:'Draft'});setAdding(false)}catch(err){setError(err.message)}finally{setBusy(false)}}
@@ -401,7 +419,7 @@ function OperationsPage({type,orders=[],customers=[],items=[],onCreate}) {
   }
   return null
 }
-function Editor({data,products,editor,setEditor}) {
+function Editor({data,products,editor,setEditor,onPreview}) {
   const baseSections=[['header','Header'],['hero','Hero'],['featured','Featured products'],['story','Brand story'],['newsletter','Newsletter'],['footer','Footer']]
   const customSections=(editor.blocks||[]).map(b=>[b.id,b.title||'Content block'])
   const sections=[...baseSections.slice(0,4),...customSections,...baseSections.slice(4)]
@@ -417,7 +435,7 @@ function Editor({data,products,editor,setEditor}) {
     if(!selectedBlock)return
     setEditor(prev=>({...prev,blocks:(prev.blocks||[]).filter(b=>b.id!==selectedBlock.id),selected:'hero'}))
   }
-  return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><strong>Home</strong><ChevronDown size={14}/></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div><Button variant="ghost"><Eye size={15}/> Live preview</Button><Button onClick={()=>saveWorkspace({onboarding:data,editor,settings:{}}).catch(()=>{})}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>Page sections</span><button onClick={addBlock}><Plus size={16}/></button></div>{sections.map(([id,label],i)=><button key={id} className={`section-item ${editor.selected===id?'active':''}`} onClick={()=>setEditor({...editor,selected:id})}><span className="drag-dots">⠿</span><div className="section-thumb">{id.startsWith('block-')?<Plus size={14}/>:i<2?<ImageIcon size={14}/>:<LayoutDashboard size={14}/>}</div><strong>{label}</strong></button>)}<button className="add-section" onClick={addBlock}><Plus size={15}/> Add content block</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><StorefrontMini data={data} products={products} editor={editor}/></div></main><aside className="settings-panel"><div className="settings-head"><span>Section settings</span><strong>{sections.find(s=>s[0]===editor.selected)?.[1]||'Section'}</strong></div>{editor.selected==='hero'&&<div className="settings-form"><Field label="Eyebrow"><input value={editor.hero.eyebrow} onChange={e=>update('hero','eyebrow',e.target.value)}/></Field><Field label="Heading"><textarea rows="3" value={editor.hero.heading} onChange={e=>update('hero','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.hero.body} onChange={e=>update('hero','body',e.target.value)}/></Field><Field label="Button label"><input value={editor.hero.button} onChange={e=>update('hero','button',e.target.value)}/></Field><Field label="Alignment"><div className="segment"><button className={editor.hero.align==='left'?'active':''} onClick={()=>update('hero','align','left')}>Left</button><button className={editor.hero.align==='center'?'active':''} onClick={()=>update('hero','align','center')}>Center</button></div></Field></div>}{editor.selected==='featured'&&<div className="settings-form"><Field label="Section heading"><input value={editor.featured.title} onChange={e=>update('featured','title',e.target.value)}/></Field><Field label="Columns"><div className="segment">{[2,3,4].map(n=><button key={n} className={editor.featured.columns===n?'active':''} onClick={()=>update('featured','columns',n)}>{n}</button>)}</div></Field></div>}{editor.selected==='story'&&<div className="settings-form"><Field label="Heading"><input value={editor.story.title} onChange={e=>update('story','title',e.target.value)}/></Field><Field label="Body"><textarea rows="5" value={editor.story.body} onChange={e=>update('story','body',e.target.value)}/></Field></div>}{selectedBlock&&<div className="settings-form"><Field label="Block type"><select value={selectedBlock.type} onChange={e=>updateBlock('type',e.target.value)}><option value="text">Text</option><option value="image">Image</option><option value="list">List</option><option value="menu">Menu</option></select></Field><Field label="Title"><input value={selectedBlock.title} onChange={e=>updateBlock('title',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={selectedBlock.body||''} onChange={e=>updateBlock('body',e.target.value)}/></Field>{selectedBlock.type==='image'&&<Field label="Image URL"><input value={selectedBlock.imageUrl||''} onChange={e=>updateBlock('imageUrl',e.target.value)} placeholder="https://..."/></Field>}{['list','menu'].includes(selectedBlock.type)&&<Field label="Items (comma separated)"><textarea rows="3" value={selectedBlock.items||''} onChange={e=>updateBlock('items',e.target.value)}/></Field>}<Field label="Columns"><div className="segment">{[1,2,3,4].map(n=><button key={n} className={Number(selectedBlock.columns||1)===n?'active':''} onClick={()=>updateBlock('columns',n)}>{n}</button>)}</div></Field><div className="form-grid two"><Field label="Background"><input type="color" value={selectedBlock.background||'#ffffff'} onChange={e=>updateBlock('background',e.target.value)}/></Field><Field label="Text"><input type="color" value={selectedBlock.text||'#171717'} onChange={e=>updateBlock('text',e.target.value)}/></Field></div><Field label={`Padding: ${selectedBlock.padding||48}px`}><input type="range" min="8" max="120" value={selectedBlock.padding||48} onChange={e=>updateBlock('padding',Number(e.target.value))}/></Field><Button variant="secondary" onClick={removeBlock}>Remove block</Button></div>}{!['hero','featured','story'].includes(editor.selected)&&!selectedBlock&&<div className="empty-settings"><Settings size={24}/><strong>Basic section</strong><p>Use the section controls to manage its content, layout, and visibility.</p></div>}<div className="settings-form precision-controls"><span className="overline">GLOBAL STYLE</span><Field label={`Section gap: ${editor.theme?.sectionGap||32}px`}><input type="range" min="0" max="96" value={editor.theme?.sectionGap||32} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),sectionGap:Number(e.target.value)}}))}/></Field><Field label={`Card radius: ${editor.theme?.radius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.radius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),radius:Number(e.target.value)}}))}/></Field></div><div className="project-context"><span>PROJECT CONTEXT</span><strong>{data.goals[0]||'Website goal'}</strong><p>{data.primaryAction}</p><div><b>Direction</b><em>{data.styles.join(' + ')}</em></div><div><b>Audience</b><em>{data.audience}</em></div></div></aside></div></div>
+  return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><strong>Home</strong><ChevronDown size={14}/></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Live preview</Button><Button onClick={()=>{try{localStorage.setItem('cobest-v4-editor',JSON.stringify(editor))}catch{}; if(isAuthenticated()) saveWorkspace({onboarding:data,editor,settings:{}}).catch(()=>{}); alert('Website changes saved.')}}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>Page sections</span><button onClick={addBlock}><Plus size={16}/></button></div>{sections.map(([id,label],i)=><button key={id} className={`section-item ${editor.selected===id?'active':''}`} onClick={()=>setEditor({...editor,selected:id})}><span className="drag-dots">⠿</span><div className="section-thumb">{id.startsWith('block-')?<Plus size={14}/>:i<2?<ImageIcon size={14}/>:<LayoutDashboard size={14}/>}</div><strong>{label}</strong></button>)}<button className="add-section" onClick={addBlock}><Plus size={15}/> Add content block</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><StorefrontMini data={data} products={products} editor={safeEditor}/></div></main><aside className="settings-panel"><div className="settings-head"><span>Section settings</span><strong>{sections.find(s=>s[0]===editor.selected)?.[1]||'Section'}</strong></div>{editor.selected==='hero'&&<div className="settings-form"><Field label="Eyebrow"><input value={editor.hero.eyebrow} onChange={e=>update('hero','eyebrow',e.target.value)}/></Field><Field label="Heading"><textarea rows="3" value={editor.hero.heading} onChange={e=>update('hero','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.hero.body} onChange={e=>update('hero','body',e.target.value)}/></Field><Field label="Button label"><input value={editor.hero.button} onChange={e=>update('hero','button',e.target.value)}/></Field><Field label="Alignment"><div className="segment"><button className={editor.hero.align==='left'?'active':''} onClick={()=>update('hero','align','left')}>Left</button><button className={editor.hero.align==='center'?'active':''} onClick={()=>update('hero','align','center')}>Center</button></div></Field></div>}{editor.selected==='featured'&&<div className="settings-form"><Field label="Section heading"><input value={editor.featured.title} onChange={e=>update('featured','title',e.target.value)}/></Field><Field label="Columns"><div className="segment">{[2,3,4].map(n=><button key={n} className={editor.featured.columns===n?'active':''} onClick={()=>update('featured','columns',n)}>{n}</button>)}</div></Field></div>}{editor.selected==='story'&&<div className="settings-form"><Field label="Heading"><input value={editor.story.title} onChange={e=>update('story','title',e.target.value)}/></Field><Field label="Body"><textarea rows="5" value={editor.story.body} onChange={e=>update('story','body',e.target.value)}/></Field></div>}{selectedBlock&&<div className="settings-form"><Field label="Block type"><select value={selectedBlock.type} onChange={e=>updateBlock('type',e.target.value)}><option value="text">Text</option><option value="image">Image</option><option value="list">List</option><option value="menu">Menu</option></select></Field><Field label="Title"><input value={selectedBlock.title} onChange={e=>updateBlock('title',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={selectedBlock.body||''} onChange={e=>updateBlock('body',e.target.value)}/></Field>{selectedBlock.type==='image'&&<Field label="Image URL"><input value={selectedBlock.imageUrl||''} onChange={e=>updateBlock('imageUrl',e.target.value)} placeholder="https://..."/></Field>}{['list','menu'].includes(selectedBlock.type)&&<Field label="Items (comma separated)"><textarea rows="3" value={selectedBlock.items||''} onChange={e=>updateBlock('items',e.target.value)}/></Field>}<Field label="Columns"><div className="segment">{[1,2,3,4].map(n=><button key={n} className={Number(selectedBlock.columns||1)===n?'active':''} onClick={()=>updateBlock('columns',n)}>{n}</button>)}</div></Field><div className="form-grid two"><Field label="Background"><input type="color" value={selectedBlock.background||'#ffffff'} onChange={e=>updateBlock('background',e.target.value)}/></Field><Field label="Text"><input type="color" value={selectedBlock.text||'#171717'} onChange={e=>updateBlock('text',e.target.value)}/></Field></div><Field label={`Padding: ${selectedBlock.padding||48}px`}><input type="range" min="8" max="120" value={selectedBlock.padding||48} onChange={e=>updateBlock('padding',Number(e.target.value))}/></Field><Button variant="secondary" onClick={removeBlock}>Remove block</Button></div>}{!['hero','featured','story'].includes(editor.selected)&&!selectedBlock&&<div className="empty-settings"><Settings size={24}/><strong>Basic section</strong><p>Use the section controls to manage its content, layout, and visibility.</p></div>}<div className="settings-form precision-controls"><span className="overline">GLOBAL STYLE</span><Field label={`Section gap: ${editor.theme?.sectionGap||32}px`}><input type="range" min="0" max="96" value={editor.theme?.sectionGap||32} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),sectionGap:Number(e.target.value)}}))}/></Field><Field label={`Card radius: ${editor.theme?.radius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.radius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),radius:Number(e.target.value)}}))}/></Field></div><div className="project-context"><span>PROJECT CONTEXT</span><strong>{data.goals[0]||'Website goal'}</strong><p>{data.primaryAction}</p><div><b>Direction</b><em>{data.styles.join(' + ')}</em></div><div><b>Audience</b><em>{data.audience}</em></div></div></aside></div></div>
 }
 function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0}) {
   const visible = products.filter(x=>x.status==='Active')
@@ -444,7 +462,7 @@ function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
       if(order){setMessage(`Order ${order.order_number||'#'+order.id} created. Payment is pending until a payment provider is connected.`);setCart([]);setBuyer({name:'',email:'',phone:''});setCheckout(false)}
     }catch(err){setError(err.message)}finally{setBusy(false)}
   }
-  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
+  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={safeEditor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
 }
 
 function Auth({variant='login',onSuccess,onBack,onSwitch}) {
@@ -489,10 +507,8 @@ export default function App() {
   const [campaigns,setCampaigns] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
-
-  useEffect(()=>{
-    if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
-  },[])
+  const safeOnboarding = normalizeOnboarding(onboarding)
+  const safeEditor = normalizeEditor(editor)
 
   useEffect(()=>{
     if(!isAuthenticated()) return
@@ -519,53 +535,65 @@ export default function App() {
   },[onboarding,editor,page,cloudReady])
 
   const complete = () => { setMode('app'); setPage('dashboard'); window.scrollTo(0,0) }
-  const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
+  const start = () => { setMode('onboarding'); window.scrollTo(0,0) }
   const authSuccess=(next)=>{ setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
   const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
   const addProduct=async(draft)=>{
-    const created=await createResource('products',{name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'})
+    const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
+    if(!isAuthenticated()){const created={id:Date.now(),...payload};setProducts(prev=>[created,...prev]);return created}
+    const created=await createResource('products',payload)
     if(created) setProducts(prev=>[created,...prev.filter(x=>x.id!==created.id)])
     return created
   }
   const addCustomer=async(draft)=>{
+    if(!isAuthenticated()){const created={id:Date.now(),...draft};setCustomers(prev=>[created,...prev]);return created}
     const created=await createResource('customers',draft)
     if(created) setCustomers(prev=>[created,...prev])
     return created
   }
   const addOrder=async(draft)=>{
+    if(!isAuthenticated()){const created={id:Date.now(),...draft};setOrders(prev=>[created,...prev]);return created}
     const created=await createResource('orders',draft)
     if(created) setOrders(prev=>[created,...prev])
     return created
   }
   const addMedia=async(draft)=>{
+    if(!isAuthenticated()){const created={id:Date.now(),...draft};setMediaAssets(prev=>[created,...prev]);return created}
     const created=await createResource('media_assets',draft)
     if(created) setMediaAssets(prev=>[created,...prev])
+    return created
   }
   const addDiscount=async(draft)=>{
+    if(!isAuthenticated()){const created={id:Date.now(),...draft};setDiscounts(prev=>[created,...prev]);return created}
     const created=await createResource('discounts',draft)
     if(created) setDiscounts(prev=>[created,...prev])
+    return created
   }
   const addCampaign=async(draft)=>{
+    if(!isAuthenticated()){const created={id:Date.now(),...draft};setCampaigns(prev=>[created,...prev]);return created}
     const created=await createResource('campaigns',draft)
     if(created) setCampaigns(prev=>[created,...prev])
+    return created
   }
 
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')}/>
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')}/>
-  if(mode==='onboarding') return <Onboarding data={onboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
+  if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
   let content = null
-  if(page==='dashboard') content=<Dashboard data={onboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
-  if(page==='brief') content=<Brief data={onboarding}/>
+  if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
+  if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<Products products={products} setProducts={setProducts} onCreate={addProduct}/>
-  if(page==='pages') content=<OnlineStorePage pages={onboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage}/>
+  if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage}/>
   if(page==='media') content=<OperationsPage type="media" items={mediaAssets} onCreate={addMedia}/>
   if(page==='orders') content=<OperationsPage type="orders" orders={orders} customers={customers} onCreate={addOrder}/>
   if(page==='customers') content=<OperationsPage type="customers" customers={customers} orders={orders} onCreate={addCustomer}/>
   if(page==='analytics') content=<OperationsPage type="analytics" orders={orders} customers={customers}/>
   if(page==='marketing') content=<OperationsPage type="marketing" items={campaigns} onCreate={addCampaign}/>
   if(page==='discounts') content=<OperationsPage type="discounts" items={discounts} onCreate={addDiscount}/>
-  if(page==='editor') content=<Editor data={onboarding} products={products} editor={editor} setEditor={setEditor}/>
-  if(page==='storefront') content=<StorefrontPage data={onboarding} products={products} editor={editor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
-  return <AppShell page={page} setPage={setPage} businessName={onboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
+  if(page==='editor') content=<Editor data={safeOnboarding} products={products} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
+  if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
+  if(page==='settings') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">WORKSPACE</p><h1>Settings</h1><p>Manage your current CoBest workspace.</p></div></div><div className="panel"><SummaryRow label="Mode" value={isAuthenticated()?'Cloud account':'Guest / local'}/><SummaryRow label="Domain" value="cobest.me"/><SummaryRow label="Website" value={safeOnboarding.businessName||'Not named yet'}/><div className="page-actions" style={{marginTop:18}}><Button onClick={()=>setPage('editor')}>Edit website</Button><Button variant="secondary" onClick={()=>setPage('storefront')}>View store</Button></div></div></div>
+  if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('editor')}><Palette size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
+  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
 }
