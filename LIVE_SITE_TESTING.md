@@ -101,3 +101,18 @@ User reported that website editing, preview/view, and multiple controls were not
 
 Build/deploy: **PASS** (Railway deployment SUCCESS)
 Manual button verification in browser: **PENDING USER RETEST**
+
+
+### UI crash root-cause fix — 2026-09-26
+
+Mobile production testing exposed the runtime error: `Can't find variable: safeEditor`.
+
+Root cause: `safeEditor` was defined inside the top-level `App` component but was incorrectly referenced inside child components `Editor` and `StorefrontPage`, where that variable was out of scope.
+
+Fix:
+- Replaced both invalid child-component references with their local `editor` prop.
+- Commit: `af294e2ccc21c37afc1c68977ba1a5df86f1205b`
+- Railway deployment: `23fb50d8-027f-4ae9-9c8c-bbb46c754a98`
+- Railway status: **SUCCESS**
+
+Manual mobile retest: **PENDING**
