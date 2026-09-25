@@ -5,6 +5,7 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
+import { createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp } from './api.js'
 
 const APP_NAME = 'CoBest'
 
@@ -360,11 +361,34 @@ function StorefrontMini({data,products,editor,full=false}) {
 
 function StorefrontPage({data,products,editor}) { return <div className="store-preview-page"><StorefrontMini data={data} products={products} editor={editor} full/></div> }
 
-function Login({onSuccess,onBack}) {
+function Auth({variant='login',onSuccess,onBack,onSwitch}) {
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
-  const submit=(e)=>{ e.preventDefault(); if(email && password) onSuccess() }
-  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">WELCOME BACK</p><h1>Log in to CoBest</h1><p>Manage your website, products, customers, and store.</p><Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Your password" required/></Field><Button type="submit">Log in</Button><button type="button" className="auth-link">Forgot password?</button><div className="auth-divider"><span>New to CoBest?</span></div><Button type="button" variant="secondary" onClick={onBack}>Create an account</Button></form></div>
+  const [busy,setBusy]=useState(false)
+  const [message,setMessage]=useState('')
+  const [error,setError]=useState('')
+  const signup=variant==='signup'
+  const submit=async(e)=>{
+    e.preventDefault()
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const result=signup ? await signUp(email,password) : await signIn(email,password)
+      if(signup && !result?.access_token) {
+        setMessage('Account created. Check your email to confirm your address, then log in.')
+      } else {
+        onSuccess(signup ? 'onboarding' : 'app')
+      }
+    } catch(err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+  const forgot=async()=>{
+    if(!email) return setError('Enter your email address first.')
+    setBusy(true); setError(''); setMessage('')
+    try { await resetPassword(email); setMessage('Password reset email sent.') }
+    catch(err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" required/></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<button type="button" className="auth-link" onClick={forgot}>Forgot password?</button>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
 }
 
 export default function App() {
@@ -372,24 +396,70 @@ export default function App() {
   const [onboarding,setOnboarding] = useStoredState('cobest-v4-onboarding',defaultOnboarding)
   const [products,setProducts] = useStoredState('cobest-v4-products',defaultProducts)
   const [editor,setEditor] = useStoredState('cobest-v4-editor',defaultEditor)
+  const [customers,setCustomers] = useState([])
+  const [orders,setOrders] = useState([])
   const [page,setPage] = useState('dashboard')
+  const [cloudReady,setCloudReady] = useState(false)
+
+  useEffect(()=>{
+    if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
+  },[])
+
+  useEffect(()=>{
+    if(!isAuthenticated()) return
+    let active=true
+    Promise.all([getWorkspace(),listResource('products'),listResource('customers'),listResource('orders')]).then(([workspace,cloudProducts,cloudCustomers,cloudOrders])=>{
+      if(!active) return
+      if(workspace?.onboarding) setOnboarding(prev=>({...prev,...workspace.onboarding}))
+      if(workspace?.editor) setEditor(prev=>({...prev,...workspace.editor}))
+      if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
+      if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
+      if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
+      setCloudReady(true)
+    }).catch(()=>setCloudReady(true))
+    return ()=>{active=false}
+  },[mode])
+
+  useEffect(()=>{
+    if(!cloudReady || !isAuthenticated()) return
+    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{lastPage:page}}).catch(()=>{}),700)
+    return ()=>clearTimeout(timer)
+  },[onboarding,editor,page,cloudReady])
+
   const complete = () => { setMode('app'); setPage('dashboard'); window.scrollTo(0,0) }
-  const start = () => { setMode('onboarding'); window.scrollTo(0,0) }
+  const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
+  const authSuccess=(next)=>{ setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
+  const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
+  const addProduct=async(draft)=>{
+    const created=await createResource('products',{name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'})
+    if(created) setProducts(prev=>[created,...prev.filter(x=>x.id!==created.id)])
+    return created
+  }
+  const addCustomer=async(draft)=>{
+    const created=await createResource('customers',draft)
+    if(created) setCustomers(prev=>[created,...prev])
+  }
+  const addOrder=async(draft)=>{
+    const created=await createResource('orders',draft)
+    if(created) setOrders(prev=>[created,...prev])
+  }
+
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
-  if(mode==='login') return <Login onSuccess={complete} onBack={()=>setMode('landing')}/>
+  if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')}/>
+  if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')}/>
   if(mode==='onboarding') return <Onboarding data={onboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
   let content = null
-  if(page==='dashboard') content=<Dashboard data={onboarding} products={products} setPage={setPage}/>
+  if(page==='dashboard') content=<Dashboard data={onboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
   if(page==='brief') content=<Brief data={onboarding}/>
-  if(page==='products') content=<Products products={products} setProducts={setProducts}/>
+  if(page==='products') content=<Products products={products} setProducts={setProducts} onCreate={addProduct}/>
   if(page==='pages') content=<OnlineStorePage pages={onboarding.pages} setPage={setPage}/>
   if(page==='media') content=<OperationsPage type="media"/>
-  if(page==='orders') content=<OperationsPage type="orders"/>
-  if(page==='customers') content=<OperationsPage type="customers"/>
-  if(page==='analytics') content=<OperationsPage type="analytics"/>
+  if(page==='orders') content=<OperationsPage type="orders" orders={orders} customers={customers} onCreate={addOrder}/>
+  if(page==='customers') content=<OperationsPage type="customers" customers={customers} onCreate={addCustomer}/>
+  if(page==='analytics') content=<OperationsPage type="analytics" orders={orders} customers={customers}/>
   if(page==='marketing') content=<OperationsPage type="marketing"/>
   if(page==='discounts') content=<OperationsPage type="discounts"/>
   if(page==='editor') content=<Editor data={onboarding} products={products} editor={editor} setEditor={setEditor}/>
   if(page==='storefront') content=<StorefrontPage data={onboarding} products={products} editor={editor}/>
-  return <AppShell page={page} setPage={setPage} businessName={onboarding.businessName} onRestart={start}>{content}</AppShell>
+  return <AppShell page={page} setPage={setPage} businessName={onboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
 }
