@@ -511,6 +511,10 @@ export default function App() {
   const safeEditor = normalizeEditor(editor)
 
   useEffect(()=>{
+    if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
+  },[])
+
+  useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
     Promise.all([getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),listResource('media_assets'),listResource('discounts'),listResource('campaigns')]).then(([workspace,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns])=>{
@@ -535,7 +539,7 @@ export default function App() {
   },[onboarding,editor,page,cloudReady])
 
   const complete = () => { setMode('app'); setPage('dashboard'); window.scrollTo(0,0) }
-  const start = () => { setMode('onboarding'); window.scrollTo(0,0) }
+  const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
   const authSuccess=(next)=>{ setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
   const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
   const addProduct=async(draft)=>{
