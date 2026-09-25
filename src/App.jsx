@@ -435,6 +435,9 @@ export default function App() {
   const [editor,setEditor] = useStoredState('cobest-v4-editor',defaultEditor)
   const [customers,setCustomers] = useState([])
   const [orders,setOrders] = useState([])
+  const [mediaAssets,setMediaAssets] = useState([])
+  const [discounts,setDiscounts] = useState([])
+  const [campaigns,setCampaigns] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
 
@@ -445,13 +448,16 @@ export default function App() {
   useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
-    Promise.all([getWorkspace(),listResource('products'),listResource('customers'),listResource('orders')]).then(([workspace,cloudProducts,cloudCustomers,cloudOrders])=>{
+    Promise.all([getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),listResource('media_assets'),listResource('discounts'),listResource('campaigns')]).then(([workspace,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns])=>{
       if(!active) return
       if(workspace?.onboarding) setOnboarding(prev=>({...prev,...workspace.onboarding}))
       if(workspace?.editor) setEditor(prev=>({...prev,...workspace.editor}))
       if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
       if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
       if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
+      if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
+      if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
+      if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
       setCloudReady(true)
     }).catch(()=>setCloudReady(true))
     return ()=>{active=false}
@@ -480,6 +486,18 @@ export default function App() {
     const created=await createResource('orders',draft)
     if(created) setOrders(prev=>[created,...prev])
   }
+  const addMedia=async(draft)=>{
+    const created=await createResource('media_assets',draft)
+    if(created) setMediaAssets(prev=>[created,...prev])
+  }
+  const addDiscount=async(draft)=>{
+    const created=await createResource('discounts',draft)
+    if(created) setDiscounts(prev=>[created,...prev])
+  }
+  const addCampaign=async(draft)=>{
+    const created=await createResource('campaigns',draft)
+    if(created) setCampaigns(prev=>[created,...prev])
+  }
 
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')}/>
@@ -489,13 +507,13 @@ export default function App() {
   if(page==='dashboard') content=<Dashboard data={onboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
   if(page==='brief') content=<Brief data={onboarding}/>
   if(page==='products') content=<Products products={products} setProducts={setProducts} onCreate={addProduct}/>
-  if(page==='pages') content=<OnlineStorePage pages={onboarding.pages} setPage={setPage}/>
-  if(page==='media') content=<OperationsPage type="media"/>
+  if(page==='pages') content=<OnlineStorePage pages={onboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage}/>
+  if(page==='media') content=<OperationsPage type="media" items={mediaAssets} onCreate={addMedia}/>
   if(page==='orders') content=<OperationsPage type="orders" orders={orders} customers={customers} onCreate={addOrder}/>
-  if(page==='customers') content=<OperationsPage type="customers" customers={customers} onCreate={addCustomer}/>
+  if(page==='customers') content=<OperationsPage type="customers" customers={customers} orders={orders} onCreate={addCustomer}/>
   if(page==='analytics') content=<OperationsPage type="analytics" orders={orders} customers={customers}/>
-  if(page==='marketing') content=<OperationsPage type="marketing"/>
-  if(page==='discounts') content=<OperationsPage type="discounts"/>
+  if(page==='marketing') content=<OperationsPage type="marketing" items={campaigns} onCreate={addCampaign}/>
+  if(page==='discounts') content=<OperationsPage type="discounts" items={discounts} onCreate={addDiscount}/>
   if(page==='editor') content=<Editor data={onboarding} products={products} editor={editor} setEditor={setEditor}/>
   if(page==='storefront') content=<StorefrontPage data={onboarding} products={products} editor={editor}/>
   return <AppShell page={page} setPage={setPage} businessName={onboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
