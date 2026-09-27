@@ -85,13 +85,23 @@ async function getUser(token) {
 }
 
 async function getAccessContext(token, user) {
-  const own = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`, { headers: apiHeaders(token) })
+  const own = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}&select=id&limit=1`, { headers: apiHeaders(token) })
   if (own.ok && Array.isArray(own.data) && own.data.length) return { ownerId: user.id, role: 'Owner' }
   const membership = await supabaseFetch(`/rest/v1/workspace_members?member_user_id=eq.${encodeURIComponent(user.id)}&select=owner_user_id,role&order=id.asc&limit=1`, { headers: apiHeaders(token) })
   if (membership.ok && Array.isArray(membership.data) && membership.data[0]) {
     return { ownerId: membership.data[0].owner_user_id, role: membership.data[0].role || 'Viewer' }
   }
   return { ownerId: user.id, role: 'Owner' }
+}
+
+async function resolveSiteId(req,token,ownerId){
+  const requested=Number(req.headers['x-cobest-site-id']||0)
+  if(requested){
+    const found=await supabaseFetch(`/rest/v1/workspaces?id=eq.${requested}&user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`,{headers:apiHeaders(token)})
+    if(found.ok&&Array.isArray(found.data)&&found.data[0])return Number(found.data[0].id)
+  }
+  const first=await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id&order=id.asc&limit=1`,{headers:apiHeaders(token)})
+  return first.ok&&Array.isArray(first.data)&&first.data[0]?Number(first.data[0].id):null
 }
 
 async function rpc(name, payload) {
