@@ -43,7 +43,8 @@ For every test:
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
 | BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; dropdown and + button do not share a clean baseline | First CSS fix improved fit but controls were still vertically misaligned | FIX V2 DEPLOYING / RETEST NEEDED | 5c91efa |
-| BUG-008 | P0 | Password recovery | Reset emails could return to localhost or leave the user on an expired-link dead end instead of a CoBest recovery screen | Recovery callback was query/hash-based and did not provide a dedicated public reset route | FIX DEPLOYING / RETEST NEEDED | 0b3c1e5 |
+| BUG-008 | P0 | Password recovery | Reset emails could return to localhost or leave the user on an expired-link dead end instead of a CoBest recovery screen | Recovery callback was query/hash-based and did not provide a dedicated public reset route | FIX DEPLOYED / RETEST NEEDED | 0b3c1e5 |
+| BUG-009 | P2 | Password recovery UX | Raw `email rate limit exceeded` error shown after repeated reset requests | Supabase built-in email service rate-limited repeated recovery emails; UI exposed raw provider error | FIX DEPLOYING / RETEST AFTER COOLDOWN | 3773407 |
 
 ## Formal QA queue
 
@@ -159,3 +160,30 @@ Commits:
 - `0b3c1e5` dedicated reset page and callback routing
 
 Retest: **PENDING after deployment; use a newly requested email, not an older expired link.**
+
+
+### QA-002 — Forgot password request
+
+**Result:** PARTIAL / PROVIDER RATE-LIMITED
+
+Observed production behavior:
+- Earlier reset request returned HTTP 200.
+- Repeated reset request later returned HTTP 429.
+- UI exposed raw message: `email rate limit exceeded`.
+
+Interpretation:
+- CoBest's reset endpoint is reachable and works.
+- Supabase's built-in auth email sender is temporarily limiting repeated emails.
+- This is expected provider protection, but the raw message was poor UX.
+
+Fixes:
+- Friendly rate-limit message added.
+- User is told to wait before requesting another reset email and to use only the newest link.
+- HTML app shell now uses `Cache-Control: no-store` so users do not keep running stale JavaScript after deployments.
+- Hashed assets remain long-cache/immutable.
+
+Commits:
+- `3773407` auth rate-limit UX
+- `d5743ae` production app-shell cache control
+
+Retest: **PENDING after email cooldown and deployment.**
