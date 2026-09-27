@@ -43,6 +43,7 @@ For every test:
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
 | BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; dropdown and + button do not share a clean baseline | First CSS fix improved fit but controls were still vertically misaligned | FIX V2 DEPLOYING / RETEST NEEDED | 5c91efa |
+| BUG-008 | P0 | Password recovery | Reset emails could return to localhost or leave the user on an expired-link dead end instead of a CoBest recovery screen | Recovery callback was query/hash-based and did not provide a dedicated public reset route | FIX DEPLOYING / RETEST NEEDED | 0b3c1e5 |
 
 ## Formal QA queue
 
@@ -134,3 +135,27 @@ Observed:
 Commit: `5c91efa0b0deab7b4df0d728a23087463c68db34`
 
 Retest: **PENDING after deployment**
+
+
+### BUG-008 — Dedicated CoBest password reset page
+
+Requested behavior:
+- Forgot Password opens a CoBest recovery page.
+- Reset emails return to `https://cobest.me/reset-password`.
+- Valid recovery links show **Set a new password** on CoBest.
+- Expired/invalid links remain on CoBest and show a form to request a new reset link.
+- The user should never need a local development server to reset a production password.
+
+Implementation:
+- Client recovery redirect changed to `https://cobest.me/reset-password`.
+- Server recovery endpoint forces the same production URL.
+- Added a dedicated Reset Password request screen on CoBest.
+- Valid Supabase recovery hash → new-password form.
+- Invalid/expired hash → same CoBest reset page with a clear error and resend option.
+
+Commits:
+- `b5d195d` recovery URL
+- `f204ccdf` server production callback
+- `0b3c1e5` dedicated reset page and callback routing
+
+Retest: **PENDING after deployment; use a newly requested email, not an older expired link.**
