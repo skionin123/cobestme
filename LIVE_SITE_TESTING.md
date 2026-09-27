@@ -136,3 +136,23 @@ Railway production deployment: `489ced62-59ee-4332-adc3-67218eaeb4a5`
 Railway status: **SUCCESS**
 
 Manual browser verification: **PENDING**
+
+
+## Internal-process release — 2026-09-28
+
+Focus shifted from unavailable third-party provider activation to the complete internal CoBest workflow.
+
+New live-test targets:
+- Setup & workflow dashboard
+- Theme library and theme switching
+- Multi-page management
+- Main/footer navigation management
+- Website editor from selected theme
+- Product/catalog process
+- Media/content process
+- Store settings/policies
+- Preview → publish process
+- Orders/customers/inbox/analytics operating loop
+- Improved invalid-credentials recovery guidance
+
+External provider activation is intentionally excluded from this test phase.
