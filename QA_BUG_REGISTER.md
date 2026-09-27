@@ -306,3 +306,54 @@ This confirms session logout and subsequent workspace restoration work as expect
 **PASS:** new account reaches onboarding successfully.
 
 **FAIL:** signup errors unexpectedly, returns to login, stays on the signup screen without explanation, or onboarding does not load.
+
+
+# MVP-first QA phase — 2026-09-28
+
+The user requested that testing now prioritize the working CoBest MVP rather than continue with account-creation/password-recovery edge cases.
+
+Deferred for later:
+- QA-002 Forgot password request
+- QA-003 Password reset callback
+- QA-004 Set new password
+- QA-006 New account creation/onboarding
+
+These remain open but do not block MVP functional testing.
+
+## MVP critical path
+
+| MVP Test | Area | Test | Status |
+|---|---|---|---|
+| MVP-001 | Workflow | Setup & Workflow screen loads and recommended next step works | NEXT |
+| MVP-002 | Themes | Choose theme and retain selection | PENDING |
+| MVP-003 | Pages | Add/edit/reorder/hide page | PENDING |
+| MVP-004 | Navigation | Main/footer menu add/remove/reorder | PENDING |
+| MVP-005 | Website editor | Edit Home content and save | PENDING |
+| MVP-006 | Responsive editor | Desktop/tablet/mobile preview | PENDING |
+| MVP-007 | Products | Create product and persist after refresh | PENDING |
+| MVP-008 | Catalog | Edit/search/filter product; taxonomy/collections | PENDING |
+| MVP-009 | Media | Add/upload/select media | PENDING |
+| MVP-010 | Storefront | Preview active product/pages/navigation | PENDING |
+| MVP-011 | Cart | Add/remove/change cart items | PENDING |
+| MVP-012 | Checkout | Internal/test checkout creates order/customer | PENDING |
+| MVP-013 | Orders | View/update fulfillment/tracking | PENDING |
+| MVP-014 | Customers | View/edit/history | PENDING |
+| MVP-015 | Settings | SEO/policies/store defaults | PENDING |
+| MVP-016 | Publish | Publish draft and verify public route | PENDING |
+| MVP-017 | Persistence | Refresh/relogin and confirm data remains | PENDING |
+| MVP-018 | Mobile | Critical MVP path on phone | PENDING |
+
+## Active MVP test — MVP-001
+
+### Setup & Workflow
+
+**Expected:**
+1. **Setup & workflow** opens from the dashboard/sidebar.
+2. Launch-readiness percentage and setup steps render.
+3. The next recommended action is visible.
+4. Clicking the recommended action opens the correct CoBest module.
+5. No blank screen, crash, or dead control occurs.
+
+**PASS:** workflow center loads and next-step navigation works.
+
+**FAIL:** screen crashes, values are obviously wrong, or next-step buttons do nothing.
