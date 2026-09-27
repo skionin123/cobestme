@@ -534,7 +534,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
     try {
       const result=signup ? await signUp(email,password) : await signIn(email,password)
       if(signup && !result?.access_token) {
-        setMessage('Account created. Check your email to confirm your address, then log in.')
+        setMessage('Check your email to continue. If this email is already registered, use Log in or Forgot password instead.')
       } else {
         onSuccess(signup ? 'onboarding' : 'app')
       }
@@ -544,7 +544,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
   const forgot=async()=>{
     if(!email) return setError('Enter your email address first.')
     setBusy(true); setError(''); setMessage('')
-    try { await resetPassword(email); setMessage('Password reset email sent.') }
+    try { await resetPassword(email); setMessage('Password reset email sent. Open the link in that email to choose a new password.') }
     catch(err) { setError(err.message) }
     finally { setBusy(false) }
   }
