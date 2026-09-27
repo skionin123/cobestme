@@ -52,6 +52,26 @@ export default function PublicStore({slug:slugProp,host}) {
     description.setAttribute('content',meta.seo_description||store?.settings?.seoDescription||store?.onboarding?.businessDescription||'')
   },[store,page])
 
+  useEffect(()=>{
+    if(!store)return
+    const params=new URLSearchParams(window.location.search)
+    const paypalReturn=params.get('paypal')==='return'
+    const paypalOrder=params.get('token')
+    const payment=params.get('payment')
+    if(paypalReturn&&paypalOrder){
+      publicAction('paypal-capture',{paypal_order_id:paypalOrder}).then(()=>{
+        setCart([]);setNotice('PayPal payment completed. Your order is confirmed.')
+        window.history.replaceState({},document.title,window.location.pathname)
+      }).catch(err=>setNotice(`PayPal capture needs attention: ${err.message}`))
+    }else if(payment==='success'){
+      setCart([]);setNotice('Payment completed. Your order status will update automatically.')
+      window.history.replaceState({},document.title,window.location.pathname)
+    }else if(payment==='cancelled'){
+      setNotice('Payment was cancelled. Your pending order remains available for follow-up.')
+      window.history.replaceState({},document.title,window.location.pathname)
+    }
+  },[store?.slug])
+
   const products=(store?.products||[]).filter(p=>p.status==='Active')
   const categories=['All',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))]
   const filtered=products.filter(p=>{
@@ -115,7 +135,7 @@ export default function PublicStore({slug:slugProp,host}) {
 
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
-    {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
+    {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
     {accountOpen&&<OrderLookup slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
   </div>
 }
@@ -165,22 +185,25 @@ function OrderLookup({slug,currency,onClose}) {
   return <Modal title="Customer order lookup" onClose={onClose}><div className="modal-form"><p>Enter the order number and email used at checkout.</p>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Order number"><input value={form.order_number} onChange={e=>setForm({...form,order_number:e.target.value.toUpperCase()})} placeholder="CO-XXXXXXXX"/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.order_number||!form.email} onClick={lookup}>{busy?'Looking up…':'Find order'}</button>{order&&<div className="customer-order-result"><div><span>Order</span><strong>{order.order_number}</strong></div><div><span>Placed</span><strong>{new Date(order.created_at).toLocaleString()}</strong></div><div><span>Payment</span><strong>{order.payment_status}</strong></div><div><span>Fulfillment</span><strong>{order.fulfillment_status}</strong></div>{order.tracking_number&&<div><span>Tracking</span><strong>{order.carrier} {order.tracking_number}</strong></div>}<div><span>Total</span><strong>{money(order.total,currency)}</strong></div><div className="customer-order-items">{(order.items||[]).map((x,i)=><span key={i}>{x.quantity} × {x.name}</span>)}</div></div>}</div></Modal>
 }
 
-function Checkout({store,cart,currency,onClose,onComplete}) {
+function Checkout({store,cart,currency,paymentOptions={},onClose,onComplete}) {
   const [buyer,setBuyer]=useState({name:'',email:'',phone:''})
   const [address,setAddress]=useState({line1:'',city:'',region:'',postal_code:'',country:'Philippines'})
   const [discount,setDiscount]=useState('')
+  const availableProviders=[paymentOptions.stripe&&'stripe',paymentOptions.paypal&&'paypal'].filter(Boolean)
+  const [provider,setProvider]=useState(availableProviders[0]||'manual')
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [totals,setTotals]=useState(null)
   const submit=async()=>{
     setBusy(true);setError('')
     try{
-      const data=await publicAction('checkout',{slug:store.slug,buyer,shipping_address:address,discount_code:discount,items:cart.map(x=>({product_id:x.id,quantity:x.quantity}))})
+      const data=await publicAction('checkout',{slug:store.slug,buyer,shipping_address:address,discount_code:discount,payment_provider:provider==='manual'?'':provider,items:cart.map(x=>({product_id:x.id,quantity:x.quantity}))})
       setTotals(data.totals)
+      if(data?.payment?.checkout_url){window.location.assign(data.payment.checkout_url);return}
       onComplete(data.order)
     }catch(err){setError(err.message)}finally{setBusy(false)}
   }
-  return <Modal title="Checkout" onClose={onClose}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<div className="form-grid two"><Field label="Name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field></div><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><Field label="Address"><input value={address.line1} onChange={e=>setAddress({...address,line1:e.target.value})}/></Field><div className="form-grid two"><Field label="City"><input value={address.city} onChange={e=>setAddress({...address,city:e.target.value})}/></Field><Field label="Region"><input value={address.region} onChange={e=>setAddress({...address,region:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Postal code"><input value={address.postal_code} onChange={e=>setAddress({...address,postal_code:e.target.value})}/></Field><Field label="Discount code"><input value={discount} onChange={e=>setDiscount(e.target.value.toUpperCase())}/></Field></div><div className="checkout-note">Orders are recorded immediately. Online card payment will activate when a payment provider is connected.</div>{totals&&<strong>{money(totals.total,currency)}</strong>}<div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy||!buyer.name||!buyer.email} onClick={submit}>{busy?'Creating order…':'Place order'}</button></div></div></Modal>
+  return <Modal title="Checkout" onClose={onClose}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<div className="form-grid two"><Field label="Name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field></div><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><Field label="Address"><input value={address.line1} onChange={e=>setAddress({...address,line1:e.target.value})}/></Field><div className="form-grid two"><Field label="City"><input value={address.city} onChange={e=>setAddress({...address,city:e.target.value})}/></Field><Field label="Region"><input value={address.region} onChange={e=>setAddress({...address,region:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Postal code"><input value={address.postal_code} onChange={e=>setAddress({...address,postal_code:e.target.value})}/></Field><Field label="Discount code"><input value={discount} onChange={e=>setDiscount(e.target.value.toUpperCase())}/></Field></div><Field label="Payment method"><select value={provider} onChange={e=>setProvider(e.target.value)}>{paymentOptions.stripe&&<option value="stripe">Card / Stripe</option>}{paymentOptions.paypal&&<option value="paypal">PayPal</option>}<option value="manual">Manual / pay later</option></select></Field><div className="checkout-note">{provider==='manual'?'Your order will be created with payment Pending.':`You will continue to ${provider==='stripe'?'secure card checkout':'PayPal'} to complete payment.`}</div>{totals&&<strong>{money(totals.total,currency)}</strong>}<div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy||!buyer.name||!buyer.email} onClick={submit}>{busy?'Creating order…':provider==='manual'?'Place order':'Continue to payment'}</button></div></div></Modal>
 }
 
 function GenericPage({store,name,data,features,onNavigate}) {
