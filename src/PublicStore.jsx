@@ -1,0 +1,204 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
+import { getPublicStore, getPublicStoreByDomain, publicAction } from './api.js'
+
+const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
+const keyFor = slug => `cobest-public-cart-${slug||'store'}`
+
+function Modal({title,onClose,children}) {
+  return <div className="modal-backdrop public-modal"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div>
+}
+
+export default function PublicStore({slug:slugProp,host}) {
+  const [store,setStore]=useState(null)
+  const [error,setError]=useState('')
+  const [loading,setLoading]=useState(true)
+  const [page,setPage]=useState('Home')
+  const [query,setQuery]=useState('')
+  const [category,setCategory]=useState('All')
+  const [selectedProduct,setSelectedProduct]=useState(null)
+  const [cartOpen,setCartOpen]=useState(false)
+  const [checkoutOpen,setCheckoutOpen]=useState(false)
+  const [menuOpen,setMenuOpen]=useState(false)
+  const [notice,setNotice]=useState('')
+  const [cart,setCart]=useState([])
+
+  useEffect(()=>{
+    let active=true
+    setLoading(true)
+    const load = slugProp ? getPublicStore(slugProp) : getPublicStoreByDomain(host)
+    load.then(data=>{
+      if(!active)return
+      setStore(data)
+      const saved=localStorage.getItem(keyFor(data.slug))
+      if(saved){try{setCart(JSON.parse(saved))}catch{}}
+      publicAction('event',{slug:data.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:'Home'}}).catch(()=>{})
+    }).catch(err=>setError(err.message)).finally(()=>setLoading(false))
+    return()=>{active=false}
+  },[slugProp,host])
+
+  useEffect(()=>{
+    if(store?.slug) localStorage.setItem(keyFor(store.slug),JSON.stringify(cart))
+  },[cart,store?.slug])
+
+  const products=(store?.products||[]).filter(p=>p.status==='Active')
+  const categories=['All',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))]
+  const filtered=products.filter(p=>{
+    const q=query.trim().toLowerCase()
+    const matchesQ=!q || [p.name,p.description,p.category,p.brand,p.sku].some(v=>String(v||'').toLowerCase().includes(q))
+    const matchesCategory=category==='All'||p.category===category
+    return matchesQ&&matchesCategory
+  })
+  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop']))
+  const currency=store?.settings?.currency||'PHP'
+  const itemCount=cart.reduce((n,x)=>n+x.quantity,0)
+  const subtotal=cart.reduce((sum,x)=>sum+Number(x.price||0)*x.quantity,0)
+
+  const navigate=name=>{
+    setPage(name)
+    setMenuOpen(false)
+    window.scrollTo({top:0,behavior:'smooth'})
+    if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:name}}).catch(()=>{})
+  }
+  const add=p=>{
+    setCart(prev=>{
+      const hit=prev.find(x=>String(x.id)===String(p.id))
+      return hit?prev.map(x=>String(x.id)===String(p.id)?{...x,quantity:x.quantity+1}:x):[...prev,{...p,quantity:1}]
+    })
+    setNotice(`${p.name} added to cart.`)
+    setTimeout(()=>setNotice(''),2200)
+    if(store?.slug) publicAction('event',{slug:store.slug,event_type:'add_to_cart',path:window.location.pathname,metadata:{product_id:p.id}}).catch(()=>{})
+  }
+  const qty=(id,delta)=>setCart(prev=>prev.map(x=>String(x.id)===String(id)?{...x,quantity:Math.max(1,x.quantity+delta)}:x))
+  const remove=id=>setCart(prev=>prev.filter(x=>String(x.id)!==String(id)))
+
+  if(loading) return <div className="public-store-loading">Loading store…</div>
+  if(error||!store) return <div className="public-store-loading"><h1>Store unavailable</h1><p>{error||'This store is not published.'}</p></div>
+
+  const pageData=store?.editor?.pageContent?.[page]||{}
+  const features=store?.onboarding?.features||[]
+  return <div className="public-store-shell" style={{'--brand':store?.onboarding?.primaryColor||'#171717','--paper':store?.onboarding?.secondaryColor||'#f4f1eb','--accent':store?.onboarding?.accentColor||'#b69a78'}}>
+    <header className="public-store-header">
+      <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
+      <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
+      <nav className={menuOpen?'open':''}>
+        {pages.filter(x=>x!=='Home').map(p=><button key={p} className={page===p?'active':''} onClick={()=>navigate(p)}>{p}</button>)}
+      </nav>
+      <div className="public-store-actions"><button onClick={()=>navigate('Shop')}><Search size={18}/></button><button onClick={()=>setCartOpen(true)}><ShoppingBag size={18}/>{itemCount>0&&<b>{itemCount}</b>}</button></div>
+    </header>
+    {notice&&<div className="public-toast">{notice}</div>}
+
+    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add}/>}
+    {page==='Shop'&&<section className="public-shop-page">
+      <div className="public-page-intro"><small>SHOP</small><h1>Products</h1><p>Browse what is currently available.</p></div>
+      <div className="public-shop-tools"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></label><label className="public-category"><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><ChevronDown size={15}/></label></div>
+      <ProductGrid products={filtered} currency={currency} onAdd={add} onOpen={setSelectedProduct}/>
+    </section>}
+    {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate}/>}
+
+    <Newsletter slug={store.slug}/>
+    <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>Built with CoBest</span><button onClick={()=>navigate('Contact')}>Contact</button></footer>
+
+    {selectedProduct&&<ProductModal product={selectedProduct} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
+    {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
+    {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
+  </div>
+}
+
+function Home({store,products,currency,onShop,onAdd}) {
+  const editor=store.editor||{}
+  const hero=editor.hero||{}
+  const featured=editor.featured||{}
+  const story=editor.story||{}
+  const blocks=editor.blocks||[]
+  return <>
+    <section className={`public-hero align-${hero.align||'left'}`}><div><small>{hero.eyebrow||'WELCOME'}</small><h1>{hero.heading||store.onboarding?.businessName||'Welcome'}</h1><p>{hero.body||store.onboarding?.businessDescription}</p><button onClick={onShop}>{hero.button||'Shop now'}</button></div><div className="public-hero-art"/></section>
+    <section className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd}/></section>
+    <section className="public-story"><small>OUR STORY</small><h2>{story.title||store.onboarding?.businessName}</h2><p>{story.body||store.onboarding?.businessDescription}</p></section>
+    {blocks.map(block=><ContentBlock key={block.id} block={block}/>)}
+  </>
+}
+
+function ProductGrid({products,currency,onAdd,onOpen}) {
+  return <div className="public-products">{products.map(p=><article key={p.id} className="public-product-card">
+    <button className="public-product-image" onClick={()=>onOpen?.(p)}>{p.image_url||p.images?.[0]?<img src={p.image_url||p.images?.[0]} alt={p.name}/>:<span>{p.name?.slice(0,1)||'P'}</span>}</button>
+    <div><button className="public-product-name" onClick={()=>onOpen?.(p)}>{p.name}</button><p>{p.category||'Product'}</p><strong>{money(p.price,currency)}</strong>{p.compare_at_price&&Number(p.compare_at_price)>Number(p.price)&&<del>{money(p.compare_at_price,currency)}</del>}</div>
+    <button className="public-add" onClick={()=>onAdd(p)}>Add to cart</button>
+  </article>)}
+  {!products.length&&<div className="public-empty">No products match your search.</div>}</div>
+}
+
+function ProductModal({product,currency,slug,onClose,onAdd}) {
+  const [reviewOpen,setReviewOpen]=useState(false)
+  return <Modal title={product.name} onClose={onClose}><div className="public-product-detail">{product.image_url||product.images?.[0]?<img src={product.image_url||product.images?.[0]} alt={product.name}/>:null}<p>{product.description||'Product details will appear here.'}</p><div className="public-detail-price"><strong>{money(product.price,currency)}</strong>{product.inventory!=null&&<span>{product.inventory} in stock</span>}</div><div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setReviewOpen(true)}>Write review</button><button className="btn btn-primary" onClick={onAdd}>Add to cart</button></div>{reviewOpen&&<ReviewForm slug={slug} product={product} onDone={()=>setReviewOpen(false)}/>}</div></Modal>
+}
+
+function CartDrawer({cart,currency,subtotal,onClose,qty,remove,onCheckout}) {
+  return <div className="cart-drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={e=>e.stopPropagation()}><div className="cart-drawer-head"><h2>Your cart</h2><button onClick={onClose}><X size={20}/></button></div>{cart.map(x=><div className="cart-line" key={x.id}><div><strong>{x.name}</strong><span>{money(x.price,currency)}</span></div><div className="cart-qty"><button onClick={()=>qty(x.id,-1)}><Minus size={14}/></button><b>{x.quantity}</b><button onClick={()=>qty(x.id,1)}><Plus size={14}/></button><button className="cart-remove" onClick={()=>remove(x.id)}><Trash2 size={15}/></button></div></div>)}{!cart.length&&<p>Your cart is empty.</p>}<div className="cart-total"><span>Subtotal</span><strong>{money(subtotal,currency)}</strong></div><button className="btn btn-primary" disabled={!cart.length} onClick={onCheckout}>Checkout</button></aside></div>
+}
+
+function Checkout({store,cart,currency,onClose,onComplete}) {
+  const [buyer,setBuyer]=useState({name:'',email:'',phone:''})
+  const [address,setAddress]=useState({line1:'',city:'',region:'',postal_code:'',country:'Philippines'})
+  const [discount,setDiscount]=useState('')
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const [totals,setTotals]=useState(null)
+  const submit=async()=>{
+    setBusy(true);setError('')
+    try{
+      const data=await publicAction('checkout',{slug:store.slug,buyer,shipping_address:address,discount_code:discount,items:cart.map(x=>({product_id:x.id,quantity:x.quantity}))})
+      setTotals(data.totals)
+      onComplete(data.order)
+    }catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+  return <Modal title="Checkout" onClose={onClose}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<div className="form-grid two"><Field label="Name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field></div><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><Field label="Address"><input value={address.line1} onChange={e=>setAddress({...address,line1:e.target.value})}/></Field><div className="form-grid two"><Field label="City"><input value={address.city} onChange={e=>setAddress({...address,city:e.target.value})}/></Field><Field label="Region"><input value={address.region} onChange={e=>setAddress({...address,region:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Postal code"><input value={address.postal_code} onChange={e=>setAddress({...address,postal_code:e.target.value})}/></Field><Field label="Discount code"><input value={discount} onChange={e=>setDiscount(e.target.value.toUpperCase())}/></Field></div><div className="checkout-note">Orders are recorded immediately. Online card payment will activate when a payment provider is connected.</div>{totals&&<strong>{money(totals.total,currency)}</strong>}<div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy||!buyer.name||!buyer.email} onClick={submit}>{busy?'Creating order…':'Place order'}</button></div></div></Modal>
+}
+
+function GenericPage({store,name,data,features,onNavigate}) {
+  if(name==='Contact') return <ContactPage slug={store.slug}/>
+  if(name==='Booking'||(name==='Services'&&features.includes('Booking'))) return <BookingPage slug={store.slug}/>
+  return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
+}
+
+function defaultPageBody(name,store){
+  if(name==='About') return store.onboarding?.businessDescription||'Tell customers about your business.'
+  if(name==='FAQ') return 'Add frequently asked questions in the page editor.'
+  if(name==='Services') return 'Describe your services and how customers can work with you.'
+  return `Edit the ${name} page in CoBest to add your content.`
+}
+
+function ContentBlock({block}) {
+  const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
+  return <section className="public-content-block" style={{background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding||48}px 5vw`}}><div style={{display:'grid',gridTemplateColumns:`repeat(${block.columns||1},minmax(0,1fr))`,gap:24}}>{Array.from({length:Number(block.columns||1)}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}</div>)}</div></section>
+}
+
+function Newsletter({slug}) {
+  const [email,setEmail]=useState('')
+  const [done,setDone]=useState(false)
+  const submit=async e=>{e.preventDefault();if(!email)return;await publicAction('subscribe',{slug,email});setDone(true);setEmail('')}
+  return <section className="public-newsletter"><h2>Stay in the loop.</h2><p>New products, stories, and updates.</p>{done?<span><Check size={16}/> You're subscribed.</span>:<form onSubmit={submit}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email address" required/><button>Join</button></form>}</section>
+}
+
+function ContactPage({slug}) {
+  const [form,setForm]=useState({name:'',email:'',message:''});const [done,setDone]=useState(false);const [error,setError]=useState('')
+  const submit=async e=>{e.preventDefault();setError('');try{await publicAction('contact',{slug,...form});setDone(true)}catch(err){setError(err.message)}}
+  return <main className="public-generic-page"><small>CONTACT</small><h1>Get in touch.</h1>{done?<p>Thanks — your message has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Message"><textarea rows="6" value={form.message} onChange={e=>setForm({...form,message:e.target.value})} required/></Field><button className="btn btn-primary">Send message</button></form>}</main>
+}
+
+function BookingPage({slug}) {
+  const [form,setForm]=useState({name:'',email:'',phone:'',start_at:'',notes:''});const [done,setDone]=useState(false);const [error,setError]=useState('')
+  const submit=async e=>{e.preventDefault();setError('');try{await publicAction('booking',{slug,...form,start_at:new Date(form.start_at).toISOString()});setDone(true)}catch(err){setError(err.message)}}
+  return <main className="public-generic-page"><small>BOOKING</small><h1>Book a time.</h1>{done?<p>Your booking request has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Phone"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field><Field label="Date & time"><input type="datetime-local" value={form.start_at} onChange={e=>setForm({...form,start_at:e.target.value})} required/></Field><Field label="Notes"><textarea rows="4" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></Field><button className="btn btn-primary">Request booking</button></form>}</main>
+}
+
+function ReviewForm({slug,product,onDone}) {
+  const [form,setForm]=useState({name:'',email:'',rating:5,body:''});const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+  const submit=async()=>{setBusy(true);setError('');try{await publicAction('review',{slug,product_id:product.id,...form});onDone()}catch(err){setError(err.message)}finally{setBusy(false)}}
+  return <div className="review-form">{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value)}/></Field>
+  <Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
+  <Field label="Rating"><select value={form.rating} onChange={e=>setForm({...form,rating:Number(e.target.value)})}>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} stars</option>)}</select></Field>
+  <Field label="Review"><textarea rows="4" value={form.body} onChange={e=>setForm({...form,body:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.name} onClick={submit}>{busy?'Submitting…':'Submit review'}</button></div>
+}
+
+function Field({label,children}){return <label className="field"><span>{label}</span>{children}</label>}
