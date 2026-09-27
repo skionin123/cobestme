@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, ExternalLink, FileText, Image as ImageIcon, Package, Pencil, Plus, RefreshCw, Search, Trash2, Upload, Users, X } from 'lucide-react'
-import { createResource, deleteResource, publishStore, unpublishStore, updateResource, uploadMedia } from './api.js'
+import { createResource, deleteResource, getTeam, inviteTeamMember, publishStore, removeTeamMember, revokeTeamInvite, unpublishStore, updateResource, uploadMedia } from './api.js'
 
 const money=(v,c='PHP')=>new Intl.NumberFormat('en-PH',{style:'currency',currency:c,maximumFractionDigits:2}).format(Number(v||0))
 const splitCsv=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean)
@@ -164,4 +164,36 @@ export function IntegrationsPanel() {
     ['Adobe','adobe','Creative Cloud asset workflow']
   ]
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">PLATFORM</p><h1>Integrations</h1><p>Provider connections that unlock external payment, delivery, shipping, marketplace, and creative workflows.</p></div><Button variant="secondary" onClick={load}><RefreshCw size={15}/> Refresh</Button></div>{error&&<div className="auth-message auth-error">{error}</div>}<div className="integration-grid">{providers.map(([name,key,note])=><article className="panel integration-card" key={key}><div><strong>{name}</strong><span>{note}</span></div><b className={status?.[key]?'connected':'not-connected'}>{status?.[key]?'Connected':'Not connected'}</b></article>)}</div><div className="panel integration-note"><strong>Secrets stay server-side.</strong><p>Provider API keys and OAuth credentials are configured as Railway environment variables or through a connected provider workflow; they are never stored in storefront JavaScript.</p></div></div>
+}
+
+
+export function TeamManager() {
+  const [data,setData]=useState(null)
+  const [email,setEmail]=useState('')
+  const [role,setRole]=useState('Editor')
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const [notice,setNotice]=useState('')
+  const load=()=>{setError('');getTeam().then(setData).catch(e=>setError(e.message))}
+  useEffect(load,[])
+  const invite=async()=>{
+    if(!email.trim())return
+    setBusy(true);setError('');setNotice('')
+    try{
+      const x=await inviteTeamMember(email,role)
+      setEmail('')
+      setNotice('Invitation created. Copy the invitation link below and send it to the team member.')
+      await load()
+      return x
+    }catch(e){setError(e.message)}finally{setBusy(false)}
+  }
+  const copyInvite=inv=>{
+    const link=`${window.location.origin}/?invite=${inv.token}`
+    navigator.clipboard?.writeText(link)
+    setNotice('Invitation link copied.')
+  }
+  const removeMember=async id=>{if(!window.confirm('Remove this team member?'))return;await removeTeamMember(id);await load()}
+  const revoke=async id=>{if(!window.confirm('Revoke this invitation?'))return;await revokeTeamInvite(id);await load()}
+  const canInvite=['Owner','Admin'].includes(data?.role)
+  return <div className="page-wrap"><div className="page-head"><div><p className="overline">TEAM</p><h1>Team access</h1><p>Invite administrators, editors, or read-only viewers to the shared CoBest workspace.</p></div><span className="status active">{data?.role||'Loading…'}</span></div>{error&&<div className="auth-message auth-error">{error}</div>}{notice&&<div className="auth-message auth-success">{notice}</div>}{canInvite&&<section className="panel team-invite-panel"><div className="panel-head"><div><span>Invite</span><h3>Add a team member</h3></div></div><div className="form-grid three"><Field label="Email"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="person@example.com"/></Field><Field label="Role"><select value={role} onChange={e=>setRole(e.target.value)}><option>Admin</option><option>Editor</option><option>Viewer</option></select></Field><div className="team-invite-action"><Button disabled={busy||!email} onClick={invite}>{busy?'Creating…':'Create invite'}</Button></div></div><p className="field-help">Invitations are valid for 7 days. Email delivery is optional; you can copy the secure link and send it yourself.</p></section>}<div className="settings-columns"><section className="panel"><div className="panel-head"><div><span>Workspace members</span><h3>{data?.members?.length||0} team members</h3></div></div>{(data?.members||[]).map(m=><div className="team-row" key={m.id}><div><strong>{m.email||m.member_user_id}</strong><span>{m.role}</span></div>{canInvite&&<button onClick={()=>removeMember(m.id)}><Trash2 size={15}/></button>}</div>)}{!data?.members?.length&&<p>No additional team members yet.</p>}</section><section className="panel"><div className="panel-head"><div><span>Invitations</span><h3>Pending & recent</h3></div></div>{(data?.invites||[]).map(inv=><div className="team-row" key={inv.id}><div><strong>{inv.email}</strong><span>{inv.role} · {inv.accepted_at?'Accepted':new Date(inv.expires_at)<new Date()?'Expired':'Pending'}</span></div>{!inv.accepted_at&&canInvite&&<div className="row-actions"><button title="Copy invite" onClick={()=>copyInvite(inv)}><Copy size={14}/></button><button title="Revoke" onClick={()=>revoke(inv.id)}><Trash2 size={14}/></button></div>}</div>)}{!data?.invites?.length&&<p>No invitations yet.</p>}</section></div></div>
 }
