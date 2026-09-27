@@ -42,6 +42,7 @@ For every test:
 | BUG-004 | P0 | Password recovery | Reset link opened `localhost:3000` and failed with `otp_expired` | Recovery callback/URL configuration used localhost fallback | CODE FIXED; CONFIG + RETEST NEEDED | 01a52a9 |
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
+| BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; select and create-site button do not fit cleanly | CSS grid allowed the native select to overflow inside a narrow column | FIX DEPLOYING / RETEST NEEDED | 6137101 |
 
 ## Formal QA queue
 
@@ -49,7 +50,7 @@ We will not skip ahead after a failure.
 
 | Test ID | Area | Test | Status |
 |---|---|---|---|
-| QA-001 | Authentication | Existing user login | NEXT |
+| QA-001 | Authentication | Existing user login | PASS |
 | QA-002 | Authentication | Forgot password request | PENDING |
 | QA-003 | Authentication | Password reset email callback | PENDING |
 | QA-004 | Authentication | Set new password | PENDING |
@@ -100,4 +101,20 @@ We will not skip ahead after a failure.
 
 **FAIL:** Any error appears, login loops, blank screen appears, or login succeeds but workspace does not load.
 
-**Current status:** WAITING FOR MANUAL RETEST.
+**Current status:** PASS — dashboard loaded successfully on production.
+
+
+### QA-001 result — Existing user login
+
+**Result:** PASS
+
+Evidence:
+- Production login completed successfully.
+- Dashboard loaded.
+- Private workspace and sidebar were visible.
+- Orders / Products / Customers / Online Store navigation loaded.
+
+Observed during the same screenshot:
+- **BUG-007** sidebar site-switcher layout issue in the top-left store selector.
+- CSS fix committed as `6137101db950dbc704e71d338bc946b68b9f1d8c`.
+- Retest required after deployment before moving to QA-002.
