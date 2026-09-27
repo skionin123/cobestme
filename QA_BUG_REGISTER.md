@@ -357,3 +357,24 @@ These remain open but do not block MVP functional testing.
 **PASS:** workflow center loads and next-step navigation works.
 
 **FAIL:** screen crashes, values are obviously wrong, or next-step buttons do nothing.
+
+
+### MVP-001 progress — Setup & Workflow screen
+
+**Result so far:** PARTIAL PASS
+
+Confirmed from production screenshot:
+- Setup & Workflow page loads successfully.
+- Launch-readiness percentage renders (38%).
+- Setup progress renders as 3 of 8 steps complete.
+- Recommended next step is shown as **Build pages**.
+- Launch-process steps render correctly.
+- Daily Operations cards render correctly.
+- Preview and Publishing controls are visible.
+- No blank screen, runtime crash, or obvious layout break is present.
+
+Still required to complete MVP-001:
+- Click **Next: Build pages**.
+- Confirm it opens the correct page-management module.
+
+If the button opens the page-management screen, MVP-001 can be marked PASS.
