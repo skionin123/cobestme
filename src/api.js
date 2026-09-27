@@ -220,3 +220,18 @@ export async function acceptTeamInvite(token) {
     body: JSON.stringify({ token })
   })
 }
+
+
+export async function publicCustomerAction(action, payload) {
+  const send=async()=>{
+    const headers={ 'content-type':'application/json' }
+    const token=getToken()
+    if(token)headers.authorization=`Bearer ${token}`
+    const response=await fetch(`/api/public/customer/${action}`,{method:'POST',headers,body:JSON.stringify(payload)})
+    if(response.status===401&&getRefreshToken()){await refreshSession();return send()}
+    const data=await response.json().catch(()=>({}))
+    if(!response.ok)throw new Error(data?.error||data?.message||'Customer account request failed.')
+    return data
+  }
+  return send()
+}
