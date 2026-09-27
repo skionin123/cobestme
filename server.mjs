@@ -775,7 +775,7 @@ async function handleApi(req, res, url) {
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/cobest-media/${storagePath}`
     const record = await supabaseFetch('/rest/v1/media_assets', {
       method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }),
-      body: JSON.stringify({ user_id: ownerId, site_id: siteId, name: rawName, url: publicUrl, mime_type: contentType })
+      body: JSON.stringify({ user_id: ownerId, site_id: siteId, name: rawName, url: publicUrl, mime_type: contentType, storage_path: storagePath })
     })
     return sendJson(res, record.status, record.data)
   }
@@ -803,6 +803,7 @@ async function handleApi(req, res, url) {
 
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)(?:\/(\d+))?$/)
   if (match) {
+    if(!siteId)return sendJson(res,400,{error:'No active site.'})
     if (role === 'Viewer' && req.method !== 'GET') return sendJson(res, 403, { error: 'Viewer access is read-only.' })
     const table = match[1]
     const id = match[2]
@@ -837,7 +838,12 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'DELETE' && id) {
-      const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(user.id)}`, {
+      if(table==='media_assets'){
+        const lookup=await supabaseFetch(`/rest/v1/media_assets?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=storage_path&limit=1`,{headers:apiHeaders(token)})
+        const path=lookup.ok&&Array.isArray(lookup.data)?lookup.data[0]?.storage_path:null
+        if(path)await fetch(`${supabaseUrl}/storage/v1/object/cobest-media/${encodeURI(path)}`,{method:'DELETE',headers:{apikey:supabaseAnonKey,authorization:`Bearer ${token}`}}).catch(()=>{})
+      }
+      const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}`, {
         method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
       })
       return sendJson(res, result.status, result.data)
