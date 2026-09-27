@@ -111,7 +111,7 @@ export default function PublicStore({slug:slugProp,host}) {
 
   const pageData=store?.editor?.pageContent?.[page]||{}
   const features=store?.onboarding?.features||[]
-  return <div className="public-store-shell" style={{'--brand':store?.onboarding?.primaryColor||'#171717','--paper':store?.onboarding?.secondaryColor||'#f4f1eb','--accent':store?.onboarding?.accentColor||'#b69a78'}}>
+  return <div className="public-store-shell" style={{'--brand':store?.onboarding?.primaryColor||'#171717','--paper':store?.onboarding?.secondaryColor||'#f4f1eb','--accent':store?.onboarding?.accentColor||'#b69a78',fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>
     <header className="public-store-header">
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
       <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
