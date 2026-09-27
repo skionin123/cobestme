@@ -852,3 +852,62 @@
   .lookbook-grid i:first-child{grid-column:1/3;grid-row:auto}
   .ts-masthead h1{font-size:56px}
 }
+
+
+/* ===== Theme compactness + client section picker ===== */
+.current-theme-panel .theme-showcase.large{min-height:300px}
+.theme-showcase{min-height:190px}
+.theme-showcase.large{min-height:300px}
+.theme-recipe-preview{min-height:180px}
+.theme-showcase.large .theme-recipe-preview{min-height:260px}
+.theme-mini-section{padding:8px 10px}
+.mini-hero,.mini-masthead{min-height:78px}
+.theme-showcase.large .mini-hero,.theme-showcase.large .mini-masthead{min-height:108px}
+.mini-featured,.mini-signatureCollection,.mini-categoryTiles,.mini-storyGrid,.mini-ingredientCards,.mini-journalTeasers{min-height:58px}
+.mini-imageStory,.mini-collectionSpotlight,.mini-lookbook,.mini-issueIntro{min-height:64px}
+.mini-quote,.mini-signalBand,.mini-campaignBanner,.mini-vipBanner,.mini-testimonial,.mini-marquee,.mini-promoBar{min-height:44px}
+.mini-specGrid,.mini-craftStats,.mini-routineSteps,.mini-benefitStrip,.mini-categoryStrip{min-height:54px}
+.theme-library-card{padding:8px}
+.theme-library-meta{padding:9px 3px 2px}
+.theme-library-grid{gap:14px}
+.theme-current-actions{display:flex;align-items:center;gap:8px}
+
+/* Keep storefront theme sections useful without taking over the whole page */
+.ts-imageStory,.ts-collectionSpotlight,.ts-issueIntro{min-height:320px}
+.ts-copy{padding:7% 7%}
+.theme-section h2{font-size:clamp(26px,3.2vw,46px)}
+.ts-quote,.ts-signalBand,.ts-campaignBanner,.ts-vipBanner,.ts-testimonial{padding:6% 8%}
+.ts-three-grid article{min-height:110px;padding:18px}
+.ts-card-art{height:205px}
+.ts-lookbook{padding:5.5% 5%}
+.lookbook-grid{grid-template-rows:175px 145px}
+.ts-masthead{padding:4% 5% 3%}
+.ts-masthead h1{font-size:clamp(48px,8vw,112px)}
+.theme-studio .ts-campaignBanner h2{font-size:clamp(48px,8vw,96px)}
+.ts-journalTeasers,.ts-storyGrid,.ts-signatureCollection,.ts-specGrid,.ts-routineSteps,.ts-ingredientCards{padding-top:5.5%;padding-bottom:5.5%}
+
+/* Client-facing section chooser */
+.theme-section-picker{display:grid;gap:16px}
+.theme-picker-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.theme-picker-intro p{margin:0;color:#6f6b64;line-height:1.55;max-width:560px}
+.theme-picker-intro>span{white-space:nowrap;border:1px solid #dedad2;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:700;background:#faf9f6}
+.theme-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.theme-picker-item{
+  appearance:none;border:1px solid #dedad2;background:#fff;border-radius:12px;padding:13px;
+  display:grid;grid-template-columns:28px 1fr;gap:10px;text-align:left;cursor:pointer;color:#171717;
+  transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.theme-picker-item:hover{border-color:#bdb8ae;background:#fcfbf8}
+.theme-picker-item.selected{border-color:#171717;box-shadow:inset 0 0 0 1px #171717;background:#faf9f6}
+.theme-picker-check{width:26px;height:26px;border:1px solid #d8d3ca;border-radius:50%;display:grid;place-items:center;background:#fff}
+.theme-picker-item.selected .theme-picker-check{background:#171717;color:#fff;border-color:#171717}
+.theme-picker-item small{display:block;font-size:7px;letter-spacing:.12em;color:#8e8a82;margin-bottom:4px}
+.theme-picker-item strong{display:block;font-size:13px}
+.theme-picker-item p{font-size:9px;line-height:1.45;color:#777;margin:5px 0 0}
+
+@media(max-width:700px){
+  .theme-picker-grid{grid-template-columns:1fr}
+  .theme-picker-intro{flex-direction:column}
+  .ts-imageStory,.ts-collectionSpotlight,.ts-issueIntro{min-height:0}
+  .ts-card-art{height:180px}
+}
