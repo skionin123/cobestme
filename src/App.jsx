@@ -6,7 +6,7 @@ import {
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
-import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TeamManager } from './AdminAdvanced.jsx'
+import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -318,7 +318,7 @@ function Review({data}) {
 }
 
 const navGroups = [
-  { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['collections','Collections',Store],['customers','Customers',Users]] },
+  { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['taxonomy','Categories & brands',FileText],['collections','Collections',Store],['customers','Customers',Users]] },
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['blog','Blog',FileText],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
   { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
@@ -563,6 +563,7 @@ export default function App() {
   const [campaigns,setCampaigns] = useState([])
   const [collections,setCollections] = useState([])
   const [blogPosts,setBlogPosts] = useState([])
+  const [catalogTerms,setCatalogTerms] = useState([])
   const [workspace,setWorkspace] = useState(null)
   const [subscribers,setSubscribers] = useState([])
   const [contacts,setContacts] = useState([])
@@ -598,10 +599,10 @@ export default function App() {
     let active=true
     Promise.all([
       getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
-      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),
+      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
       listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
       listResource('product_reviews'),listResource('store_events')
-    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
+    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
       if(!active) return
       setWorkspace(workspaceData)
       if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
@@ -614,6 +615,7 @@ export default function App() {
       if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
       if(Array.isArray(cloudCollections)) setCollections(cloudCollections)
       if(Array.isArray(cloudBlogPosts)) setBlogPosts(cloudBlogPosts)
+      if(Array.isArray(cloudCatalogTerms)) setCatalogTerms(cloudCatalogTerms)
       if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
       if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
       if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
@@ -689,7 +691,8 @@ export default function App() {
   let content = null
   if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
-  if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} currency={workspace?.currency||'PHP'}/>
+  if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
+  if(page==='taxonomy') content=<TaxonomyManager items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/>
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='media') content=<MediaManager items={mediaAssets} setItems={setMediaAssets}/>
   if(page==='blog') content=<BlogManager items={blogPosts} setItems={setBlogPosts} media={mediaAssets}/>
