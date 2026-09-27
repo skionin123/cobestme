@@ -408,3 +408,39 @@ No new bug was found in this test.
 **PASS:** theme selection changes and persists.
 
 **FAIL:** theme button does nothing, preview does not change, selection reverts unexpectedly, or page crashes.
+
+
+### MVP-002 design review — theme library quality issue
+
+**Result:** IMPROVEMENT REQUIRED
+
+User feedback:
+- Existing themes looked too similar and too placeholder-like.
+- User requested checking contemporary ecommerce designs on the web and bringing stronger design variety into CoBest.
+
+Research direction used:
+- Modern Shopify/Webflow/Framer ecommerce patterns: editorial storytelling, oversized type, minimal grids, bold campaign layouts, dark luxury, and soft boutique systems.
+- Designs remain original CoBest themes; no competitor theme was copied verbatim.
+
+Implemented:
+- Expanded theme metadata and visual systems.
+- Added distinct palette, typography, spacing, radius, button shape, and storefront treatment per theme.
+- Added two new themes: **Vanta** and **Bloom**.
+- Rebuilt theme cards so every theme preview has a visibly different composition.
+- Selected theme now materially changes the storefront preview, not only the font/radius.
+
+Theme directions:
+- Aurelia — Warm minimal
+- Mono — Brutalist utility
+- Atelier — Luxury editorial
+- Studio — Fashion campaign
+- Market — Bold retail
+- Editorial — Magazine commerce
+- Vanta — Dark luxury
+- Bloom — Soft boutique
+
+Commits:
+- `4efb807` design-system metadata + upgraded theme library
+- `107f433` distinct preview/storefront visual styles
+
+Retest: **PENDING after deployment**
