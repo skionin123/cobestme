@@ -324,8 +324,8 @@ These remain open but do not block MVP functional testing.
 
 | MVP Test | Area | Test | Status |
 |---|---|---|---|
-| MVP-001 | Workflow | Setup & Workflow screen loads and recommended next step works | NEXT |
-| MVP-002 | Themes | Choose theme and retain selection | PENDING |
+| MVP-001 | Workflow | Setup & Workflow screen loads and recommended next step works | PASS |
+| MVP-002 | Themes | Choose theme and retain selection | NEXT |
 | MVP-003 | Pages | Add/edit/reorder/hide page | PENDING |
 | MVP-004 | Navigation | Main/footer menu add/remove/reorder | PENDING |
 | MVP-005 | Website editor | Edit Home content and save | PENDING |
@@ -378,3 +378,33 @@ Still required to complete MVP-001:
 - Confirm it opens the correct page-management module.
 
 If the button opens the page-management screen, MVP-001 can be marked PASS.
+
+
+### MVP-001 final result — PASS
+
+**Result:** PASS
+
+Confirmed:
+- Setup & Workflow screen loaded correctly.
+- Launch readiness and setup steps rendered.
+- Recommended next action was **Build pages**.
+- Clicking **Next: Build pages** opened the **Online store / page-management** screen.
+- The page-management screen showed the current theme, publishing controls, and Pages section without a crash.
+
+No new bug was found in this test.
+
+## Next active MVP test — MVP-002
+
+### MVP-002 — Choose a theme and retain selection
+
+**Expected:**
+1. Open **Themes** from the sidebar.
+2. Theme library loads.
+3. Choose a theme different from the current theme.
+4. The selected theme becomes current.
+5. Navigate away and back, or refresh the page.
+6. The chosen theme remains selected.
+
+**PASS:** theme selection changes and persists.
+
+**FAIL:** theme button does nothing, preview does not change, selection reverts unexpectedly, or page crashes.
