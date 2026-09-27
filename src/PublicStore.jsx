@@ -60,7 +60,9 @@ export default function PublicStore({slug:slugProp,host}) {
     return matchesQ&&matchesCategory
   })
   const pageMeta=store?.editor?.pageMeta||{}
-  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop'])).filter(p=>p==='Home'||p==='Shop'||pageMeta[p]?.visible!==false)
+  const policyPages=[store?.settings?.privacyPolicy&&'Privacy',store?.settings?.termsPolicy&&'Terms',store?.settings?.refundPolicy&&'Refund Policy'].filter(Boolean)
+  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop',...policyPages])).filter(p=>p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
+  const headerMenu=Array.isArray(store?.editor?.header?.menu)&&store.editor.header.menu.length?store.editor.header.menu:pages.filter(p=>p!=='Home').slice(0,5)
   const currency=store?.settings?.currency||'PHP'
   const itemCount=cart.reduce((n,x)=>n+x.quantity,0)
   const subtotal=cart.reduce((sum,x)=>sum+Number(x.price||0)*x.quantity,0)
@@ -93,7 +95,7 @@ export default function PublicStore({slug:slugProp,host}) {
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
       <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
       <nav className={menuOpen?'open':''}>
-        {pages.filter(x=>x!=='Home').map(p=><button key={p} className={page===p?'active':''} onClick={()=>navigate(p)}>{p}</button>)}
+        {headerMenu.map(p=><button key={p} className={page===p?'active':''} onClick={()=>navigate(p)}>{p}</button>)}
       </nav>
       <div className="public-store-actions"><button onClick={()=>navigate('Shop')}><Search size={18}/></button><button onClick={()=>setCartOpen(true)}><ShoppingBag size={18}/>{itemCount>0&&<b>{itemCount}</b>}</button></div>
     </header>
@@ -108,7 +110,7 @@ export default function PublicStore({slug:slugProp,host}) {
     {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate}/>}
 
     <Newsletter slug={store.slug}/>
-    <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>Built with CoBest</span><button onClick={()=>navigate('Contact')}>Contact</button></footer>
+    <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links"><button onClick={()=>navigate('Contact')}>Contact</button>{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
 
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
@@ -167,7 +169,10 @@ function Checkout({store,cart,currency,onClose,onComplete}) {
 }
 
 function GenericPage({store,name,data,features,onNavigate}) {
-  if(name==='Contact') return <ContactPage slug={store.slug}/>
+  if(name==='Contact') return <ContactPage slug={store.slug} email={store?.settings?.contactEmail}/>
+  if(name==='Privacy') return <PolicyPage title="Privacy policy" body={store?.settings?.privacyPolicy}/>
+  if(name==='Terms') return <PolicyPage title="Terms" body={store?.settings?.termsPolicy}/>
+  if(name==='Refund Policy') return <PolicyPage title="Refund policy" body={store?.settings?.refundPolicy}/>
   if(name==='Booking'||(name==='Services'&&features.includes('Booking'))) return <BookingPage slug={store.slug}/>
   if(name==='Gallery') return <main className="public-generic-page"><small>GALLERY</small><h1>{data.title||'Gallery'}</h1><p>{data.body||'A selection from the business.'}</p><div className="public-gallery">{(store.media||[]).filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><img key={x.id} src={x.url} alt={x.name}/>)}</div></main>
   if(name==='Collections') return <main className="public-generic-page"><small>COLLECTIONS</small><h1>{data.title||'Collections'}</h1><p>{data.body||'Browse curated groups of products.'}</p><div className="public-collection-grid">{(store.collections||[]).map(col=><article key={col.id}><h2>{col.name}</h2><p>{col.description}</p><span>{(col.product_ids||[]).length} products</span><button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop collection</button></article>)}</div></main>
@@ -193,10 +198,14 @@ function Newsletter({slug}) {
   return <section className="public-newsletter"><h2>Stay in the loop.</h2><p>New products, stories, and updates.</p>{done?<span><Check size={16}/> You're subscribed.</span>:<form onSubmit={submit}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email address" required/><button>Join</button></form>}</section>
 }
 
-function ContactPage({slug}) {
+function PolicyPage({title,body}) {
+  return <main className="public-generic-page policy-page"><small>POLICY</small><h1>{title}</h1><div className="policy-copy">{String(body||'No policy has been published yet.').split('\n').map((p,i)=><p key={i}>{p}</p>)}</div></main>
+}
+
+function ContactPage({slug,email}) {
   const [form,setForm]=useState({name:'',email:'',message:''});const [done,setDone]=useState(false);const [error,setError]=useState('')
   const submit=async e=>{e.preventDefault();setError('');try{await publicAction('contact',{slug,...form});setDone(true)}catch(err){setError(err.message)}}
-  return <main className="public-generic-page"><small>CONTACT</small><h1>Get in touch.</h1>{done?<p>Thanks — your message has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Message"><textarea rows="6" value={form.message} onChange={e=>setForm({...form,message:e.target.value})} required/></Field><button className="btn btn-primary">Send message</button></form>}</main>
+  return <main className="public-generic-page"><small>CONTACT</small><h1>Get in touch.</h1>{email&&<p className="public-contact-email">{email}</p>}{done?<p>Thanks — your message has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Message"><textarea rows="6" value={form.message} onChange={e=>setForm({...form,message:e.target.value})} required/></Field><button className="btn btn-primary">Send message</button></form>}</main>
 }
 
 function BookingPage({slug}) {
