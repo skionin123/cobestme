@@ -582,3 +582,40 @@ Observed from production screenshots:
 - `7981fec` compact professional theme library styling
 
 **Retest:** PENDING after deployment.
+
+
+## Active MVP retest — MVP-002 Theme selection + section picker
+
+### Goal
+Confirm the redesigned theme library is usable and that clients can choose a theme plus only the sections they want.
+
+### Steps
+1. Hard-refresh the **Themes** page.
+2. Confirm theme cards are compact and visible without giant full-page previews.
+3. Pick a theme different from the current theme (recommended test: **Studio**).
+4. Click **Choose**.
+5. Confirm the section picker opens.
+6. Select only 3 sections:
+   - Campaign hero
+   - Lookbook mosaic
+   - Latest drop
+7. Click **Apply Studio with 3 sections**.
+8. Confirm Studio becomes the current theme.
+9. Open **Website editor**.
+10. Confirm the Home section list contains only the selected Studio sections (plus Header/Footer where applicable).
+11. Refresh the browser.
+12. Confirm Studio and the chosen section set remain selected.
+
+### PASS
+- Compact theme library is usable.
+- Section picker opens.
+- Selected sections apply correctly.
+- Website editor reflects the chosen section structure.
+- Theme + section choices persist after refresh.
+
+### FAIL
+- Theme cards are still oversized.
+- Section picker does not open.
+- Extra/unselected sections are forced in.
+- Selected theme/sections revert after refresh.
+- Any button is dead or page crashes.
