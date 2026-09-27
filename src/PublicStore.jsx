@@ -84,6 +84,7 @@ export default function PublicStore({slug:slugProp,host}) {
   const policyPages=[store?.settings?.privacyPolicy&&'Privacy',store?.settings?.termsPolicy&&'Terms',store?.settings?.refundPolicy&&'Refund Policy'].filter(Boolean)
   const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop',...policyPages])).filter(p=>p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
   const headerMenu=Array.isArray(store?.editor?.header?.menu)&&store.editor.header.menu.length?store.editor.header.menu:pages.filter(p=>p!=='Home').slice(0,5)
+  const footerMenu=Array.isArray(store?.editor?.footer?.menu)&&store.editor.footer.menu.length?store.editor.footer.menu:[]
   const currency=store?.settings?.currency||'PHP'
   const itemCount=cart.reduce((n,x)=>n+x.quantity,0)
   const subtotal=cart.reduce((sum,x)=>sum+Number(x.price||0)*x.quantity,0)
@@ -131,7 +132,7 @@ export default function PublicStore({slug:slugProp,host}) {
     {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate}/>}
 
     <Newsletter slug={store.slug}/>
-    <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links"><button onClick={()=>navigate('Contact')}>Contact</button>{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
+    <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links">{footerMenu.map(item=><button key={item} onClick={()=>navigate(item)}>{item}</button>)}{!footerMenu.includes('Contact')&&<button onClick={()=>navigate('Contact')}>Contact</button>}{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
 
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
