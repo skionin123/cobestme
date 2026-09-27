@@ -73,6 +73,16 @@ async function getUser(token) {
   return result.ok ? result.data : null
 }
 
+async function getAccessContext(token, user) {
+  const own = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`, { headers: apiHeaders(token) })
+  if (own.ok && Array.isArray(own.data) && own.data.length) return { ownerId: user.id, role: 'Owner' }
+  const membership = await supabaseFetch(`/rest/v1/workspace_members?member_user_id=eq.${encodeURIComponent(user.id)}&select=owner_user_id,role&order=id.asc&limit=1`, { headers: apiHeaders(token) })
+  if (membership.ok && Array.isArray(membership.data) && membership.data[0]) {
+    return { ownerId: membership.data[0].owner_user_id, role: membership.data[0].role || 'Viewer' }
+  }
+  return { ownerId: user.id, role: 'Owner' }
+}
+
 async function rpc(name, payload) {
   return supabaseFetch(`/rest/v1/rpc/${name}`, {
     method: 'POST',
@@ -260,6 +270,19 @@ async function handleApi(req, res, url) {
   const user = await getUser(token)
   if (!user) return sendJson(res, 401, { error: 'Authentication required.' })
 
+  if (url.pathname === '/api/team/accept' && req.method === 'POST') {
+    const body = await readJson(req)
+    if (!body?.token) return sendJson(res, 400, { error: 'Invitation token is required.' })
+    const result = await supabaseFetch('/rest/v1/rpc/accept_workspace_invite', {
+      method: 'POST', headers: apiHeaders(token), body: JSON.stringify({ p_token: body.token })
+    })
+    return sendJson(res, result.status, result.data)
+  }
+
+  const access = await getAccessContext(token, user)
+  const ownerId = access.ownerId
+  const role = access.role
+
   if (url.pathname === '/api/auth/update-password' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.password || String(body.password).length < 8) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' })
@@ -285,10 +308,49 @@ async function handleApi(req, res, url) {
     })
   }
 
+  if (url.pathname === '/api/team' && req.method === 'GET') {
+    const [members, invites] = await Promise.all([
+      supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
+      supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,email,role,token,expires_at,accepted_at,created_at&order=id.desc`, { headers: apiHeaders(token) })
+    ])
+    return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: invites.ok ? invites.data : [] })
+  }
+
+  if (url.pathname === '/api/team/invite' && req.method === 'POST') {
+    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
+    const body = await readJson(req)
+    if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
+    const inviteRole = ['Admin','Editor','Viewer'].includes(body.role) ? body.role : 'Editor'
+    const result = await supabaseFetch('/rest/v1/workspace_invites', {
+      method: 'POST',
+      headers: apiHeaders(token, { Prefer: 'return=representation' }),
+      body: JSON.stringify({ owner_user_id: ownerId, email: String(body.email).trim().toLowerCase(), role: inviteRole })
+    })
+    return sendJson(res, result.status, result.data)
+  }
+
+  const memberDelete = url.pathname.match(/^\/api\/team\/member\/(\d+)$/)
+  if (memberDelete && req.method === 'DELETE') {
+    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can remove members.' })
+    const result = await supabaseFetch(`/rest/v1/workspace_members?id=eq.${memberDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
+      method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
+    })
+    return sendJson(res, result.status, result.data)
+  }
+
+  const inviteDelete = url.pathname.match(/^\/api\/team\/invite\/(\d+)$/)
+  if (inviteDelete && req.method === 'DELETE') {
+    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can revoke invitations.' })
+    const result = await supabaseFetch(`/rest/v1/workspace_invites?id=eq.${inviteDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
+      method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
+    })
+    return sendJson(res, result.status, result.data)
+  }
+
 
   if (url.pathname === '/api/workspace') {
     if (req.method === 'GET') {
-      const result = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}&select=*&limit=1`, { headers: apiHeaders(token) })
+      const result = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`, { headers: apiHeaders(token) })
       return sendJson(res, result.status, result.data)
     }
     if (req.method === 'PUT') {
@@ -296,7 +358,7 @@ async function handleApi(req, res, url) {
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       const slug = safeSlug(body.slug || body.onboarding?.businessName || user.email?.split('@')[0] || 'store')
       const payload = {
-        user_id: user.id,
+        user_id: ownerId,
         onboarding: body.onboarding || {},
         editor: body.editor || {},
         settings: body.settings || {},
@@ -324,7 +386,7 @@ async function handleApi(req, res, url) {
     const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=owner_user_id', {
       method: 'POST',
       headers: apiHeaders(token, { Prefer: 'resolution=merge-duplicates,return=representation' }),
-      body: JSON.stringify({ owner_user_id: user.id, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
+      body: JSON.stringify({ owner_user_id: ownerId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}`, {
@@ -336,7 +398,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
-    await supabaseFetch(`/rest/v1/published_stores?owner_user_id=eq.${encodeURIComponent(user.id)}`, {
+    await supabaseFetch(`/rest/v1/published_stores?owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
     })
     await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}`, {
@@ -365,13 +427,14 @@ async function handleApi(req, res, url) {
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/cobest-media/${storagePath}`
     const record = await supabaseFetch('/rest/v1/media_assets', {
       method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }),
-      body: JSON.stringify({ user_id: user.id, name: rawName, url: publicUrl, mime_type: contentType })
+      body: JSON.stringify({ user_id: ownerId, name: rawName, url: publicUrl, mime_type: contentType })
     })
     return sendJson(res, record.status, record.data)
   }
 
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)(?:\/(\d+))?$/)
   if (match) {
+    if (role === 'Viewer' && req.method !== 'GET') return sendJson(res, 403, { error: 'Viewer access is read-only.' })
     const table = match[1]
     const id = match[2]
     if (!allowedTables.has(table)) return sendJson(res, 404, { error: 'Unknown resource.' })
@@ -380,7 +443,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET') {
       const order = ['orders','contact_messages','store_events','newsletter_subscribers','bookings','product_reviews'].includes(table) ? '&order=created_at.desc' : '&order=id.desc'
       const idFilter = id ? `&id=eq.${encodeURIComponent(id)}` : ''
-      const result = await supabaseFetch(`/rest/v1/${table}?${ownerColumn}=eq.${encodeURIComponent(user.id)}${idFilter}&select=*${order}`, { headers: apiHeaders(token) })
+      const result = await supabaseFetch(`/rest/v1/${table}?${ownerColumn}=eq.${encodeURIComponent(ownerId)}${idFilter}&select=*${order}`, { headers: apiHeaders(token) })
       return sendJson(res, result.status, result.data)
     }
 
@@ -388,7 +451,7 @@ async function handleApi(req, res, url) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
-        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: user.id })
+        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId })
       })
       return sendJson(res, result.status, result.data)
     }
