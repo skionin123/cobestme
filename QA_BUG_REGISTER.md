@@ -265,3 +265,15 @@ Still required to complete QA-005:
 3. Confirm the same store/workspace loads again.
 
 QA-005 remains **PARTIAL** until the relogin/restoration step passes.
+
+
+### QA-005 progress update
+
+Step 1 — **PASS**
+- User clicked **Sign out**.
+- Private dashboard disappeared as expected.
+- This confirms logout removes the private workspace view.
+
+Remaining:
+- Log back in with the same account.
+- Confirm the same workspace/store loads again.
