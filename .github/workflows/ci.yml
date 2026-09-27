@@ -1,0 +1,35 @@
+name: CoBest CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start server
+        run: |
+          npm run start > /tmp/cobest-server.log 2>&1 &
+          echo $! > /tmp/cobest-server.pid
+          sleep 2
+      - name: Smoke health endpoint
+        run: |
+          curl --fail --silent http://127.0.0.1:4173/api/health | tee /tmp/health.json
+          grep '"ok":true' /tmp/health.json
+      - name: Smoke SPA fallback
+        run: curl --fail --silent http://127.0.0.1:4173/some-client-route | grep '<div id="root"></div>'
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/cobest-server.pid ]; then kill "$(cat /tmp/cobest-server.pid)" || true; fi
