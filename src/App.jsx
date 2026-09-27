@@ -437,6 +437,35 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
     {adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add & edit page</Button></div></div></Modal>}
   </div>
 }
+
+function ThemeLibrary({editor,setEditor,setPage}) {
+  const current=editor.theme?.name||'Aurelia'
+  const useTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
+  return <div className="page-wrap">
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose a strong starting point, then customize sections, colors, type, spacing, and content in the website editor.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
+    <section className="panel current-theme-panel"><div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><span className="status active">Draft</span></div><div className="theme-library-current" style={{fontFamily:editor.theme?.fontFamily,borderRadius:editor.theme?.radius||0}}><div><small>YOUR STORE</small><h2>{editor.hero?.heading||'Build around your brand.'}</h2><p>{editor.hero?.body||'A flexible storefront starting point.'}</p><button>{editor.hero?.button||'Shop now'}</button></div><div className="theme-library-products"><i/><i/><i/></div></div></section>
+    <div className="page-section-head"><div><span>Theme library</span><h2>Choose a starting style</h2></div></div>
+    <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}><div className="theme-library-thumb" style={{fontFamily:t.fontFamily,borderRadius:t.radius}}><div className="theme-mini-header"><b>{name}</b><span>Shop · About</span></div><div className="theme-mini-hero"><small>NEW COLLECTION</small><strong>{name==='Mono'?'Simple. Direct. Useful.':name==='Editorial'?'Stories worth browsing.':'Objects for better everyday living.'}</strong></div><div className="theme-mini-grid"><i/><i/><i/></div></div><div className="theme-library-meta"><div><strong>{name}</strong><span>{t.fontFamily.includes('Georgia')?'Editorial serif':t.fontFamily.includes('mono')?'Monospace system':'Clean system sans'} · {t.radius}px radius</span></div>{current===name?<span className="status active">Current</span>:<Button variant="secondary" onClick={()=>useTheme(name)}>Use theme</Button>}</div></article>)}</div>
+  </div>
+}
+
+function NavigationManager({pages=[],editor,setEditor}) {
+  const [menuType,setMenuType]=useState('main')
+  const [selectedPage,setSelectedPage]=useState((pages||[]).find(x=>x!=='Home')||'')
+  const main=editor.header?.menu||[]
+  const footer=editor.footer?.menu||[]
+  const list=menuType==='main'?main:footer
+  const setList=next=>setEditor(prev=>menuType==='main'?({...prev,header:{...(prev.header||{}),menu:next}}):({...prev,footer:{...(prev.footer||{}),menu:next}}))
+  const add=()=>{if(!selectedPage||list.includes(selectedPage))return;setList([...list,selectedPage])}
+  const remove=item=>setList(list.filter(x=>x!==item))
+  const move=(item,delta)=>{const next=[...list];const i=next.indexOf(item);const j=i+delta;if(i<0||j<0||j>=next.length)return;const temp=next[i];next[i]=next[j];next[j]=temp;setList(next)}
+  return <div className="page-wrap">
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Navigation</h1><p>Control the order customers move through your store. Menus are built from your existing pages.</p></div></div>
+    <div className="settings-columns"><section className="panel"><div className="panel-head"><div><span>Menus</span><h3>Choose menu</h3></div></div><div className="nav-menu-tabs"><button className={menuType==='main'?'active':''} onClick={()=>setMenuType('main')}>Main menu <b>{main.length}</b></button><button className={menuType==='footer'?'active':''} onClick={()=>setMenuType('footer')}>Footer menu <b>{footer.length}</b></button></div><div className="nav-add-row"><select value={selectedPage} onChange={e=>setSelectedPage(e.target.value)}><option value="">Select a page</option>{pages.filter(p=>p!=='Home').map(p=><option key={p}>{p}</option>)}</select><Button onClick={add} disabled={!selectedPage||list.includes(selectedPage)}><Plus size={15}/> Add</Button></div><p className="field-help">Create missing pages first in Online store → Overview & pages.</p></section>
+    <section className="panel"><div className="panel-head"><div><span>{menuType==='main'?'Main menu':'Footer menu'}</span><h3>Menu order</h3></div></div><div className="navigation-list">{list.map((item,i)=><div key={item}><span className="drag-dots">⠿</span><strong>{item}</strong><small>{'/'+item.toLowerCase().replaceAll(' ','-')}</small><div className="row-actions"><button disabled={i===0} onClick={()=>move(item,-1)}>↑</button><button disabled={i===list.length-1} onClick={()=>move(item,1)}>↓</button><button onClick={()=>remove(item)}><X size={15}/></button></div></div>)}{!list.length&&<div className="empty-panel"><Menu size={22}/><strong>No menu items yet</strong><p>Add pages to this menu.</p></div>}</div></section></div>
+  </div>
+}
+
 function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
   const currentPage=editor.currentPage||'Home'
   const [dragId,setDragId]=useState(null)
