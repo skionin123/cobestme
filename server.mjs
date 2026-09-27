@@ -610,6 +610,38 @@ async function handleApi(req, res, url) {
     })
   }
 
+  if (url.pathname === '/api/sites' && req.method === 'GET') {
+    const result=await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id,site_name,slug,custom_domain,is_published,plan,currency,timezone,created_at,updated_at&order=id.asc`,{headers:apiHeaders(token)})
+    return sendJson(res,result.status,result.data)
+  }
+
+  if (url.pathname === '/api/sites' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    const body=await readJson(req)
+    const siteName=String(body?.site_name||'New website').trim()||'New website'
+    const base=safeSlug(body?.slug||siteName||'site')||'site'
+    let slug=base
+    for(let i=0;i<10;i++){
+      const check=await supabaseFetch(`/rest/v1/workspaces?slug=eq.${encodeURIComponent(slug)}&select=id&limit=1`,{headers:apiHeaders(token)})
+      if(check.ok&&Array.isArray(check.data)&&!check.data.length)break
+      slug=`${base}-${i+2}`
+    }
+    const result=await supabaseFetch('/rest/v1/workspaces',{
+      method:'POST',headers:apiHeaders(token,{Prefer:'return=representation'}),
+      body:JSON.stringify({user_id:ownerId,site_name:siteName,slug,onboarding:{businessName:siteName,pages:['Home']},editor:{},settings:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
+    })
+    return sendJson(res,result.status,result.data)
+  }
+
+  const siteDelete=url.pathname.match(/^\/api\/sites\/(\d+)$/)
+  if(siteDelete&&req.method==='DELETE'){
+    if(role!=='Owner')return sendJson(res,403,{error:'Only the workspace owner can delete a site.'})
+    const result=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteDelete[1]}&user_id=eq.${encodeURIComponent(ownerId)}`,{method:'DELETE',headers:apiHeaders(token,{Prefer:'return=representation'})})
+    return sendJson(res,result.status,result.data)
+  }
+
+  const siteId = await resolveSiteId(req,token,ownerId)
+
   if (url.pathname === '/api/team' && req.method === 'GET') {
     const [members, invites] = await Promise.all([
       supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,email,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
@@ -657,10 +689,12 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/workspace') {
     if (req.method === 'GET') {
-      const result = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`, { headers: apiHeaders(token) })
+      if(!siteId)return sendJson(res,200,[])
+      const result = await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`, { headers: apiHeaders(token) })
       return sendJson(res, result.status, result.data)
     }
     if (req.method === 'PUT') {
+      if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       const slug = safeSlug(body.slug || body.onboarding?.businessName || user.email?.split('@')[0] || 'store')
@@ -669,7 +703,7 @@ async function handleApi(req, res, url) {
         onboarding: body.onboarding || {},
         editor: body.editor || {},
         settings: body.settings || {},
-        site_name: body.site_name || body.onboarding?.businessName || '',
+        site_name: body.site_name || body.onboarding?.businessName || 'Untitled website',
         slug,
         custom_domain: String(body.custom_domain || '').toLowerCase().trim(),
         plan: body.plan || 'Free',
@@ -677,9 +711,13 @@ async function handleApi(req, res, url) {
         timezone: body.timezone || 'Asia/Manila',
         updated_at: new Date().toISOString()
       }
-      const result = await supabaseFetch('/rest/v1/workspaces?on_conflict=user_id', {
-        method: 'POST', headers: apiHeaders(token, { Prefer: 'resolution=merge-duplicates,return=representation' }), body: JSON.stringify(payload)
-      })
+      const result = siteId
+        ? await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
+            method:'PATCH',headers:apiHeaders(token,{Prefer:'return=representation'}),body:JSON.stringify(payload)
+          })
+        : await supabaseFetch('/rest/v1/workspaces', {
+            method:'POST',headers:apiHeaders(token,{Prefer:'return=representation'}),body:JSON.stringify(payload)
+          })
       return sendJson(res, result.status, result.data)
     }
   }
@@ -690,13 +728,14 @@ async function handleApi(req, res, url) {
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
     const customDomain = String(body.custom_domain || '').toLowerCase().trim()
-    const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=owner_user_id', {
+    if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
+    const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=workspace_id', {
       method: 'POST',
       headers: apiHeaders(token, { Prefer: 'resolution=merge-duplicates,return=representation' }),
-      body: JSON.stringify({ owner_user_id: ownerId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
+      body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
-    await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}`, {
+    await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'PATCH',
       headers: apiHeaders(token, { Prefer: 'return=minimal' }),
       body: JSON.stringify({ slug, custom_domain: customDomain, is_published: true, published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -705,10 +744,11 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
-    await supabaseFetch(`/rest/v1/published_stores?owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
+    if(!siteId)return sendJson(res,400,{error:'No active site.'})
+    await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
     })
-    await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}`, {
+    await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'PATCH', headers: apiHeaders(token), body: JSON.stringify({ is_published: false, updated_at: new Date().toISOString() })
     })
     return sendJson(res, 200, { ok: true })
@@ -719,7 +759,8 @@ async function handleApi(req, res, url) {
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
     const fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
-    const storagePath = `${user.id}/${Date.now()}-${fileName}`
+    if(!siteId)return sendJson(res,400,{error:'No active site.'})
+    const storagePath = `${ownerId}/${siteId}/${Date.now()}-${fileName}`
     const contentType = String(req.headers['content-type'] || 'application/octet-stream')
     const upload = await fetch(`${supabaseUrl}/storage/v1/object/cobest-media/${encodeURI(storagePath)}`, {
       method: 'POST',
@@ -734,7 +775,7 @@ async function handleApi(req, res, url) {
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/cobest-media/${storagePath}`
     const record = await supabaseFetch('/rest/v1/media_assets', {
       method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }),
-      body: JSON.stringify({ user_id: ownerId, name: rawName, url: publicUrl, mime_type: contentType })
+      body: JSON.stringify({ user_id: ownerId, site_id: siteId, name: rawName, url: publicUrl, mime_type: contentType })
     })
     return sendJson(res, record.status, record.data)
   }
@@ -743,17 +784,17 @@ async function handleApi(req, res, url) {
   if(campaignSend&&req.method==='POST'){
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     if(!resendApiKey)return sendJson(res,503,{error:'Email delivery is not connected. Configure RESEND_API_KEY first.'})
-    const campaignResult=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaignSend[1]}&user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
+    const campaignResult=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaignSend[1]}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=*&limit=1`,{headers:apiHeaders(token)})
     const campaign=campaignResult.ok&&Array.isArray(campaignResult.data)?campaignResult.data[0]:null
     if(!campaign)return sendJson(res,404,{error:'Campaign not found.'})
-    const subsResult=await supabaseFetch(`/rest/v1/newsletter_subscribers?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=email`,{headers:apiHeaders(token)})
+    const subsResult=await supabaseFetch(`/rest/v1/newsletter_subscribers?owner_user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=email`,{headers:apiHeaders(token)})
     const subscribers=subsResult.ok&&Array.isArray(subsResult.data)?subsResult.data:[]
     let sent=0,failed=0
     for(const sub of subscribers.slice(0,500)){
       const mail=await sendEmail(sub.email,campaign.subject||campaign.name,`<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.content||'').replaceAll('\n','<br>')}</div>`)
       if(mail.ok)sent++;else failed++
     }
-    const updated=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaign.id}&user_id=eq.${encodeURIComponent(ownerId)}`,{
+    const updated=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaign.id}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}`,{
       method:'PATCH',headers:apiHeaders(token,{Prefer:'return=representation'}),
       body:JSON.stringify({status:failed&&sent===0?'Draft':'Complete',sent_at:new Date().toISOString(),updated_at:new Date().toISOString()})
     })
@@ -771,7 +812,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'GET') {
       const order = ['orders','contact_messages','store_events','newsletter_subscribers','bookings','product_reviews'].includes(table) ? '&order=created_at.desc' : '&order=id.desc'
       const idFilter = id ? `&id=eq.${encodeURIComponent(id)}` : ''
-      const result = await supabaseFetch(`/rest/v1/${table}?${ownerColumn}=eq.${encodeURIComponent(ownerId)}${idFilter}&select=*${order}`, { headers: apiHeaders(token) })
+      const siteFilter=siteId?`&site_id=eq.${siteId}`:''
+      const result = await supabaseFetch(`/rest/v1/${table}?${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteFilter}${idFilter}&select=*${order}`, { headers: apiHeaders(token) })
       return sendJson(res, result.status, result.data)
     }
 
@@ -779,7 +821,7 @@ async function handleApi(req, res, url) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
-        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId })
+        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId, site_id: siteId })
       })
       return sendJson(res, result.status, result.data)
     }
@@ -788,7 +830,7 @@ async function handleApi(req, res, url) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       delete body.user_id; delete body.owner_user_id; delete body.id
-      const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(user.id)}`, {
+      const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
         method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, updated_at: new Date().toISOString() })
       })
       return sendJson(res, result.status, result.data)
