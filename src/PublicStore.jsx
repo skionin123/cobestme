@@ -203,7 +203,8 @@ function defaultPageBody(name,store){
 
 function ContentBlock({block}) {
   const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
-  return <section className="public-content-block" style={{background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding||48}px 5vw`}}><div style={{display:'grid',gridTemplateColumns:`repeat(${block.columns||1},minmax(0,1fr))`,gap:24}}>{Array.from({length:Number(block.columns||1)}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}</div>)}</div></section>
+  const columns=Number(block.columns||1)
+  return <section className="public-content-block" style={{background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px 5vw`,margin:`${block.margin||0}px 0`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius||0}px`,fontSize:`${block.fontSize||16}px`}}><div style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns},minmax(0,1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}>{Array.from({length:columns}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
 }
 
 function Newsletter({slug}) {
