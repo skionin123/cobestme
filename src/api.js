@@ -102,7 +102,7 @@ export async function signIn(email, password) {
 export async function resetPassword(email) {
   return request('/api/auth/reset', {
     method: 'POST',
-    body: JSON.stringify({ email, redirect_to: 'https://cobest.me/?mode=recovery' })
+    body: JSON.stringify({ email, redirect_to: 'https://cobest.me/reset-password' })
   })
 }
 
