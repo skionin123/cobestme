@@ -608,18 +608,67 @@ function ThemePreview({theme,large=false}) {
 function ThemeLibrary({editor,setEditor,setPage}) {
   const current=editor.theme?.name||'Aurelia'
   const currentTheme=themePresets[current]||{...themePresets.Aurelia,...editor.theme}
-  const useTheme=name=>setEditor(prev=>{
+  const [pickerTheme,setPickerTheme]=useState(null)
+  const [pickedSections,setPickedSections]=useState([])
+
+  const openPicker=name=>{
     const recipe=themeRecipes[name]||themeRecipes.Aurelia
-    return {...prev,theme:{...(themePresets[name]||themePresets.Aurelia)},sectionOrder:[...recipe.sections],sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},selected:recipe.sections[0]||'hero'}
-  })
+    const existing=name===current?(editor.sectionOrder||[]).filter(id=>recipe.sections.includes(id)):[]
+    const recommended=existing.length?existing:recipe.sections.slice(0,Math.min(4,recipe.sections.length))
+    setPickedSections(recommended)
+    setPickerTheme(name)
+  }
+
+  const toggleSection=id=>{
+    setPickedSections(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  }
+
+  const applyTheme=()=>{
+    if(!pickerTheme||!pickedSections.length)return
+    const recipe=themeRecipes[pickerTheme]||themeRecipes.Aurelia
+    const ordered=recipe.sections.filter(id=>pickedSections.includes(id))
+    setEditor(prev=>({
+      ...prev,
+      theme:{...(themePresets[pickerTheme]||themePresets.Aurelia)},
+      sectionOrder:ordered,
+      sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},
+      selected:ordered[0]||'hero'
+    }))
+    setPickerTheme(null)
+  }
+
+  const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Aurelia):null
+
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Original CoBest themes built around modern ecommerce patterns: editorial storytelling, bold campaign layouts, minimalist product grids, and conversion-friendly retail.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
-    <section className="panel current-theme-panel"><div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><span className="status active">Draft</span></div><ThemePreview theme={currentTheme} large/></section>
-    <div className="page-section-head"><div><span>CoBest themes</span><h2>Choose a design direction</h2></div></div>
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose a design direction, then choose only the sections your client actually needs. Themes are starting systems, not locked page templates.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
+
+    <section className="panel current-theme-panel">
+      <div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><div className="theme-current-actions"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><span className="status active">Draft</span></div></div>
+      <ThemePreview theme={currentTheme} large/>
+    </section>
+
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Choose a design direction</h2><p className="field-help">Each theme has different section types. Clients can pick which sections to include before applying it.</p></div></div>
+
     <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
-      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div>{current===name?<span className="status active">Current</span>:<Button variant="secondary" onClick={()=>useTheme(name)}>Use theme</Button>}</div>
+      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div>{current===name?<Button variant="secondary" onClick={()=>openPicker(name)}>Edit sections</Button>:<Button variant="secondary" onClick={()=>openPicker(name)}>Choose theme</Button>}</div>
     </article>)}</div>
+
+    {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
+      <div className="theme-section-picker">
+        <div className="theme-picker-intro"><p>Pick the sections this store needs. Start small—you can come back and change this later.</p><span>{pickedSections.length} selected</span></div>
+        <div className="theme-picker-grid">{pickerRecipe.sections.map((id,i)=>{
+          const checked=pickedSections.includes(id)
+          const label=pickerRecipe.labels[id]||id
+          const desc=pickerRecipe.defaults?.[id]?.title||themePresets[pickerTheme]?.description||''
+          return <button type="button" key={id} className={'theme-picker-item '+(checked?'selected':'')} onClick={()=>toggleSection(id)}>
+            <span className="theme-picker-check">{checked?<Check size={14}/>:<Plus size={14}/>}</span>
+            <div><small>SECTION {String(i+1).padStart(2,'0')}</small><strong>{label}</strong><p>{desc}</p></div>
+          </button>
+        })}</div>
+        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>Apply {pickerTheme} with {pickedSections.length} sections</Button></div>
+      </div>
+    </Modal>}
   </div>
 }
 function NavigationManager({pages=[],editor,setEditor}) {
