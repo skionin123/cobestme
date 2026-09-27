@@ -41,6 +41,16 @@ export default function PublicStore({slug:slugProp,host}) {
     if(store?.slug) localStorage.setItem(keyFor(store.slug),JSON.stringify(cart))
   },[cart,store?.slug])
 
+  useEffect(()=>{
+    if(!store)return
+    const meta=store?.editor?.pageMeta?.[page]||{}
+    const defaultTitle=store?.settings?.seoTitle||store?.onboarding?.businessName||'Store'
+    document.title=meta.seo_title||`${page==='Home'?'':page+' · '}${defaultTitle}`
+    let description=document.querySelector('meta[name="description"]')
+    if(!description){description=document.createElement('meta');description.setAttribute('name','description');document.head.appendChild(description)}
+    description.setAttribute('content',meta.seo_description||store?.settings?.seoDescription||store?.onboarding?.businessDescription||'')
+  },[store,page])
+
   const products=(store?.products||[]).filter(p=>p.status==='Active')
   const categories=['All',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))]
   const filtered=products.filter(p=>{
@@ -160,6 +170,7 @@ function GenericPage({store,name,data,features,onNavigate}) {
   if(name==='Contact') return <ContactPage slug={store.slug}/>
   if(name==='Booking'||(name==='Services'&&features.includes('Booking'))) return <BookingPage slug={store.slug}/>
   if(name==='Gallery') return <main className="public-generic-page"><small>GALLERY</small><h1>{data.title||'Gallery'}</h1><p>{data.body||'A selection from the business.'}</p><div className="public-gallery">{(store.media||[]).filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><img key={x.id} src={x.url} alt={x.name}/>)}</div></main>
+  if(name==='Collections') return <main className="public-generic-page"><small>COLLECTIONS</small><h1>{data.title||'Collections'}</h1><p>{data.body||'Browse curated groups of products.'}</p><div className="public-collection-grid">{(store.collections||[]).map(col=><article key={col.id}><h2>{col.name}</h2><p>{col.description}</p><span>{(col.product_ids||[]).length} products</span><button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop collection</button></article>)}</div></main>
   return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
 }
 
