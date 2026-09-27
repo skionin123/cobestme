@@ -24,14 +24,20 @@ export function saveSession(payload) {
 }
 
 export function acceptSessionFromHash() {
-  if (!window?.location?.hash) return false
+  if (!window?.location?.hash) return { ok:false, reason:'missing_hash' }
   const params = new URLSearchParams(window.location.hash.slice(1))
+  const error = params.get('error')
+  const error_code = params.get('error_code')
+  const error_description = params.get('error_description')
+  if (error || error_code) {
+    return { ok:false, reason:error_code||error, message:error_description||'The recovery link is invalid or has expired.' }
+  }
   const access_token = params.get('access_token')
   const refresh_token = params.get('refresh_token')
-  if (!access_token) return false
+  if (!access_token) return { ok:false, reason:'missing_token' }
   saveSession({ access_token, refresh_token })
   window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
-  return true
+  return { ok:true }
 }
 
 export function logout() {
@@ -96,7 +102,7 @@ export async function signIn(email, password) {
 export async function resetPassword(email) {
   return request('/api/auth/reset', {
     method: 'POST',
-    body: JSON.stringify({ email, redirect_to: window.location.origin + '/?mode=recovery' })
+    body: JSON.stringify({ email, redirect_to: 'https://cobest.me/?mode=recovery' })
   })
 }
 
