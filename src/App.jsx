@@ -550,8 +550,8 @@ function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
   const [cart,setCart]=useState([])
   const [checkout,setCheckout]=useState(false)
   const [busy,setBusy]=useState(false)
-  const [message,setMessage]=useState('')
-  const [error,setError]=useState('')
+  const [message,setMessage]=useState(()=>sessionStorage.getItem('cobest-auth-message')||'')
+  const [error,setError]=useState(()=>sessionStorage.getItem('cobest-auth-error')||'')
   const [buyer,setBuyer]=useState({name:'',email:'',phone:''})
   const add=(p)=>setCart(prev=>[...prev,p])
   const total=cart.reduce((sum,p)=>sum+Number(p.price||0),0)
@@ -592,6 +592,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
   const [message,setMessage]=useState('')
   const [error,setError]=useState('')
   const signup=variant==='signup'
+  useEffect(()=>{sessionStorage.removeItem('cobest-auth-message');sessionStorage.removeItem('cobest-auth-error')},[])
   const submit=async(e)=>{
     e.preventDefault()
     setBusy(true); setError(''); setMessage('')
@@ -650,9 +651,19 @@ export default function App() {
     const params=new URLSearchParams(window.location.search)
     const queryMode=params.get('mode')
     const invite=params.get('invite')
-    if(queryMode==='recovery'){
-      acceptSessionFromHash()
-      if(isAuthenticated()) setMode('recovery')
+    const hashParams=new URLSearchParams(window.location.hash.slice(1))
+    const hasAuthHash=Boolean(hashParams.get('access_token')||hashParams.get('error')||hashParams.get('error_code')||hashParams.get('type')==='recovery')
+    if(queryMode==='recovery'||hasAuthHash){
+      const result=acceptSessionFromHash()
+      if(result?.ok){
+        if(result.type==='recovery'||queryMode==='recovery') setMode('recovery')
+        else setMode('app')
+      }else{
+        const msg=result?.message||'This password reset link is invalid or has expired. Request a new reset email and use the newest link.'
+        sessionStorage.setItem('cobest-auth-error',msg+' If you requested more than one reset email, older links may no longer work.')
+        setMode('login')
+        window.history.replaceState({},document.title,'/')
+      }
       return
     }
     if(invite){
