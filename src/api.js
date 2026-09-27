@@ -192,3 +192,31 @@ export async function updateResource(resource, id, values) {
 export async function deleteResource(resource, id) {
   return request(`/api/data/${resource}/${id}`, { method: 'DELETE' })
 }
+
+
+export async function getTeam() {
+  return request('/api/team')
+}
+
+export async function inviteTeamMember(email, role='Editor') {
+  const rows = await request('/api/team/invite', {
+    method: 'POST',
+    body: JSON.stringify({ email, role })
+  })
+  return Array.isArray(rows) ? rows[0] || null : rows
+}
+
+export async function removeTeamMember(id) {
+  return request(`/api/team/member/${id}`, { method: 'DELETE' })
+}
+
+export async function revokeTeamInvite(id) {
+  return request(`/api/team/invite/${id}`, { method: 'DELETE' })
+}
+
+export async function acceptTeamInvite(token) {
+  return request('/api/team/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  })
+}
