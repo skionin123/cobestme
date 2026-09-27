@@ -6,7 +6,7 @@ import {
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
 import { acceptSessionFromHash, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
-import { AnalyticsAdvanced, CustomersManager, InboxManager, MediaManager, OrdersManager, ProductsManager, PublishingSettings } from './AdminAdvanced.jsx'
+import { AnalyticsAdvanced, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -312,10 +312,10 @@ function Review({data}) {
 }
 
 const navGroups = [
-  { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['customers','Customers',Users]] },
+  { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['collections','Collections',Store],['customers','Customers',Users]] },
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
-  { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
+  { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness],['integrations','Integrations',Settings]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -601,6 +601,7 @@ export default function App() {
   const [mediaAssets,setMediaAssets] = useState([])
   const [discounts,setDiscounts] = useState([])
   const [campaigns,setCampaigns] = useState([])
+  const [collections,setCollections] = useState([])
   const [workspace,setWorkspace] = useState(null)
   const [subscribers,setSubscribers] = useState([])
   const [contacts,setContacts] = useState([])
@@ -627,10 +628,10 @@ export default function App() {
     let active=true
     Promise.all([
       getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
-      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),
+      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),
       listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
       listResource('product_reviews'),listResource('store_events')
-    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
+    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
       if(!active) return
       setWorkspace(workspaceData)
       if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
@@ -641,6 +642,7 @@ export default function App() {
       if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
       if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
       if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
+      if(Array.isArray(cloudCollections)) setCollections(cloudCollections)
       if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
       if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
       if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
@@ -711,13 +713,15 @@ export default function App() {
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='media') content=<MediaManager items={mediaAssets} setItems={setMediaAssets}/>
   if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers}/>
+  if(page==='collections') content=<CollectionsManager items={collections} setItems={setCollections} products={products}/>
   if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders}/>
   if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
-  if(page==='marketing') content=<OperationsPage type="marketing" items={campaigns} onCreate={addCampaign}/>
-  if(page==='discounts') content=<OperationsPage type="discounts" items={discounts} onCreate={addDiscount}/>
+  if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
+  if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
+  if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
-  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
+  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('editor')}><Palette size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
   return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
