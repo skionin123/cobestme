@@ -195,7 +195,7 @@ function BookingPage({slug}) {
 function ReviewForm({slug,product,onDone}) {
   const [form,setForm]=useState({name:'',email:'',rating:5,body:''});const [busy,setBusy]=useState(false);const [error,setError]=useState('')
   const submit=async()=>{setBusy(true);setError('');try{await publicAction('review',{slug,product_id:product.id,...form});onDone()}catch(err){setError(err.message)}finally{setBusy(false)}}
-  return <div className="review-form">{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value)}/></Field>
+  return <div className="review-form">{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field>
   <Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
   <Field label="Rating"><select value={form.rating} onChange={e=>setForm({...form,rating:Number(e.target.value)})}>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} stars</option>)}</select></Field>
   <Field label="Review"><textarea rows="4" value={form.body} onChange={e=>setForm({...form,body:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.name} onClick={submit}>{busy?'Submitting…':'Submit review'}</button></div>
