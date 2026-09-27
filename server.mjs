@@ -195,6 +195,14 @@ async function handlePublicApi(req, res, url) {
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
+  if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
+    if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
+    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
+    if (!result.ok) return sendJson(res, result.status, result.data)
+    if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
+    return sendJson(res, 200, { order: result.data })
+  }
+
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     const store = await getPublishedStore(body.slug)
