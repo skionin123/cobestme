@@ -557,3 +557,28 @@ Retest: **PENDING after deployment**
 - `45dedde` compact theme/section sizing and picker styling
 
 **Retest:** PENDING after deployment.
+
+
+### MVP-002 fourth design review — theme library preview became oversized
+
+**Result:** FAIL
+
+Observed from production screenshots:
+- Current-theme preview dominated the page vertically.
+- Section previews were too tall and visually repetitive.
+- Theme selection was pushed far below the fold.
+- The experience felt more like a full rendered storefront than a theme picker.
+
+**Fix implemented:**
+- Replaced oversized full-section previews with compact fixed-height theme thumbnails.
+- Current theme now uses a compact preview + summary/details/actions layout.
+- Theme library now uses a 3-column desktop card grid (2-column medium, 1-column mobile).
+- Each card keeps a distinct visual identity without rendering full-sized sections.
+- Section picker remains available separately, so theme choice and section choice are no longer visually conflated.
+- Theme cards now show concise **Choose / Edit** actions.
+
+**Commits:**
+- `daca6bd` compact theme-card redesign
+- `7981fec` compact professional theme library styling
+
+**Retest:** PENDING after deployment.
