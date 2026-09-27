@@ -27,6 +27,12 @@ const personalityChoices = [
 const pageChoices = ['Home', 'Shop', 'About', 'Services', 'Collections', 'Portfolio', 'Testimonials', 'FAQ', 'Blog', 'Contact']
 const featureChoices = ['Ecommerce', 'Shopping cart', 'Product search', 'Product filters', 'Newsletter', 'Contact forms', 'Reviews', 'Customer accounts', 'Booking', 'Gallery']
 const contentChoices = ['Logo', 'Brand guide', 'Website copy', 'Product photos', 'Lifestyle photos', 'Product descriptions', 'Testimonials', 'Team information', 'Contact information', 'Policies']
+const themePresets = {
+  Aurelia: { name:'Aurelia', sectionGap:32, radius:4, fontFamily:'Arial, Helvetica, sans-serif' },
+  Mono: { name:'Mono', sectionGap:18, radius:0, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' },
+  Atelier: { name:'Atelier', sectionGap:48, radius:18, fontFamily:'Georgia, Times New Roman, serif' }
+}
+
 const typeSuggestions = {
   'Online Store': { pages: ['Home','Shop','Collections','About','FAQ','Contact'], features: ['Ecommerce','Shopping cart','Product search','Product filters','Newsletter','Reviews'] },
   'Business Website': { pages: ['Home','About','Services','Testimonials','FAQ','Contact'], features: ['Contact forms','Newsletter'] },
@@ -75,7 +81,7 @@ const defaultEditor = {
   },
   featured: { title: 'Featured products', columns: 3 },
   story: { title: 'Tell your story', body: 'Use this section to explain what your business believes in and why customers should choose you.' },
-  theme: { sectionGap: 32, radius: 0 },
+  theme: { ...themePresets.Aurelia },
   blocks: [],
   currentPage: 'Home',
   pageContent: {},
@@ -384,6 +390,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
   const pageMeta=editor.pageMeta||{}
+  const applyTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
   const openPage=(p)=>{
     setEditor(prev=>({...prev,currentPage:p,pageContent:{...(prev.pageContent||{}),[p]:prev.pageContent?.[p]||{title:p,body:'',blocks:[]}}}))
     setPage('editor')
@@ -407,7 +414,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
     ;[list[i],list[j]]=[list[j],list[i]];setPages?.(list)
   }
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
-    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>Aurelia</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Visual editor</strong><div><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
+    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{editor.theme?.name||'Aurelia'}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Theme preset</strong><div><select className="toolbar-select" value={editor.theme?.name||'Aurelia'} onChange={e=>applyTheme(e.target.value)}>{Object.keys(themePresets).map(x=><option key={x}>{x}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
     <div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div>
     <div className="page-list">{(pages||[]).map((p,i)=>{const visible=pageMeta[p]?.visible!==false;return <div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><button className={`status ${visible?'active':'draft'}`} onClick={()=>toggleVisible(p)}>{visible?'Visible':'Hidden'}</button><small>{i===0?'Homepage':'Page'}</small><div className="row-actions"><button title="Move up" disabled={i===0} onClick={()=>move(p,-1)}>↑</button><button title="Move down" disabled={i===(pages||[]).length-1} onClick={()=>move(p,1)}>↓</button><button title="Edit page" onClick={()=>openPage(p)}><Pencil size={16}/></button>{p!=='Home'&&<button title="Delete page" onClick={()=>removePage(p)}><X size={16}/></button>}</div></div>})}</div>
     {adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add & edit page</Button></div></div></Modal>}
@@ -539,7 +546,7 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
     if(id==='newsletter') return <section key={id} className="sf-newsletter"><h2>{editor.newsletter?.heading||'Stay in the loop.'}</h2><p>{editor.newsletter?.body||'New products, stories, and updates.'}</p><div><span>Email address</span><button>{editor.newsletter?.button||'Join'}</button></div></section>
     const block=map.get(id);return block?<EditorBlock key={id} block={block}/>:null
   }
-  return <div className={`storefront ${full?'full-storefront':''}`} style={{'--brand':data.primaryColor,'--paper':data.secondaryColor,'--accent':data.accentColor,'--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span><small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
+  return <div className={`storefront ${full?'full-storefront':''}`} style={{'--brand':data.primaryColor,'--paper':data.secondaryColor,'--accent':data.accentColor,'--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span><small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
 
 function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
