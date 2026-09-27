@@ -42,7 +42,7 @@ For every test:
 | BUG-004 | P0 | Password recovery | Reset link opened `localhost:3000` and failed with `otp_expired` | Recovery callback/URL configuration used localhost fallback | CODE FIXED; CONFIG + RETEST NEEDED | 01a52a9 |
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
-| BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; select and create-site button do not fit cleanly | CSS grid allowed the native select to overflow inside a narrow column | FIX DEPLOYING / RETEST NEEDED | 6137101 |
+| BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; dropdown and + button do not share a clean baseline | First CSS fix improved fit but controls were still vertically misaligned | FIX V2 DEPLOYING / RETEST NEEDED | 5c91efa |
 
 ## Formal QA queue
 
@@ -118,3 +118,19 @@ Observed during the same screenshot:
 - **BUG-007** sidebar site-switcher layout issue in the top-left store selector.
 - CSS fix committed as `6137101db950dbc704e71d338bc946b68b9f1d8c`.
 - Retest required after deployment before moving to QA-002.
+
+
+### BUG-007 retest — first fix failed visual QA
+
+**Result:** FAIL
+
+Observed:
+- Store name, dropdown, avatar, and create-site button fit inside the container.
+- Dropdown and `+` button were still vertically misaligned.
+- Avatar / selector controls did not share a clean baseline.
+
+**Second fix:** align avatar, 32px select, and 32px create-site button to the bottom control row beneath the store label.
+
+Commit: `5c91efa0b0deab7b4df0d728a23087463c68db34`
+
+Retest: **PENDING after deployment**
