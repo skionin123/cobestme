@@ -377,11 +377,38 @@ function Products({products,setProducts,onCreate}) {
 }
 function Modal({title,onClose,children}) { return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div> }
 
-function OnlineStorePage({pages,setPages,setPage}) {
+function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
-  const addPage=()=>{const clean=name.trim();if(!clean)return;setPages?.(Array.from(new Set([...(pages||[]),clean])));setName('');setAdding(false)}
-  return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage the storefront, theme, pages, and publishing settings.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Palette size={15}/> Customize</Button></div></div><div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>Current storefront</h3></div><span className="status active">Active</span></div><div className="theme-preview"><div><small>NEW COLLECTION</small><h4>Objects for quieter living.</h4><span>Shop collection</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Aurelia</strong><div><Button variant="secondary" onClick={()=>setPage('editor')}>Customize</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Storefront</span><h3>Publishing</h3></div></div><SummaryRow label="Domain" value="cobest.me"/><SummaryRow label="Status" value="Online"/><SummaryRow label="Theme" value="Aurelia"/><SummaryRow label="Market" value="Philippines"/><Button variant="secondary" onClick={()=>setPage('storefront')}>Open storefront <ArrowRight size={14}/></Button></section></div><div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div><div className="page-list">{pages.map((p,i)=><div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><span className="status active">Visible</span><small>{i===0?'Homepage':'Published'}</small><button onClick={()=>setPage('editor')}><Pencil size={16}/></button></div>)}</div>{adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add page</Button></div></div></Modal>}</div>
+  const pageMeta=editor.pageMeta||{}
+  const openPage=(p)=>{
+    setEditor(prev=>({...prev,currentPage:p,pageContent:{...(prev.pageContent||{}),[p]:prev.pageContent?.[p]||{title:p,body:'',blocks:[]}}}))
+    setPage('editor')
+  }
+  const addPage=()=>{
+    const clean=name.trim()
+    if(!clean)return
+    const next=Array.from(new Set([...(pages||[]),clean]))
+    setPages?.(next)
+    setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),[clean]:prev.pageContent?.[clean]||{title:clean,body:'',blocks:[]}},pageMeta:{...(prev.pageMeta||{}),[clean]:{visible:true}},currentPage:clean}))
+    setName('');setAdding(false);setPage('editor')
+  }
+  const toggleVisible=p=>setEditor(prev=>({...prev,pageMeta:{...(prev.pageMeta||{}),[p]:{...(prev.pageMeta?.[p]||{}),visible:prev.pageMeta?.[p]?.visible===false?true:false}}}))
+  const removePage=p=>{
+    if(p==='Home'||!window.confirm(`Delete page "${p}"?`))return
+    setPages?.((pages||[]).filter(x=>x!==p))
+    setEditor(prev=>{const pc={...(prev.pageContent||{})};const pm={...(prev.pageMeta||{})};delete pc[p];delete pm[p];return {...prev,pageContent:pc,pageMeta:pm,currentPage:prev.currentPage===p?'Home':prev.currentPage}})
+  }
+  const move=(p,delta)=>{
+    const list=[...(pages||[])];const i=list.indexOf(p);const j=i+delta;if(i<0||j<0||j>=list.length)return
+    ;[list[i],list[j]]=[list[j],list[i]];setPages?.(list)
+  }
+  return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
+    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>Aurelia</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Visual editor</strong><div><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
+    <div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div>
+    <div className="page-list">{(pages||[]).map((p,i)=>{const visible=pageMeta[p]?.visible!==false;return <div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><button className={`status ${visible?'active':'draft'}`} onClick={()=>toggleVisible(p)}>{visible?'Visible':'Hidden'}</button><small>{i===0?'Homepage':'Page'}</small><div className="row-actions"><button title="Move up" disabled={i===0} onClick={()=>move(p,-1)}>↑</button><button title="Move down" disabled={i===(pages||[]).length-1} onClick={()=>move(p,1)}>↓</button><button title="Edit page" onClick={()=>openPage(p)}><Pencil size={16}/></button>{p!=='Home'&&<button title="Delete page" onClick={()=>removePage(p)}><X size={16}/></button>}</div></div>})}</div>
+    {adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add & edit page</Button></div></div></Modal>}
+  </div>
 }
 function EmptyState({icon:Icon,title,body,action}) { return <div className="empty-state"><div><Icon size={24}/></div><h3>{title}</h3><p>{body}</p>{action&&<Button>{action}</Button>}</div> }
 
