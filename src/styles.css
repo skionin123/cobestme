@@ -222,3 +222,20 @@
 .public-contact-email{font-weight:650}
 .public-reviews{display:grid;gap:9px;margin:18px 0;padding-top:15px;border-top:1px solid #eee}.public-reviews article{background:#f8f7f3;border-radius:8px;padding:11px}.public-reviews article span{color:#8d6e33;letter-spacing:2px}.public-reviews article b{display:block;margin-top:5px}.public-reviews article p{margin:5px 0 0;font-size:13px;line-height:1.5}
 @media(max-width:700px){.public-gallery,.public-collection-grid{grid-template-columns:1fr 1fr}.collection-grid,.integration-grid{grid-template-columns:1fr}.team-invite-action{align-items:stretch}.public-footer-links{flex-direction:column}}
+
+
+/* ===== CoBest catalog/CMS/billing refinements ===== */
+.product-media-editor{display:grid;gap:10px}
+.product-image-strip{display:flex;gap:8px;overflow:auto;padding:4px 0}
+.product-image-strip button{flex:0 0 64px;width:64px;height:64px;border:2px solid transparent;border-radius:9px;padding:2px;background:#f2f0eb;overflow:hidden;cursor:pointer}
+.product-image-strip button.active{border-color:#171717}.product-image-strip img{width:100%;height:100%;object-fit:cover;border-radius:5px}
+.cms-content-editor{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.65}
+.billing-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.billing-plan{display:flex;flex-direction:column;gap:12px;min-height:330px}.billing-plan.current{box-shadow:inset 0 0 0 2px #171717}
+.billing-plan h2{font-size:30px;margin:0}.billing-price{font-size:20px}.billing-plan ul{list-style:none;padding:0;margin:0;display:grid;gap:9px}.billing-plan li{display:flex;align-items:center;gap:8px;font-size:13px}.billing-plan>.btn,.billing-plan>.status{margin-top:auto}
+.editor-actions{display:flex;align-items:center;gap:5px}
+.public-account-button{font-size:12px;font-weight:650}
+.customer-order-result{margin-top:15px;border:1px solid #ddd9d1;border-radius:10px;padding:14px;display:grid;gap:9px}.customer-order-result>div{display:flex;justify-content:space-between;gap:16px}.customer-order-result span{color:#6d6961;font-size:12px}.customer-order-items{display:flex!important;flex-direction:column;border-top:1px solid #eee;padding-top:10px}.customer-order-items span{color:#333}
+.public-blog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:28px}.public-blog-grid article{border:1px solid #e2ded6;border-radius:12px;overflow:hidden;background:#fff}.public-blog-grid article>img{width:100%;aspect-ratio:16/9;object-fit:cover}.public-blog-grid article>div{padding:20px}.public-blog-grid article h2{font-size:26px;margin:8px 0}.public-blog-grid article p{line-height:1.65}.public-blog-grid summary{cursor:pointer;font-weight:650;margin-top:15px}.blog-content{border-top:1px solid #eee;margin-top:12px;padding-top:8px}
+@media(max-width:850px){.billing-plan-grid{grid-template-columns:1fr}.public-blog-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.editor-actions{gap:2px}.editor-actions .btn{padding-left:8px;padding-right:8px;font-size:11px}.public-account-button{font-size:0}.public-account-button:after{content:'Account';font-size:11px}.billing-plan{min-height:0}}
