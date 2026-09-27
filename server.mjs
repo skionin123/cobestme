@@ -102,6 +102,14 @@ async function rpc(name, payload) {
   })
 }
 
+async function userRpc(name,payload,token){
+  return supabaseFetch(`/rest/v1/rpc/${name}`,{
+    method:'POST',
+    headers:apiHeaders(token),
+    body:JSON.stringify(payload)
+  })
+}
+
 async function internalPaymentUpdate(orderId, status, provider, reference='') {
   if (!internalSecret) throw new Error('Internal payment bridge is not configured.')
   const result = await rpc('internal_update_payment', {
@@ -331,6 +339,30 @@ async function handlePublicApi(req, res, url) {
 
   const body = req.method === 'POST' ? await readJson(req) : {}
   if (req.method === 'POST' && body === null) return sendJson(res, 400, { error: 'Invalid JSON.' })
+
+  if(url.pathname==='/api/public/customer/link'&&req.method==='POST'){
+    const token=authToken(req);const user=await getUser(token)
+    if(!user)return sendJson(res,401,{error:'Customer login required.'})
+    const result=await userRpc('link_store_customer_account',{p_slug:body.slug},token)
+    return sendJson(res,result.status,result.ok?result.data:result.data)
+  }
+
+  if(url.pathname==='/api/public/customer/account'&&req.method==='POST'){
+    const token=authToken(req);const user=await getUser(token)
+    if(!user)return sendJson(res,401,{error:'Customer login required.'})
+    const result=await userRpc('customer_portal_data',{p_slug:body.slug},token)
+    return sendJson(res,result.status,result.data)
+  }
+
+  if(url.pathname==='/api/public/customer/profile'&&req.method==='POST'){
+    const token=authToken(req);const user=await getUser(token)
+    if(!user)return sendJson(res,401,{error:'Customer login required.'})
+    const result=await userRpc('update_customer_portal_profile',{
+      p_slug:body.slug,p_name:body.name||'',p_phone:body.phone||'',p_address:body.address||{},
+      p_marketing_consent:Boolean(body.marketing_consent)
+    },token)
+    return sendJson(res,result.status,result.data)
+  }
 
   if (url.pathname === '/api/public/subscribe' && req.method === 'POST') {
     if (!body?.slug || !body?.email) return sendJson(res, 400, { error: 'Store and email are required.' })
