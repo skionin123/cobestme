@@ -49,7 +49,8 @@ export default function PublicStore({slug:slugProp,host}) {
     const matchesCategory=category==='All'||p.category===category
     return matchesQ&&matchesCategory
   })
-  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop']))
+  const pageMeta=store?.editor?.pageMeta||{}
+  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop'])).filter(p=>p==='Home'||p==='Shop'||pageMeta[p]?.visible!==false)
   const currency=store?.settings?.currency||'PHP'
   const itemCount=cart.reduce((n,x)=>n+x.quantity,0)
   const subtotal=cart.reduce((sum,x)=>sum+Number(x.price||0)*x.quantity,0)
@@ -99,7 +100,7 @@ export default function PublicStore({slug:slugProp,host}) {
     <Newsletter slug={store.slug}/>
     <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>Built with CoBest</span><button onClick={()=>navigate('Contact')}>Contact</button></footer>
 
-    {selectedProduct&&<ProductModal product={selectedProduct} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
+    {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
     {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
   </div>
@@ -128,9 +129,9 @@ function ProductGrid({products,currency,onAdd,onOpen}) {
   {!products.length&&<div className="public-empty">No products match your search.</div>}</div>
 }
 
-function ProductModal({product,currency,slug,onClose,onAdd}) {
+function ProductModal({product,reviews=[],currency,slug,onClose,onAdd}) {
   const [reviewOpen,setReviewOpen]=useState(false)
-  return <Modal title={product.name} onClose={onClose}><div className="public-product-detail">{product.image_url||product.images?.[0]?<img src={product.image_url||product.images?.[0]} alt={product.name}/>:null}<p>{product.description||'Product details will appear here.'}</p><div className="public-detail-price"><strong>{money(product.price,currency)}</strong>{product.inventory!=null&&<span>{product.inventory} in stock</span>}</div><div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setReviewOpen(true)}>Write review</button><button className="btn btn-primary" onClick={onAdd}>Add to cart</button></div>{reviewOpen&&<ReviewForm slug={slug} product={product} onDone={()=>setReviewOpen(false)}/>}</div></Modal>
+  return <Modal title={product.name} onClose={onClose}><div className="public-product-detail">{product.image_url||product.images?.[0]?<img src={product.image_url||product.images?.[0]} alt={product.name}/>:null}<p>{product.description||'Product details will appear here.'}</p><div className="public-detail-price"><strong>{money(product.price,currency)}</strong>{product.inventory!=null&&<span>{product.inventory} in stock</span>}</div>{reviews.length>0&&<div className="public-reviews"><strong>Reviews</strong>{reviews.map(r=><article key={r.id}><span>{'★'.repeat(Number(r.rating||0))}</span><b>{r.author_name}</b><p>{r.body}</p></article>)}</div>}<div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setReviewOpen(true)}>Write review</button><button className="btn btn-primary" onClick={onAdd}>Add to cart</button></div>{reviewOpen&&<ReviewForm slug={slug} product={product} onDone={()=>setReviewOpen(false)}/>}</div></Modal>
 }
 
 function CartDrawer({cart,currency,subtotal,onClose,qty,remove,onCheckout}) {
@@ -158,6 +159,7 @@ function Checkout({store,cart,currency,onClose,onComplete}) {
 function GenericPage({store,name,data,features,onNavigate}) {
   if(name==='Contact') return <ContactPage slug={store.slug}/>
   if(name==='Booking'||(name==='Services'&&features.includes('Booking'))) return <BookingPage slug={store.slug}/>
+  if(name==='Gallery') return <main className="public-generic-page"><small>GALLERY</small><h1>{data.title||'Gallery'}</h1><p>{data.body||'A selection from the business.'}</p><div className="public-gallery">{(store.media||[]).filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><img key={x.id} src={x.url} alt={x.name}/>)}</div></main>
   return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
 }
 
