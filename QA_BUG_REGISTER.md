@@ -42,7 +42,7 @@ For every test:
 | BUG-004 | P0 | Password recovery | Reset link opened `localhost:3000` and failed with `otp_expired` | Recovery callback/URL configuration used localhost fallback | CODE FIXED; CONFIG + RETEST NEEDED | 01a52a9 |
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
-| BUG-007 | P3 | Sidebar / site switcher | Site selector area is cramped/misaligned in the left sidebar; dropdown and + button do not share a clean baseline | First CSS fix improved fit but controls were still vertically misaligned | FIX V2 DEPLOYING / RETEST NEEDED | 5c91efa |
+| BUG-007 | P3 | Sidebar / site switcher | Store selector remained visually misaligned and looked unfinished after two CSS-only fixes | Existing three-column layout was too constrained; rebuilt component into a two-row professional store card | FIX V3 DEPLOYING / RETEST NEEDED | 04ed805 + 77834c5 |
 | BUG-008 | P0 | Password recovery | Reset emails could return to localhost or leave the user on an expired-link dead end instead of a CoBest recovery screen | Recovery callback was query/hash-based and did not provide a dedicated public reset route | FIX DEPLOYED / RETEST NEEDED | 0b3c1e5 |
 | BUG-009 | P2 | Password recovery UX | Raw `email rate limit exceeded` error shown after repeated reset requests | Supabase built-in email service rate-limited repeated recovery emails; UI exposed raw provider error | FIX DEPLOYING / RETEST AFTER COOLDOWN | 3773407 |
 
@@ -211,3 +211,26 @@ Password-reset QA-002 through QA-004 are temporarily deferred because the auth e
 **PASS:** logout prevents private access and subsequent login restores the workspace.
 
 **FAIL:** dashboard remains accessible after logout, logout loops/errors, or login does not restore the workspace.
+
+
+### BUG-007 retest — second fix still failed visual QA
+
+**Result:** FAIL
+
+Observed from production screenshot:
+- Controls technically fit, but the card still looked visually uneven.
+- Avatar, store label, dropdown, and add-site action competed for the same horizontal line.
+- Overall appearance did not look polished enough for production.
+
+**V3 redesign implemented:**
+- Rebuilt the site selector from a cramped one-row control into a structured two-row store card.
+- Row 1: store avatar + "Current store" label + active store name + aligned create-site button.
+- Row 2: full-width site selector with store icon.
+- Unified heights, spacing, border radius, typography, hover/focus states, and truncation.
+- Removed the visual competition between the dropdown and create button.
+
+Commits:
+- `04ed805` component markup redesign
+- `77834c5` professional styling
+
+Retest: **PENDING after deployment**
