@@ -27,7 +27,7 @@ const mime = {
 }
 const allowedTables = new Set([
   'products','customers','orders','discounts','campaigns','media_assets',
-  'site_pages','collections','blog_posts','newsletter_subscribers','contact_messages',
+  'site_pages','collections','blog_posts','catalog_terms','newsletter_subscribers','contact_messages',
   'bookings','product_reviews','store_events'
 ])
 
