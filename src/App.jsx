@@ -696,7 +696,16 @@ export default function App() {
     return ()=>clearTimeout(timer)
   },[onboarding,editor,page,cloudReady])
 
-  const complete = () => { setMode('app'); setPage('dashboard'); window.scrollTo(0,0) }
+  const complete = () => {
+    const featurePages=[]
+    if(safeOnboarding.features.includes('Contact forms')) featurePages.push('Contact')
+    if(safeOnboarding.features.includes('Booking')) featurePages.push('Booking')
+    if(safeOnboarding.features.includes('Gallery')) featurePages.push('Gallery')
+    const nextPages=Array.from(new Set(['Home',...safeOnboarding.pages,...featurePages]))
+    setOnboarding(prev=>({...prev,pages:nextPages}))
+    setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),...Object.fromEntries(nextPages.filter(p=>p!=='Home'&&!prev.pageContent?.[p]).map(p=>[p,{title:p,body:'',blocks:[]}]))}}))
+    setMode('app'); setPage('dashboard'); window.scrollTo(0,0)
+  }
   const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
   const authSuccess=async(next)=>{ const invite=localStorage.getItem('cobest-pending-invite'); if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app')}catch{setMode(next)}}else setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
   const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
