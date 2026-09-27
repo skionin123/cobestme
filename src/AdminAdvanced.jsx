@@ -261,3 +261,34 @@ export function BlogManager({items,setItems,media=[]}) {
   const remove=async x=>{if(!window.confirm(`Delete post "${x.title}"?`))return;await deleteResource('blog_posts',x.id);setItems(p=>p.filter(y=>y.id!==x.id))}
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">CMS</p><h1>Blog</h1><p>Write and publish long-form content to the public storefront.</p></div><Button onClick={()=>open()}><Plus size={16}/> New post</Button></div><div className="table-card"><table><thead><tr><th>Post</th><th>Status</th><th>Published</th><th/></tr></thead><tbody>{items.map(x=><tr key={x.id}><td><div className="product-cell">{x.featured_image?<img className="admin-product-image" src={x.featured_image} alt=""/>:<div className="product-thumb"><FileText size={18}/></div>}<div><strong>{x.title}</strong><span>/{x.slug}</span></div></div></td><td><span className={`status ${String(x.status).toLowerCase()}`}>{x.status}</span></td><td>{x.published_at?new Date(x.published_at).toLocaleDateString():'—'}</td><td><div className="row-actions"><button onClick={()=>open(x)}><Pencil size={15}/></button><button onClick={()=>remove(x)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table>{!items.length&&<Empty title="No posts" body="Create your first blog post or journal story."/>}</div>{editing&&<Modal title={editing==='new'?'New blog post':'Edit blog post'} onClose={()=>setEditing(null)}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Title"><input value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></Field><Field label="Slug"><input value={draft.slug||''} onChange={e=>setDraft({...draft,slug:e.target.value})} placeholder="auto-from-title"/></Field><Field label="Excerpt"><textarea rows="3" value={draft.excerpt||''} onChange={e=>setDraft({...draft,excerpt:e.target.value})}/></Field><Field label="Content"><textarea className="cms-content-editor" rows="14" value={draft.content||''} onChange={e=>setDraft({...draft,content:e.target.value})} placeholder="Write the article content here…"/></Field><Field label="Featured image"><select value={draft.featured_image||''} onChange={e=>setDraft({...draft,featured_image:e.target.value})}><option value="">No featured image</option>{media.filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><option key={x.id} value={x.url}>{x.name}</option>)}</select></Field><div className="form-grid two"><Field label="Status"><select value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})}><option>Draft</option><option>Published</option><option>Archived</option></select></Field><Field label="SEO title"><input value={draft.seo_title||''} onChange={e=>setDraft({...draft,seo_title:e.target.value})}/></Field></div><Field label="SEO description"><textarea rows="3" value={draft.seo_description||''} onChange={e=>setDraft({...draft,seo_description:e.target.value})}/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setEditing(null)}>Cancel</Button><Button disabled={busy} onClick={save}>{busy?'Saving…':'Save post'}</Button></div></div></Modal>}</div>
 }
+
+
+export function BillingManager() {
+  const [data,setData]=useState(null)
+  const [busy,setBusy]=useState('')
+  const [error,setError]=useState('')
+  const load=()=>{setError('');fetch('/api/billing/status',{headers:{authorization:`Bearer ${localStorage.getItem('cobest-auth-token')||''}`}}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load billing.');return d}).then(setData).catch(e=>setError(e.message))}
+  useEffect(load,[])
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search)
+    if(params.get('billing')){window.history.replaceState({},document.title,'/');load()}
+  },[])
+  const upgrade=async plan=>{
+    setBusy(plan);setError('')
+    try{
+      const r=await fetch('/api/billing/checkout',{method:'POST',headers:{authorization:`Bearer ${localStorage.getItem('cobest-auth-token')||''}`,'content-type':'application/json'},body:JSON.stringify({plan})})
+      const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to start billing checkout.');window.location.assign(d.checkout_url)
+    }catch(e){setError(e.message)}finally{setBusy('')}
+  }
+  const portal=async()=>{
+    setBusy('portal');setError('')
+    try{const r=await fetch('/api/billing/portal',{method:'POST',headers:{authorization:`Bearer ${localStorage.getItem('cobest-auth-token')||''}`,'content-type':'application/json'},body:'{}'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to open billing portal.');window.location.assign(d.url)}catch(e){setError(e.message)}finally{setBusy('')}
+  }
+  const plans=[
+    {name:'Free',price:'₱0',note:'Build and preview',features:['Guided onboarding','Visual builder','Store preview']},
+    {name:'Launch',price:'₱990 / month',note:'Publish and sell',features:['Public storefront','Custom domain routing','Products, orders, customers']},
+    {name:'Growth',price:'₱2,490 / month',note:'Operate with a team',features:['Everything in Launch','Team roles','Advanced analytics and support']}
+  ]
+  const current=data?.plan||'Free'
+  return <div className="page-wrap"><div className="page-head"><div><p className="overline">BILLING</p><h1>Plan & billing</h1><p>Choose the CoBest plan for this workspace.</p></div>{data?.subscription?.customer_reference&&<Button variant="secondary" onClick={portal}>Manage billing</Button>}</div>{error&&<div className="auth-message auth-error">{error}</div>}<div className="billing-plan-grid">{plans.map(plan=><article className={`panel billing-plan ${current===plan.name?'current':''}`} key={plan.name}><span className="overline">{plan.note}</span><h2>{plan.name}</h2><strong className="billing-price">{plan.price}</strong><ul>{plan.features.map(x=><li key={x}><Check size={14}/>{x}</li>)}</ul>{current===plan.name?<span className="status active">Current plan</span>:plan.name==='Free'?null:<Button disabled={!!busy||!data?.stripe_connected} onClick={()=>upgrade(plan.name)}>{busy===plan.name?'Opening checkout…':data?.stripe_connected?`Choose ${plan.name}`:'Stripe setup required'}</Button>}</article>)}</div><section className="panel integration-note"><strong>Subscription status</strong><div className="metric-row"><span>Plan</span><strong>{current}</strong></div><div className="metric-row"><span>Status</span><strong>{data?.subscription?.status||'No paid subscription'}</strong></div><div className="metric-row"><span>Stripe billing</span><strong>{data?.stripe_connected?'Ready':'Not connected'}</strong></div>{data?.subscription?.current_period_end&&<div className="metric-row"><span>Current period ends</span><strong>{new Date(data.subscription.current_period_end).toLocaleDateString()}</strong></div>}</section></div>
+}
