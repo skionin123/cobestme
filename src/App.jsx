@@ -544,6 +544,23 @@ function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
   return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
 }
 
+function Recovery({onDone}) {
+  const [password,setPassword]=useState('')
+  const [confirm,setConfirm]=useState('')
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const [message,setMessage]=useState('')
+  const submit=async e=>{
+    e.preventDefault();setError('');setMessage('')
+    if(password.length<8)return setError('Password must be at least 8 characters.')
+    if(password!==confirm)return setError('Passwords do not match.')
+    setBusy(true)
+    try{await updatePassword(password);setMessage('Password updated. You can now log in with the new password.');setTimeout(onDone,900)}
+    catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+  return <div className="auth-page"><div className="auth-top"><button onClick={onDone}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Set a new password</h1><p>Choose a new password for your CoBest account.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="New password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} required/></Field><Field label="Confirm password"><input type="password" minLength="8" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field><Button type="submit" disabled={busy}>{busy?'Updating…':'Update password'}</Button></form></div>
+}
+
 function Auth({variant='login',onSuccess,onBack,onSwitch}) {
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
