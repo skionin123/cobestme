@@ -533,3 +533,27 @@ Commits:
 - `966bb3e` distinct section layouts and responsive styling
 
 Retest: **PENDING after deployment**
+
+
+### MVP-002 third design review — section size and client choice
+
+**User feedback:**
+- Theme sections felt too large.
+- Theme application should not force a client to accept every section in the recipe.
+- Clients/customers need to be able to choose the sections they want.
+
+**Changes implemented:**
+- Theme previews made more compact.
+- Theme-specific storefront sections reduced in vertical size and spacing.
+- Theme cards now use **Choose theme** instead of instantly applying the full recipe.
+- Applying a theme now opens a **section picker**.
+- Clients can select/deselect individual sections before applying the theme.
+- Existing/current themes also have **Choose sections / Edit sections** so the section set can be changed later.
+- New themes default to a smaller recommended set (up to 4 sections), rather than forcing all 5–6.
+- Section picker shows selected count and supports returning later to change the structure.
+
+**Commits:**
+- `75b94a4` client section-selection workflow
+- `45dedde` compact theme/section sizing and picker styling
+
+**Retest:** PENDING after deployment.
