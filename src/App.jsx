@@ -5,7 +5,8 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
-import { createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp } from './api.js'
+import { acceptSessionFromHash, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
+import { AnalyticsAdvanced, CustomersManager, InboxManager, MediaManager, OrdersManager, ProductsManager, PublishingSettings } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -75,7 +76,13 @@ const defaultEditor = {
   featured: { title: 'Featured products', columns: 3 },
   story: { title: 'Tell your story', body: 'Use this section to explain what your business believes in and why customers should choose you.' },
   theme: { sectionGap: 32, radius: 0 },
-  blocks: []
+  blocks: [],
+  currentPage: 'Home',
+  pageContent: {},
+  pageMeta: {},
+  header: { logoText: '', menu: ['Shop','About','Contact'] },
+  newsletter: { heading: 'Stay in the loop.', body: 'New products, stories, and updates.', button: 'Join' },
+  footer: { text: 'Built with CoBest' }
 }
 
 function normalizeOnboarding(value = {}) {
@@ -93,6 +100,12 @@ function normalizeEditor(value = {}) {
   merged.story = { ...defaultEditor.story, ...((value || {}).story || {}) }
   merged.theme = { ...defaultEditor.theme, ...((value || {}).theme || {}) }
   merged.blocks = Array.isArray((value || {}).blocks) ? value.blocks : []
+  merged.pageContent = { ...defaultEditor.pageContent, ...((value || {}).pageContent || {}) }
+  merged.pageMeta = { ...defaultEditor.pageMeta, ...((value || {}).pageMeta || {}) }
+  merged.header = { ...defaultEditor.header, ...((value || {}).header || {}) }
+  merged.newsletter = { ...defaultEditor.newsletter, ...((value || {}).newsletter || {}) }
+  merged.footer = { ...defaultEditor.footer, ...((value || {}).footer || {}) }
+  merged.currentPage = (value || {}).currentPage || 'Home'
   return merged
 }
 
@@ -299,7 +312,7 @@ function Review({data}) {
 const navGroups = [
   { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['customers','Customers',Users]] },
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
-  { label: 'Content', items: [['media','Media',ImageIcon],['brief','Website brief',FileText]] },
+  { label: 'Content', items: [['media','Media',ImageIcon],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
   { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
@@ -505,28 +518,51 @@ export default function App() {
   const [mediaAssets,setMediaAssets] = useState([])
   const [discounts,setDiscounts] = useState([])
   const [campaigns,setCampaigns] = useState([])
+  const [workspace,setWorkspace] = useState(null)
+  const [subscribers,setSubscribers] = useState([])
+  const [contacts,setContacts] = useState([])
+  const [bookings,setBookings] = useState([])
+  const [reviews,setReviews] = useState([])
+  const [events,setEvents] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
 
   useEffect(()=>{
+    const queryMode=new URLSearchParams(window.location.search).get('mode')
+    if(queryMode==='recovery'){
+      acceptSessionFromHash()
+      if(isAuthenticated()) setMode('recovery')
+      return
+    }
     if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
   },[])
 
   useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
-    Promise.all([getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),listResource('media_assets'),listResource('discounts'),listResource('campaigns')]).then(([workspace,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns])=>{
+    Promise.all([
+      getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
+      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),
+      listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
+      listResource('product_reviews'),listResource('store_events')
+    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
       if(!active) return
-      if(workspace?.onboarding) setOnboarding(prev=>({...prev,...workspace.onboarding}))
-      if(workspace?.editor) setEditor(prev=>({...prev,...workspace.editor}))
+      setWorkspace(workspaceData)
+      if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
+      if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
       if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
       if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
       if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
       if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
       if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
       if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
+      if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
+      if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
+      if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
+      if(Array.isArray(cloudReviews)) setReviews(cloudReviews)
+      if(Array.isArray(cloudEvents)) setEvents(cloudEvents)
       setCloudReady(true)
     }).catch(()=>setCloudReady(true))
     return ()=>{active=false}
@@ -534,7 +570,7 @@ export default function App() {
 
   useEffect(()=>{
     if(!cloudReady || !isAuthenticated()) return
-    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{lastPage:page}}).catch(()=>{}),700)
+    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>x&&setWorkspace(x)).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
   },[onboarding,editor,page,cloudReady])
 
@@ -583,21 +619,23 @@ export default function App() {
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')}/>
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')}/>
+  if(mode==='recovery') return <Recovery onDone={()=>{setMode('login');window.history.replaceState({},document.title,'/')}}/>
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
   let content = null
   if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
-  if(page==='products') content=<Products products={products} setProducts={setProducts} onCreate={addProduct}/>
-  if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage}/>
-  if(page==='media') content=<OperationsPage type="media" items={mediaAssets} onCreate={addMedia}/>
-  if(page==='orders') content=<OperationsPage type="orders" orders={orders} customers={customers} onCreate={addOrder}/>
-  if(page==='customers') content=<OperationsPage type="customers" customers={customers} orders={orders} onCreate={addCustomer}/>
-  if(page==='analytics') content=<OperationsPage type="analytics" orders={orders} customers={customers}/>
+  if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} currency={workspace?.currency||'PHP'}/>
+  if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
+  if(page==='media') content=<MediaManager items={mediaAssets} setItems={setMediaAssets}/>
+  if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers}/>
+  if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders}/>
+  if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
   if(page==='marketing') content=<OperationsPage type="marketing" items={campaigns} onCreate={addCampaign}/>
   if(page==='discounts') content=<OperationsPage type="discounts" items={discounts} onCreate={addDiscount}/>
-  if(page==='editor') content=<Editor data={safeOnboarding} products={products} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
+  if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
-  if(page==='settings') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">WORKSPACE</p><h1>Settings</h1><p>Manage your current CoBest workspace.</p></div></div><div className="panel"><SummaryRow label="Mode" value={isAuthenticated()?'Cloud account':'Guest / local'}/><SummaryRow label="Domain" value="cobest.me"/><SummaryRow label="Website" value={safeOnboarding.businessName||'Not named yet'}/><div className="page-actions" style={{marginTop:18}}><Button onClick={()=>setPage('editor')}>Edit website</Button><Button variant="secondary" onClick={()=>setPage('storefront')}>View store</Button></div></div></div>
+  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,reviews:reviews.filter(x=>x.status==='Approved'),pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
+  if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('editor')}><Palette size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
   return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
 }
