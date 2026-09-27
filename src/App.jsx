@@ -567,6 +567,25 @@ function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
   return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
 }
 
+function ResetRequest({onBack}) {
+  const [email,setEmail]=useState('')
+  const [busy,setBusy]=useState(false)
+  const [message,setMessage]=useState(()=>sessionStorage.getItem('cobest-reset-message')||'')
+  const [error,setError]=useState(()=>sessionStorage.getItem('cobest-reset-error')||'')
+  useEffect(()=>{sessionStorage.removeItem('cobest-reset-message');sessionStorage.removeItem('cobest-reset-error')},[])
+  const submit=async e=>{
+    e.preventDefault()
+    const clean=email.trim().toLowerCase()
+    if(!clean)return setError('Enter your email address.')
+    setBusy(true);setError('');setMessage('')
+    try{
+      await resetPassword(clean)
+      setMessage('Reset email sent. Open the newest CoBest reset email. The reset button should return you to cobest.me/reset-password.')
+    }catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back to login</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Reset your password</h1><p>Enter your account email and CoBest will send a password-reset link back to this website.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" autoComplete="email" required/></Field><Button type="submit" disabled={busy}>{busy?'Sending…':'Send reset link'}</Button><div className="auth-divider"><span>Remembered your password?</span></div><Button type="button" variant="secondary" onClick={onBack}>Back to log in</Button></form></div>
+}
+
 function Recovery({onDone}) {
   const [password,setPassword]=useState('')
   const [confirm,setConfirm]=useState('')
@@ -584,7 +603,7 @@ function Recovery({onDone}) {
   return <div className="auth-page"><div className="auth-top"><button onClick={onDone}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Set a new password</h1><p>Choose a new password for your CoBest account.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="New password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} required/></Field><Field label="Confirm password"><input type="password" minLength="8" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field><Button type="submit" disabled={busy}>{busy?'Updating…':'Update password'}</Button></form></div>
 }
 
-function Auth({variant='login',onSuccess,onBack,onSwitch}) {
+function Auth({variant='login',onSuccess,onBack,onSwitch,onForgot}) {
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
   const [showPassword,setShowPassword]=useState(false)
@@ -612,14 +631,8 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
     }
     finally { setBusy(false) }
   }
-  const forgot=async()=>{
-    if(!email.trim()) return setError('Enter your email address first.')
-    setBusy(true); setError(''); setMessage('')
-    try { await resetPassword(email.trim().toLowerCase()); setMessage('Password reset email sent. Open the link in that email to choose a new password.') }
-    catch(err) { setError(err.message) }
-    finally { setBusy(false) }
-  }
-  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><div className="password-input-wrap"><input type={showPassword?'text':'password'} minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete={signup?'new-password':'current-password'} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button></div></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<div className="auth-recovery-row"><button type="button" className="auth-link" onClick={forgot}>Forgot password?</button><span>Use this if your account exists but your password is not accepted.</span></div>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
+
+  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><div className="password-input-wrap"><input type={showPassword?'text':'password'} minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete={signup?'new-password':'current-password'} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button></div></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<div className="auth-recovery-row"><button type="button" className="auth-link" onClick={onForgot}>Forgot password?</button><span>Reset your password securely on cobest.me.</span></div>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
 }
 
 export default function App() {
@@ -651,18 +664,22 @@ export default function App() {
     const params=new URLSearchParams(window.location.search)
     const queryMode=params.get('mode')
     const invite=params.get('invite')
+    const isResetPath=window.location.pathname==='/reset-password'
     const hashParams=new URLSearchParams(window.location.hash.slice(1))
     const hasAuthHash=Boolean(hashParams.get('access_token')||hashParams.get('error')||hashParams.get('error_code')||hashParams.get('type')==='recovery')
-    if(queryMode==='recovery'||hasAuthHash){
-      const result=acceptSessionFromHash()
-      if(result?.ok){
-        if(result.type==='recovery'||queryMode==='recovery') setMode('recovery')
-        else setMode('app')
+    if(isResetPath||queryMode==='recovery'||hasAuthHash){
+      if(hasAuthHash){
+        const result=acceptSessionFromHash()
+        if(result?.ok){
+          setMode('recovery')
+        }else{
+          const msg=result?.message||'This password reset link is invalid or has expired.'
+          sessionStorage.setItem('cobest-reset-error',msg+' Request a new reset email below and use the newest link.')
+          setMode('reset-request')
+          window.history.replaceState({},document.title,'/reset-password')
+        }
       }else{
-        const msg=result?.message||'This password reset link is invalid or has expired. Request a new reset email and use the newest link.'
-        sessionStorage.setItem('cobest-auth-error',msg+' If you requested more than one reset email, older links may no longer work.')
-        setMode('login')
-        window.history.replaceState({},document.title,'/')
+        setMode('reset-request')
       }
       return
     }
@@ -770,8 +787,9 @@ export default function App() {
   }
 
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
-  if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')}/>
-  if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')}/>
+  if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
+  if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
+  if(mode==='reset-request') return <ResetRequest onBack={()=>{window.history.replaceState({},document.title,'/');setMode('login')}}/>
   if(mode==='recovery') return <Recovery onDone={()=>{setMode('login');window.history.replaceState({},document.title,'/')}}/>
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
   let content = null
