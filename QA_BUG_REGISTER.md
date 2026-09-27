@@ -53,10 +53,10 @@ We will not skip ahead after a failure.
 | Test ID | Area | Test | Status |
 |---|---|---|---|
 | QA-001 | Authentication | Existing user login | PASS |
-| QA-002 | Authentication | Forgot password request | PENDING |
-| QA-003 | Authentication | Password reset email callback | PENDING |
-| QA-004 | Authentication | Set new password | PENDING |
-| QA-005 | Authentication | Log out then log back in | PENDING |
+| QA-002 | Authentication | Forgot password request | BLOCKED — provider rate limit; retest later |
+| QA-003 | Authentication | Password reset email callback | BLOCKED BY QA-002 |
+| QA-004 | Authentication | Set new password | BLOCKED BY QA-003 |
+| QA-005 | Authentication | Log out then log back in | NEXT |
 | QA-006 | Onboarding | Start free → create account → onboarding | PENDING |
 | QA-007 | Onboarding | Complete onboarding and generate brief | PENDING |
 | QA-008 | Persistence | Refresh browser and verify saved workspace | PENDING |
@@ -187,3 +187,27 @@ Commits:
 - `d5743ae` production app-shell cache control
 
 Retest: **PENDING after email cooldown and deployment.**
+
+
+## Active test update — QA-005
+
+Password-reset QA-002 through QA-004 are temporarily deferred because the auth email provider is rate-limiting repeated recovery emails. They remain open and will be resumed after cooldown.
+
+### QA-005 — Log out then log back in
+
+**Expected:**
+1. Sign out clears the authenticated session.
+2. CoBest returns to the public/log-in state.
+3. The private dashboard is no longer accessible without authentication.
+4. Logging back in with the same account restores the workspace successfully.
+
+**Steps:**
+1. From the dashboard, click **Sign out** at the bottom-left.
+2. Confirm the dashboard disappears and the public/login screen is shown.
+3. Click **Log in**.
+4. Enter the same working account credentials.
+5. Confirm the dashboard and existing workspace load again.
+
+**PASS:** logout prevents private access and subsequent login restores the workspace.
+
+**FAIL:** dashboard remains accessible after logout, logout loops/errors, or login does not restore the workspace.
