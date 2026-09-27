@@ -5,8 +5,8 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
-import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -322,11 +322,11 @@ const navGroups = [
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['blog','Blog',FileText],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
   { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
-  { label: 'Platform', items: [['team','Team',Users],['billing','Billing',BriefcaseBusiness],['integrations','Integrations',Settings]] },
+  { label: 'Platform', items: [['sites','Sites',Store],['team','Team',Users],['billing','Billing',BriefcaseBusiness],['integrations','Integrations',Settings]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
-function AppShell({ page, setPage, children, onRestart, onSignOut, businessName }) {
+function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite }) {
   const [mobile, setMobile] = useState(false)
   return <div className="app-shell">
     <aside className={`app-sidebar ${mobile?'open':''}`}>
@@ -565,6 +565,7 @@ export default function App() {
   const [blogPosts,setBlogPosts] = useState([])
   const [catalogTerms,setCatalogTerms] = useState([])
   const [workspace,setWorkspace] = useState(null)
+  const [sites,setSites] = useState([])
   const [subscribers,setSubscribers] = useState([])
   const [contacts,setContacts] = useState([])
   const [bookings,setBookings] = useState([])
@@ -598,12 +599,13 @@ export default function App() {
     if(!isAuthenticated()) return
     let active=true
     Promise.all([
-      getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
+      listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
       listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
       listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
       listResource('product_reviews'),listResource('store_events')
-    ]).then(([workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
+    ]).then(([siteList,workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
       if(!active) return
+      if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
       setWorkspace(workspaceData)
       if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
       if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
@@ -628,7 +630,7 @@ export default function App() {
 
   useEffect(()=>{
     if(!cloudReady || !isAuthenticated()) return
-    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>x&&setWorkspace(x)).catch(()=>{}),700)
+    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
   },[onboarding,editor,page,cloudReady])
 
@@ -645,6 +647,9 @@ export default function App() {
   const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
   const authSuccess=async(next)=>{ const invite=localStorage.getItem('cobest-pending-invite'); if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app')}catch{setMode(next)}}else setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
   const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
+  const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
+  const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('onboarding');window.location.reload()}}catch(err){alert(err.message)}}
+  const removeSite=async id=>{if(!window.confirm('Delete this site and its site-scoped data? This cannot be undone.'))return;try{await deleteSite(id);if(String(id)===String(getActiveSiteId()))setActiveSiteId('');window.location.reload()}catch(err){alert(err.message)}}
   const addProduct=async(draft)=>{
     const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
     if(!isAuthenticated()){const created={id:Date.now(),...payload};setProducts(prev=>[created,...prev]);return created}
@@ -702,6 +707,7 @@ export default function App() {
   if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
   if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
   if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
+  if(page==='sites') content=<SitesManager sites={sites} activeSiteId={getActiveSiteId()} onSwitch={switchSite} onCreate={addSite} onDelete={removeSite}/>
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
@@ -710,5 +716,5 @@ export default function App() {
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('editor')}><Palette size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
-  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut}>{content}</AppShell>
+  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite}>{content}</AppShell>
 }
