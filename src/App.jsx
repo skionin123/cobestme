@@ -28,12 +28,70 @@ const pageChoices = ['Home', 'Shop', 'About', 'Services', 'Collections', 'Portfo
 const featureChoices = ['Ecommerce', 'Shopping cart', 'Product search', 'Product filters', 'Newsletter', 'Contact forms', 'Reviews', 'Customer accounts', 'Booking', 'Gallery']
 const contentChoices = ['Logo', 'Brand guide', 'Website copy', 'Product photos', 'Lifestyle photos', 'Product descriptions', 'Testimonials', 'Team information', 'Contact information', 'Policies']
 const themePresets = {
-  Aurelia: { name:'Aurelia', sectionGap:32, radius:4, fontFamily:'Arial, Helvetica, sans-serif' },
-  Mono: { name:'Mono', sectionGap:18, radius:0, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' },
-  Atelier: { name:'Atelier', sectionGap:48, radius:18, fontFamily:'Georgia, Times New Roman, serif' },
-  Studio: { name:'Studio', sectionGap:40, radius:12, fontFamily:'Arial, Helvetica, sans-serif' },
-  Market: { name:'Market', sectionGap:24, radius:8, fontFamily:'Arial, Helvetica, sans-serif' },
-  Editorial: { name:'Editorial', sectionGap:56, radius:0, fontFamily:'Georgia, Times New Roman, serif' }
+  Aurelia: {
+    name:'Aurelia', styleKey:'warm', category:'Warm minimal', fit:'Home · Lifestyle · Wellness',
+    description:'Soft neutrals, balanced whitespace, and calm product storytelling.',
+    sectionGap:36, radius:8, buttonRadius:6,
+    fontFamily:"'DM Sans', Arial, Helvetica, sans-serif", displayFont:"'Playfair Display', Georgia, serif",
+    paper:'#efe5d5', surface:'#fffdf8', ink:'#171713', accent:'#9f7657', muted:'#d8cbbb',
+    previewHeading:'Objects for slower, better living.', previewEyebrow:'NEW COLLECTION'
+  },
+  Mono: {
+    name:'Mono', styleKey:'mono', category:'Brutalist utility', fit:'Tech · Objects · Modern goods',
+    description:'Sharp grids, mono type, strong contrast, and direct product-first layouts.',
+    sectionGap:18, radius:0, buttonRadius:0,
+    fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', displayFont:'ui-monospace, SFMono-Regular, Menlo, monospace',
+    paper:'#f0f0ec', surface:'#ffffff', ink:'#101010', accent:'#ff4f00', muted:'#d6d6cf',
+    previewHeading:'Simple. Direct. Useful.', previewEyebrow:'DROP 01'
+  },
+  Atelier: {
+    name:'Atelier', styleKey:'atelier', category:'Luxury editorial', fit:'Fashion · Jewelry · Beauty',
+    description:'Refined serif typography, cinematic spacing, and a high-end editorial rhythm.',
+    sectionGap:52, radius:2, buttonRadius:999,
+    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:'Georgia, Times New Roman, serif',
+    paper:'#eee5da', surface:'#faf7f2', ink:'#2c201c', accent:'#7b2430', muted:'#d8c9bc',
+    previewHeading:'Quiet luxury, considered.', previewEyebrow:'THE ATELIER EDIT'
+  },
+  Studio: {
+    name:'Studio', styleKey:'studio', category:'Fashion campaign', fit:'Apparel · Creative brands · Drops',
+    description:'Oversized typography, graphic framing, and image-led campaign energy.',
+    sectionGap:40, radius:0, buttonRadius:0,
+    fontFamily:"'Manrope', Arial, sans-serif", displayFont:"'Manrope', Arial, sans-serif",
+    paper:'#e9e9e4', surface:'#fbfbf8', ink:'#111111', accent:'#b7ff38', muted:'#cfcfc7',
+    previewHeading:'New season. No compromise.', previewEyebrow:'CAMPAIGN 26'
+  },
+  Market: {
+    name:'Market', styleKey:'market', category:'Bold retail', fit:'Food · Kids · DTC · Gifts',
+    description:'Friendly color, chunky cards, rounded controls, and clear conversion cues.',
+    sectionGap:28, radius:18, buttonRadius:999,
+    fontFamily:"'Manrope', Arial, sans-serif", displayFont:"'Manrope', Arial, sans-serif",
+    paper:'#ffe176', surface:'#fff9ef', ink:'#1c1b19', accent:'#ff5b3c', muted:'#f2c96d',
+    previewHeading:'Good things, made easy.', previewEyebrow:'FRESH PICKS'
+  },
+  Editorial: {
+    name:'Editorial', styleKey:'editorial', category:'Magazine commerce', fit:'Publishing · Art · Fashion',
+    description:'Text-forward layouts, modular rules, and a curated magazine-like storefront.',
+    sectionGap:58, radius:0, buttonRadius:0,
+    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:'Georgia, Times New Roman, serif',
+    paper:'#f3efe5', surface:'#fbfaf5', ink:'#14213d', accent:'#c6533e', muted:'#d9d4c7',
+    previewHeading:'Stories worth browsing.', previewEyebrow:'ISSUE 04'
+  },
+  Vanta: {
+    name:'Vanta', styleKey:'vanta', category:'Dark luxury', fit:'Jewelry · Watches · Premium goods',
+    description:'Deep charcoal surfaces, metallic accents, and restrained luxury details.',
+    sectionGap:44, radius:10, buttonRadius:999,
+    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:'Georgia, Times New Roman, serif',
+    paper:'#1d1d1b', surface:'#111110', ink:'#f6f1e8', accent:'#c4a66a', muted:'#2b2a27',
+    previewHeading:'Designed to be remembered.', previewEyebrow:'SIGNATURE SERIES'
+  },
+  Bloom: {
+    name:'Bloom', styleKey:'bloom', category:'Soft boutique', fit:'Beauty · Skincare · Boutique',
+    description:'Pastel warmth, rounded shapes, and an approachable boutique presentation.',
+    sectionGap:34, radius:22, buttonRadius:999,
+    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:"'Playfair Display', Georgia, serif",
+    paper:'#f6e8ec', surface:'#fffafa', ink:'#3e2932', accent:'#b66e86', muted:'#ead7dd',
+    previewHeading:'Everyday rituals, beautifully made.', previewEyebrow:'NEW IN'
+  }
 }
 
 const typeSuggestions = {
@@ -453,17 +511,29 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   </div>
 }
 
-function ThemeLibrary({editor,setEditor,setPage}) {
-  const current=editor.theme?.name||'Aurelia'
-  const useTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
-  return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose a strong starting point, then customize sections, colors, type, spacing, and content in the website editor.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
-    <section className="panel current-theme-panel"><div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><span className="status active">Draft</span></div><div className="theme-library-current" style={{fontFamily:editor.theme?.fontFamily,borderRadius:editor.theme?.radius||0}}><div><small>YOUR STORE</small><h2>{editor.hero?.heading||'Build around your brand.'}</h2><p>{editor.hero?.body||'A flexible storefront starting point.'}</p><button>{editor.hero?.button||'Shop now'}</button></div><div className="theme-library-products"><i/><i/><i/></div></div></section>
-    <div className="page-section-head"><div><span>Theme library</span><h2>Choose a starting style</h2></div></div>
-    <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}><div className="theme-library-thumb" style={{fontFamily:t.fontFamily,borderRadius:t.radius}}><div className="theme-mini-header"><b>{name}</b><span>Shop · About</span></div><div className="theme-mini-hero"><small>NEW COLLECTION</small><strong>{name==='Mono'?'Simple. Direct. Useful.':name==='Editorial'?'Stories worth browsing.':'Objects for better everyday living.'}</strong></div><div className="theme-mini-grid"><i/><i/><i/></div></div><div className="theme-library-meta"><div><strong>{name}</strong><span>{t.fontFamily.includes('Georgia')?'Editorial serif':t.fontFamily.includes('mono')?'Monospace system':'Clean system sans'} · {t.radius}px radius</span></div>{current===name?<span className="status active">Current</span>:<Button variant="secondary" onClick={()=>useTheme(name)}>Use theme</Button>}</div></article>)}</div>
+function ThemePreview({theme,large=false}) {
+  const t=theme||themePresets.Aurelia
+  return <div className={`theme-showcase theme-showcase-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-button-radius':`${t.buttonRadius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
+    <div className="theme-showcase-header"><b>{t.name}</b><span>Shop&nbsp;&nbsp;Collections&nbsp;&nbsp;About</span><i/></div>
+    <div className="theme-showcase-hero"><div><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><p>{t.description}</p><button>Shop the edit</button></div><div className="theme-showcase-art"><span/><b/><i/></div></div>
+    <div className="theme-showcase-products"><div><i/><span>Edition 01</span></div><div><i/><span>Edition 02</span></div><div><i/><span>Edition 03</span></div></div>
   </div>
 }
 
+function ThemeLibrary({editor,setEditor,setPage}) {
+  const current=editor.theme?.name||'Aurelia'
+  const currentTheme=themePresets[current]||{...themePresets.Aurelia,...editor.theme}
+  const useTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
+  return <div className="page-wrap">
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Original CoBest themes built around modern ecommerce patterns: editorial storytelling, bold campaign layouts, minimalist product grids, and conversion-friendly retail.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
+    <section className="panel current-theme-panel"><div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><span className="status active">Draft</span></div><ThemePreview theme={currentTheme} large/></section>
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Choose a design direction</h2></div></div>
+    <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
+      <ThemePreview theme={t}/>
+      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div>{current===name?<span className="status active">Current</span>:<Button variant="secondary" onClick={()=>useTheme(name)}>Use theme</Button>}</div>
+    </article>)}</div>
+  </div>
+}
 function NavigationManager({pages=[],editor,setEditor}) {
   const [menuType,setMenuType]=useState('main')
   const [selectedPage,setSelectedPage]=useState((pages||[]).find(x=>x!=='Home')||'')
@@ -558,7 +628,7 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
     if(id==='newsletter') return <section key={id} className="sf-newsletter"><h2>{editor.newsletter?.heading||'Stay in the loop.'}</h2><p>{editor.newsletter?.body||'New products, stories, and updates.'}</p><div><span>Email address</span><button>{editor.newsletter?.button||'Join'}</button></div></section>
     const block=map.get(id);return block?<EditorBlock key={id} block={block}/>:null
   }
-  return <div className={`storefront ${full?'full-storefront':''}`} style={{'--brand':data.primaryColor,'--paper':data.secondaryColor,'--accent':data.accentColor,'--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
+  return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
 
 function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
