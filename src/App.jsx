@@ -587,6 +587,7 @@ function Recovery({onDone}) {
 function Auth({variant='login',onSuccess,onBack,onSwitch}) {
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
+  const [showPassword,setShowPassword]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
   const [error,setError]=useState('')
@@ -595,7 +596,8 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
     e.preventDefault()
     setBusy(true); setError(''); setMessage('')
     try {
-      const result=signup ? await signUp(email,password) : await signIn(email,password)
+      const cleanEmail=email.trim().toLowerCase()
+      const result=signup ? await signUp(cleanEmail,password) : await signIn(cleanEmail,password)
       if(signup && !result?.access_token) {
         setMessage('Check your email to continue. If this email is already registered, use Log in or Forgot password instead.')
       } else {
@@ -610,13 +612,13 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
     finally { setBusy(false) }
   }
   const forgot=async()=>{
-    if(!email) return setError('Enter your email address first.')
+    if(!email.trim()) return setError('Enter your email address first.')
     setBusy(true); setError(''); setMessage('')
-    try { await resetPassword(email); setMessage('Password reset email sent. Open the link in that email to choose a new password.') }
+    try { await resetPassword(email.trim().toLowerCase()); setMessage('Password reset email sent. Open the link in that email to choose a new password.') }
     catch(err) { setError(err.message) }
     finally { setBusy(false) }
   }
-  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" required/></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<button type="button" className="auth-link" onClick={forgot}>Forgot password?</button>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
+  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><div className="password-input-wrap"><input type={showPassword?'text':'password'} minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete={signup?'new-password':'current-password'} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button></div></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<div className="auth-recovery-row"><button type="button" className="auth-link" onClick={forgot}>Forgot password?</button><span>Use this if your account exists but your password is not accepted.</span></div>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
 }
 
 export default function App() {
