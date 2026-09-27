@@ -156,3 +156,31 @@ New live-test targets:
 - Improved invalid-credentials recovery guidance
 
 External provider activation is intentionally excluded from this test phase.
+
+
+## Password reset redirect incident — 2026-09-28
+
+Observed production recovery link redirecting to `http://localhost:3000` with:
+- `error=access_denied`
+- `error_code=otp_expired`
+- message indicating the email link was invalid or expired.
+
+### Code fixes applied
+- Password-reset requests now always request `https://cobest.me/?mode=recovery`.
+- Server reset endpoint now forces the CoBest production recovery callback instead of trusting the browser origin.
+- Recovery callback parsing now handles Supabase error hashes.
+- Expired/invalid links now route back to CoBest login with a useful recovery message instead of leaving the user on a broken callback screen.
+- Valid recovery hashes route directly to the Set New Password screen.
+
+Latest recovery code commit: `01a52a9e3a707e57d53d338ef7f1a2ac3a7e9112`
+Railway successful deployment: `e7ddc77d-3727-476b-ba48-f3b6b7482012`
+
+### Supabase dashboard configuration still required
+The Supabase Auth project URL configuration must use:
+- Site URL: `https://cobest.me`
+- Allowed recovery redirect: `https://cobest.me/?mode=recovery`
+- Recommended additional production allow-list pattern: `https://cobest.me/**`
+
+After changing Auth URL Configuration, request a NEW password reset email. Existing reset links may remain expired or point to the previous localhost configuration.
+
+Manual retest: **PENDING**
