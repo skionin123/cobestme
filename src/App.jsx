@@ -30,7 +30,10 @@ const contentChoices = ['Logo', 'Brand guide', 'Website copy', 'Product photos',
 const themePresets = {
   Aurelia: { name:'Aurelia', sectionGap:32, radius:4, fontFamily:'Arial, Helvetica, sans-serif' },
   Mono: { name:'Mono', sectionGap:18, radius:0, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' },
-  Atelier: { name:'Atelier', sectionGap:48, radius:18, fontFamily:'Georgia, Times New Roman, serif' }
+  Atelier: { name:'Atelier', sectionGap:48, radius:18, fontFamily:'Georgia, Times New Roman, serif' },
+  Studio: { name:'Studio', sectionGap:40, radius:12, fontFamily:'Arial, Helvetica, sans-serif' },
+  Market: { name:'Market', sectionGap:24, radius:8, fontFamily:'Arial, Helvetica, sans-serif' },
+  Editorial: { name:'Editorial', sectionGap:56, radius:0, fontFamily:'Georgia, Times New Roman, serif' }
 }
 
 const typeSuggestions = {
@@ -88,7 +91,7 @@ const defaultEditor = {
   pageMeta: {},
   header: { logoText: '', menu: ['Shop','About','Contact'] },
   newsletter: { heading: 'Stay in the loop.', body: 'New products, stories, and updates.', button: 'Join' },
-  footer: { text: 'Built with CoBest' },
+  footer: { text: 'Built with CoBest', menu: ['Contact'] },
   sectionOrder: ['hero','featured','story','newsletter']
 }
 
@@ -318,11 +321,11 @@ function Review({data}) {
 }
 
 const navGroups = [
-  { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['taxonomy','Categories & brands',FileText],['collections','Collections',Store],['customers','Customers',Users]] },
-  { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
+  { label: '', items: [['dashboard','Home',LayoutDashboard],['processes','Setup & workflow',Sparkles],['orders','Orders',ShoppingBag],['products','Products',Package],['taxonomy','Categories & brands',FileText],['collections','Collections',Store],['customers','Customers',Users]] },
+  { label: 'Online store', items: [['pages','Overview & pages',Store],['themes','Themes',Palette],['navigation','Navigation',Menu],['editor','Website editor',Pencil],['storefront','Preview store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['blog','Blog',FileText],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
   { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
-  { label: 'Platform', items: [['sites','Sites',Store],['team','Team',Users],['billing','Billing',BriefcaseBusiness],['integrations','Integrations',Settings]] },
+  { label: 'Workspace', items: [['sites','Sites',Store],['team','Team',Users]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -343,10 +346,10 @@ function Dashboard({ data, products, customers=[], orders=[], setPage }) {
   const completeness = Math.min(96, 48 + data.pages.length * 4 + data.styles.length * 5 + products.length * 3)
   const paidSales = orders.filter(o=>o.payment_status==='Paid').reduce((sum,o)=>sum+Number(o.total||0),0)
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
+    <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
     <div className="stat-grid"><Stat title="Sales" value={formatPrice(paidSales)} note={paidSales?"Paid revenue":"No paid sales yet"} icon={BarChart3}/><Stat title="Orders" value={String(orders.length)} note={orders.length?"Orders recorded":"No orders yet"} icon={ShoppingBag}/><Stat title="Conversion" value="—" note="Available after traffic" icon={Store}/><Stat title="Customers" value={String(customers.length)} note={customers.length?"Customer records":"No customers yet"} icon={Users}/></div>
     <div className="dashboard-grid commerce-home-grid"><section className="panel"><div className="panel-head"><div><span>Store activity</span><h3>Ready for your first visit</h3></div><Button variant="ghost" onClick={()=>setPage('analytics')}>View analytics <ArrowRight size={14}/></Button></div><div className="empty-panel"><BarChart3 size={24}/><strong>Performance will appear here</strong><p>Once your storefront receives traffic and orders, CoBest will show sales and conversion activity here.</p></div></section><section className="panel"><div className="panel-head"><div><span>Orders</span><h3>Nothing needs attention</h3></div><Button variant="ghost" onClick={()=>setPage('orders')}>View orders <ArrowRight size={14}/></Button></div><div className="empty-panel"><ShoppingBag size={24}/><strong>No orders yet</strong><p>New orders will appear here with payment and fulfillment status.</p></div></section></div>
-    <div className="progress-panel"><div className="progress-ring" style={{'--p':`${completeness*3.6}deg`}}><span>{completeness}%</span></div><div className="progress-copy"><span>Store setup</span><h2>Keep building the storefront.</h2><p>Your business direction is captured. Continue refining pages, products, content, and the customer experience.</p><div className="progress-line"><i style={{width:`${completeness}%`}}/></div></div><div className="progress-action"><Button variant="secondary" onClick={()=>setPage('brief')}>View website brief</Button></div></div>
+    <div className="progress-panel"><div className="progress-ring" style={{'--p':`${completeness*3.6}deg`}}><span>{completeness}%</span></div><div className="progress-copy"><span>Store setup</span><h2>Keep building the storefront.</h2><p>Your business direction is captured. Continue refining pages, products, content, and the customer experience.</p><div className="progress-line"><i style={{width:`${completeness}%`}}/></div></div><div className="progress-action"><Button variant="secondary" onClick={()=>setPage('processes')}>Continue setup</Button></div></div>
     <div className="workspace-grid"><button onClick={()=>setPage('products')}><Package size={20}/><div><span>Catalog</span><strong>{products.length} products</strong><p>Pricing, inventory, and product status.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Palette size={20}/><div><span>Online store</span><strong>Customize website</strong><p>Edit sections and customer-facing pages.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('customers')}><Users size={20}/><div><span>Customers</span><strong>Customer records</strong><p>Purchase history and customer details.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('media')}><ImageIcon size={20}/><div><span>Content</span><strong>Media library</strong><p>Website and product assets in one place.</p></div><ArrowRight size={15}/></button></div>
   </div>
 }
@@ -538,7 +541,12 @@ function Auth({variant='login',onSuccess,onBack,onSwitch}) {
       } else {
         onSuccess(signup ? 'onboarding' : 'app')
       }
-    } catch(err) { setError(err.message) }
+    } catch(err) {
+      const raw=String(err.message||'')
+      if(!signup&&raw.toLowerCase().includes('invalid login credentials')) setError('Email or password is incorrect. If this account already exists, use Forgot password to set a new password.')
+      else if(signup&&raw.toLowerCase().includes('already')) setError('This email already has an account. Use Log in or Forgot password.')
+      else setError(raw)
+    }
     finally { setBusy(false) }
   }
   const forgot=async()=>{
