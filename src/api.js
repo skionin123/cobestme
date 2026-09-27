@@ -37,7 +37,7 @@ export function acceptSessionFromHash() {
   if (!access_token) return { ok:false, reason:'missing_token' }
   saveSession({ access_token, refresh_token })
   window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
-  return { ok:true }
+  return { ok:true, type:params.get('type')||'' }
 }
 
 export function logout() {
