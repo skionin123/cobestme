@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import PublicStore from './PublicStore.jsx'
 import './styles.css'
 
 class AppErrorBoundary extends React.Component {
@@ -29,10 +30,19 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
+const hostname = window.location.hostname.toLowerCase()
+const slugMatch = window.location.pathname.match(/^\/store\/([^/]+)/)
+const platformHost = hostname === 'cobest.me' || hostname === 'www.cobest.me' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.up.railway.app')
+const routedApp = slugMatch
+  ? <PublicStore slug={decodeURIComponent(slugMatch[1])}/>
+  : !platformHost
+    ? <PublicStore host={hostname}/>
+    : <App/>
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <App />
+      {routedApp}
     </AppErrorBoundary>
   </React.StrictMode>,
 )
