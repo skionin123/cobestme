@@ -116,3 +116,23 @@ Fix:
 - Railway status: **SUCCESS**
 
 Manual mobile retest: **PENDING**
+
+
+### Authentication restored — 2026-09-27
+
+The temporary guest bypass used during UI debugging has been removed.
+
+Expected production flow:
+- **Start free** → Create account
+- **Create account** → Onboarding after successful authentication
+- **Log in** → Existing account login
+- Authenticated users → Dashboard / editor / store management
+- Unauthenticated users cannot remain inside the private workspace
+
+GitHub commit: `b22afec91a3aa8641cc5abab7faeed5b1d671ed2`
+
+Railway production deployment: `489ced62-59ee-4332-adc3-67218eaeb4a5`
+
+Railway status: **SUCCESS**
+
+Manual browser verification: **PENDING**
