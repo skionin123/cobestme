@@ -42,7 +42,7 @@ For every test:
 | BUG-004 | P0 | Password recovery | Reset link opened `localhost:3000` and failed with `otp_expired` | Recovery callback/URL configuration used localhost fallback | CODE FIXED; CONFIG + RETEST NEEDED | 01a52a9 |
 | BUG-005 | P1 | UX/process | No clear end-to-end setup sequence | Store configuration was spread across screens without guided order | FIXED | Setup & Workflow center + operating process |
 | BUG-006 | P1 | Store setup | Theme/navigation workflow unclear | No dedicated theme library/navigation manager | FIXED | Theme Library + Navigation Manager |
-| BUG-007 | P3 | Sidebar / site switcher | Store selector remained visually misaligned and looked unfinished after two CSS-only fixes | Existing three-column layout was too constrained; rebuilt component into a two-row professional store card | FIX V3 DEPLOYING / RETEST NEEDED | 04ed805 + 77834c5 |
+| BUG-007 | P3 | Sidebar / site switcher | Store selector remained visually misaligned and looked unfinished after two CSS-only fixes | Rebuilt component into a two-row professional store card with aligned header row and full-width selector | PASS | 04ed805 + 77834c5 |
 | BUG-008 | P0 | Password recovery | Reset emails could return to localhost or leave the user on an expired-link dead end instead of a CoBest recovery screen | Recovery callback was query/hash-based and did not provide a dedicated public reset route | FIX DEPLOYED / RETEST NEEDED | 0b3c1e5 |
 | BUG-009 | P2 | Password recovery UX | Raw `email rate limit exceeded` error shown after repeated reset requests | Supabase built-in email service rate-limited repeated recovery emails; UI exposed raw provider error | FIX DEPLOYING / RETEST AFTER COOLDOWN | 3773407 |
 
@@ -234,3 +234,20 @@ Commits:
 - `77834c5` professional styling
 
 Retest: **PENDING after deployment**
+
+
+### BUG-007 final retest — PASS
+
+**Result:** PASS
+
+Evidence from production screenshot:
+- Avatar, current-store label, active store name, and create-site button are aligned.
+- Site selector is separated into its own full-width row.
+- Spacing, hierarchy, and control heights now look intentional and production-ready.
+- No overlap or cramped one-line layout remains.
+
+BUG-007 is closed.
+
+### QA-005 remains active
+
+Next action: test **Sign out → Log back in → same workspace restored**.
