@@ -19,6 +19,7 @@ export default function PublicStore({slug:slugProp,host}) {
   const [selectedProduct,setSelectedProduct]=useState(null)
   const [cartOpen,setCartOpen]=useState(false)
   const [checkoutOpen,setCheckoutOpen]=useState(false)
+  const [accountOpen,setAccountOpen]=useState(false)
   const [menuOpen,setMenuOpen]=useState(false)
   const [notice,setNotice]=useState('')
   const [cart,setCart]=useState([])
@@ -97,7 +98,7 @@ export default function PublicStore({slug:slugProp,host}) {
       <nav className={menuOpen?'open':''}>
         {headerMenu.map(p=><button key={p} className={page===p?'active':''} onClick={()=>navigate(p)}>{p}</button>)}
       </nav>
-      <div className="public-store-actions"><button onClick={()=>navigate('Shop')}><Search size={18}/></button><button onClick={()=>setCartOpen(true)}><ShoppingBag size={18}/>{itemCount>0&&<b>{itemCount}</b>}</button></div>
+      <div className="public-store-actions"><button className="public-account-button" onClick={()=>setAccountOpen(true)}>Account</button><button onClick={()=>navigate('Shop')}><Search size={18}/></button><button onClick={()=>setCartOpen(true)}><ShoppingBag size={18}/>{itemCount>0&&<b>{itemCount}</b>}</button></div>
     </header>
     {notice&&<div className="public-toast">{notice}</div>}
 
@@ -115,6 +116,7 @@ export default function PublicStore({slug:slugProp,host}) {
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
     {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
+    {accountOpen&&<OrderLookup slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
   </div>
 }
 
@@ -148,6 +150,19 @@ function ProductModal({product,reviews=[],currency,slug,onClose,onAdd}) {
 
 function CartDrawer({cart,currency,subtotal,onClose,qty,remove,onCheckout}) {
   return <div className="cart-drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={e=>e.stopPropagation()}><div className="cart-drawer-head"><h2>Your cart</h2><button onClick={onClose}><X size={20}/></button></div>{cart.map(x=><div className="cart-line" key={x.id}><div><strong>{x.name}</strong><span>{money(x.price,currency)}</span></div><div className="cart-qty"><button onClick={()=>qty(x.id,-1)}><Minus size={14}/></button><b>{x.quantity}</b><button onClick={()=>qty(x.id,1)}><Plus size={14}/></button><button className="cart-remove" onClick={()=>remove(x.id)}><Trash2 size={15}/></button></div></div>)}{!cart.length&&<p>Your cart is empty.</p>}<div className="cart-total"><span>Subtotal</span><strong>{money(subtotal,currency)}</strong></div><button className="btn btn-primary" disabled={!cart.length} onClick={onCheckout}>Checkout</button></aside></div>
+}
+
+function OrderLookup({slug,currency,onClose}) {
+  const [form,setForm]=useState({order_number:'',email:''})
+  const [order,setOrder]=useState(null)
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const lookup=async()=>{
+    setBusy(true);setError('');setOrder(null)
+    try{const data=await publicAction('order-lookup',{slug,...form});setOrder(data.order)}
+    catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+  return <Modal title="Customer order lookup" onClose={onClose}><div className="modal-form"><p>Enter the order number and email used at checkout.</p>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Order number"><input value={form.order_number} onChange={e=>setForm({...form,order_number:e.target.value.toUpperCase()})} placeholder="CO-XXXXXXXX"/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.order_number||!form.email} onClick={lookup}>{busy?'Looking up…':'Find order'}</button>{order&&<div className="customer-order-result"><div><span>Order</span><strong>{order.order_number}</strong></div><div><span>Placed</span><strong>{new Date(order.created_at).toLocaleString()}</strong></div><div><span>Payment</span><strong>{order.payment_status}</strong></div><div><span>Fulfillment</span><strong>{order.fulfillment_status}</strong></div>{order.tracking_number&&<div><span>Tracking</span><strong>{order.carrier} {order.tracking_number}</strong></div>}<div><span>Total</span><strong>{money(order.total,currency)}</strong></div><div className="customer-order-items">{(order.items||[]).map((x,i)=><span key={i}>{x.quantity} × {x.name}</span>)}</div></div>}</div></Modal>
 }
 
 function Checkout({store,cart,currency,onClose,onComplete}) {
