@@ -14,6 +14,8 @@ const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
 const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
 const paypalBase = (process.env.PAYPAL_ENV || 'sandbox').toLowerCase() === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
+const resendApiKey = process.env.RESEND_API_KEY || ''
+const emailFrom = process.env.EMAIL_FROM || 'CoBest <onboarding@resend.dev>'
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -195,6 +197,21 @@ function verifyStripeSignature(raw, header) {
   try{return timingSafeEqual(Buffer.from(digest,'hex'),Buffer.from(signature,'hex'))}catch{return false}
 }
 
+async function sendEmail(to, subject, html) {
+  if(!resendApiKey||!to)return {ok:false,skipped:true}
+  const response=await fetch('https://api.resend.com/emails',{
+    method:'POST',
+    headers:{authorization:`Bearer ${resendApiKey}`,'content-type':'application/json'},
+    body:JSON.stringify({from:emailFrom,to:[to],subject,html})
+  })
+  const data=await response.json().catch(()=>({}))
+  return {ok:response.ok,status:response.status,data}
+}
+
+function escapeHtml(value=''){
+  return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))
+}
+
 function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
@@ -272,12 +289,23 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
     const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
+    if(result.ok&&resendApiKey){
+      const store=await getPublishedStore(body.slug)
+      const to=store?.settings?.contactEmail
+      if(to)sendEmail(to,`New website message from ${body.name||body.email}`,`<p><strong>From:</strong> ${escapeHtml(body.name||'Visitor')} (${escapeHtml(body.email)})</p><p>${escapeHtml(body.message).replaceAll('\n','<br>')}</p>`).catch(()=>{})
+    }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/booking' && req.method === 'POST') {
     if (!body?.slug || !body?.name || !body?.email || !body?.start_at) return sendJson(res, 400, { error: 'Store, name, email, and time are required.' })
     const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
+    if(result.ok&&resendApiKey){
+      const store=await getPublishedStore(body.slug)
+      const to=store?.settings?.contactEmail
+      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(body.start_at)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
+      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(body.start_at)}</strong> has been received.</p>`).catch(()=>{})
+    }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
@@ -334,6 +362,9 @@ async function handlePublicApi(req, res, url) {
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     const order=result.data
+    if(resendApiKey&&body.buyer?.email){
+      sendEmail(body.buyer.email,`Order ${order.order_number} received`,`<p>Hi ${escapeHtml(body.buyer.name)},</p><p>We received order <strong>${escapeHtml(order.order_number)}</strong>.</p><p>Total: <strong>${escapeHtml(String(totals.total))} ${escapeHtml(String(store?.settings?.currency||'PHP'))}</strong></p><p>Payment status: Pending.</p>`).catch(()=>{})
+    }
     const provider=String(body.payment_provider||'').toLowerCase()
     try{
       if(provider==='stripe'&&stripeSecret){
@@ -441,7 +472,7 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, {
       stripe: Boolean(process.env.STRIPE_SECRET_KEY),
       paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
-      email: Boolean(process.env.RESEND_API_KEY || process.env.POSTMARK_SERVER_TOKEN || process.env.SENDGRID_API_KEY),
+      email: Boolean(resendApiKey),
       shipstation: Boolean(process.env.SHIPSTATION_API_KEY),
       amazon: Boolean(process.env.AMAZON_SELLING_PARTNER_CLIENT_ID && process.env.AMAZON_SELLING_PARTNER_CLIENT_SECRET),
       ebay: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET),
@@ -467,6 +498,11 @@ async function handleApi(req, res, url) {
       headers: apiHeaders(token, { Prefer: 'return=representation' }),
       body: JSON.stringify({ owner_user_id: ownerId, email: String(body.email).trim().toLowerCase(), role: inviteRole })
     })
+    if(result.ok&&Array.isArray(result.data)&&result.data[0]&&resendApiKey){
+      const inv=result.data[0]
+      const link=`${requestOrigin(req)}/?invite=${inv.token}`
+      sendEmail(inv.email,'You were invited to a CoBest workspace',`<p>You were invited as <strong>${escapeHtml(inv.role)}</strong>.</p><p><a href="${link}">Accept CoBest invitation</a></p><p>This link expires in 7 days.</p>`).catch(()=>{})
+    }
     return sendJson(res, result.status, result.data)
   }
 
@@ -571,6 +607,27 @@ async function handleApi(req, res, url) {
       body: JSON.stringify({ user_id: ownerId, name: rawName, url: publicUrl, mime_type: contentType })
     })
     return sendJson(res, record.status, record.data)
+  }
+
+  const campaignSend = url.pathname.match(/^\/api\/campaigns\/(\d+)\/send$/)
+  if(campaignSend&&req.method==='POST'){
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    if(!resendApiKey)return sendJson(res,503,{error:'Email delivery is not connected. Configure RESEND_API_KEY first.'})
+    const campaignResult=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaignSend[1]}&user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
+    const campaign=campaignResult.ok&&Array.isArray(campaignResult.data)?campaignResult.data[0]:null
+    if(!campaign)return sendJson(res,404,{error:'Campaign not found.'})
+    const subsResult=await supabaseFetch(`/rest/v1/newsletter_subscribers?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=email`,{headers:apiHeaders(token)})
+    const subscribers=subsResult.ok&&Array.isArray(subsResult.data)?subsResult.data:[]
+    let sent=0,failed=0
+    for(const sub of subscribers.slice(0,500)){
+      const mail=await sendEmail(sub.email,campaign.subject||campaign.name,`<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.content||'').replaceAll('\n','<br>')}</div>`)
+      if(mail.ok)sent++;else failed++
+    }
+    const updated=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaign.id}&user_id=eq.${encodeURIComponent(ownerId)}`,{
+      method:'PATCH',headers:apiHeaders(token,{Prefer:'return=representation'}),
+      body:JSON.stringify({status:failed&&sent===0?'Draft':'Complete',sent_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+    })
+    return sendJson(res,200,{sent,failed,total:subscribers.length,campaign:Array.isArray(updated.data)?updated.data[0]:updated.data})
   }
 
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)(?:\/(\d+))?$/)
