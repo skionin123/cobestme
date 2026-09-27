@@ -273,6 +273,19 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { user: { id: user.id, email: user.email } })
   }
 
+  if (url.pathname === '/api/integrations/status' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
+      paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
+      email: Boolean(process.env.RESEND_API_KEY || process.env.POSTMARK_SERVER_TOKEN || process.env.SENDGRID_API_KEY),
+      shipstation: Boolean(process.env.SHIPSTATION_API_KEY),
+      amazon: Boolean(process.env.AMAZON_SELLING_PARTNER_CLIENT_ID && process.env.AMAZON_SELLING_PARTNER_CLIENT_SECRET),
+      ebay: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET),
+      adobe: Boolean(process.env.ADOBE_CLIENT_ID && process.env.ADOBE_CLIENT_SECRET)
+    })
+  }
+
+
   if (url.pathname === '/api/workspace') {
     if (req.method === 'GET') {
       const result = await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(user.id)}&select=*&limit=1`, { headers: apiHeaders(token) })
