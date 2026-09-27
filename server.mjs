@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,6 +8,12 @@ const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || ''
+const internalSecret = process.env.COBEST_INTERNAL_SECRET || ''
+const stripeSecret = process.env.STRIPE_SECRET_KEY || ''
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
+const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
+const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
+const paypalBase = (process.env.PAYPAL_ENV || 'sandbox').toLowerCase() === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -91,6 +98,103 @@ async function rpc(name, payload) {
   })
 }
 
+async function internalPaymentUpdate(orderId, status, provider, reference='') {
+  if (!internalSecret) throw new Error('Internal payment bridge is not configured.')
+  const result = await rpc('internal_update_payment', {
+    p_secret: internalSecret,
+    p_order_id: Number(orderId),
+    p_status: status,
+    p_provider: provider || '',
+    p_reference: reference || ''
+  })
+  if (!result.ok) throw new Error(typeof result.data === 'string' ? result.data : result.data?.message || result.data?.error || 'Unable to update payment.')
+  return result.data
+}
+
+function requestOrigin(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
+  return `${proto}://${req.headers.host || 'cobest.me'}`
+}
+
+async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
+  if (!stripeSecret) return null
+  const params = new URLSearchParams()
+  params.set('mode','payment')
+  params.set('success_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=success&order=${encodeURIComponent(order.order_number)}`)
+  params.set('cancel_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled&order=${encodeURIComponent(order.order_number)}`)
+  params.set('customer_email',buyer.email)
+  params.set('metadata[order_id]',String(order.id))
+  params.set('metadata[order_number]',String(order.order_number))
+  params.set('line_items[0][price_data][currency]',String(currency||'PHP').toLowerCase())
+  params.set('line_items[0][price_data][product_data][name]',`Order ${order.order_number}`)
+  params.set('line_items[0][price_data][unit_amount]',String(Math.max(0,Math.round(Number(total||0)*100))))
+  params.set('line_items[0][quantity]','1')
+  const response = await fetch('https://api.stripe.com/v1/checkout/sessions',{
+    method:'POST',
+    headers:{authorization:`Bearer ${stripeSecret}`,'content-type':'application/x-www-form-urlencoded'},
+    body:params
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok) throw new Error(data?.error?.message||'Stripe checkout could not be created.')
+  await internalPaymentUpdate(order.id,'Pending','stripe',data.id)
+  return {provider:'stripe',status:'Pending',reference:data.id,checkout_url:data.url}
+}
+
+async function paypalAccessToken() {
+  if(!paypalClientId||!paypalClientSecret) return null
+  const response=await fetch(`${paypalBase}/v1/oauth2/token`,{
+    method:'POST',
+    headers:{authorization:`Basic ${Buffer.from(`${paypalClientId}:${paypalClientSecret}`).toString('base64')}`,'content-type':'application/x-www-form-urlencoded'},
+    body:'grant_type=client_credentials'
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok) throw new Error(data?.error_description||'PayPal authentication failed.')
+  return data.access_token
+}
+
+async function createPayPalCheckout({req,order,total,currency,slug}) {
+  const access=await paypalAccessToken()
+  if(!access)return null
+  const response=await fetch(`${paypalBase}/v2/checkout/orders`,{
+    method:'POST',
+    headers:{authorization:`Bearer ${access}`,'content-type':'application/json','paypal-request-id':`cobest-${order.id}-${Date.now()}`},
+    body:JSON.stringify({
+      intent:'CAPTURE',
+      purchase_units:[{custom_id:String(order.id),invoice_id:String(order.order_number),amount:{currency_code:String(currency||'PHP').toUpperCase(),value:Number(total||0).toFixed(2)}}],
+      payment_source:{paypal:{experience_context:{return_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?paypal=return`,cancel_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled`,user_action:'PAY_NOW'}}}
+    })
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok) throw new Error(data?.message||'PayPal checkout could not be created.')
+  const approve=(data.links||[]).find(x=>x.rel==='payer-action'||x.rel==='approve')?.href
+  await internalPaymentUpdate(order.id,'Pending','paypal',data.id)
+  return {provider:'paypal',status:'Pending',reference:data.id,checkout_url:approve}
+}
+
+async function capturePayPal(paypalOrderId) {
+  const access=await paypalAccessToken()
+  if(!access) throw new Error('PayPal is not configured.')
+  const response=await fetch(`${paypalBase}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`,{
+    method:'POST',headers:{authorization:`Bearer ${access}`,'content-type':'application/json'},body:'{}'
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok) throw new Error(data?.message||'PayPal capture failed.')
+  const orderId=Number(data?.purchase_units?.[0]?.custom_id)
+  if(data.status==='COMPLETED'&&orderId) await internalPaymentUpdate(orderId,'Paid','paypal',paypalOrderId)
+  return data
+}
+
+function verifyStripeSignature(raw, header) {
+  if(!stripeWebhookSecret||!header)return false
+  const parts=Object.fromEntries(String(header).split(',').map(x=>x.split('=').map(v=>v.trim())))
+  const timestamp=parts.t
+  const signature=parts.v1
+  if(!timestamp||!signature)return false
+  if(Math.abs(Date.now()/1000-Number(timestamp))>300)return false
+  const digest=createHmac('sha256',stripeWebhookSecret).update(`${timestamp}.${raw.toString('utf8')}`).digest('hex')
+  try{return timingSafeEqual(Buffer.from(digest,'hex'),Buffer.from(signature,'hex'))}catch{return false}
+}
+
 function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
@@ -146,14 +250,14 @@ async function handlePublicApi(req, res, url) {
   if (storeMatch && req.method === 'GET') {
     const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, store)
+    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
     const store = host ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, store)
+    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
   const body = req.method === 'POST' ? await readJson(req) : {}
@@ -202,6 +306,12 @@ async function handlePublicApi(req, res, url) {
     return sendJson(res, 200, { order: result.data })
   }
 
+  if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
+    if(!body?.paypal_order_id)return sendJson(res,400,{error:'PayPal order ID is required.'})
+    try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:true,status:data.status})}
+    catch(error){return sendJson(res,502,{error:error.message})}
+  }
+
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     const store = await getPublishedStore(body.slug)
@@ -223,13 +333,37 @@ async function handlePublicApi(req, res, url) {
       p_shipping_address: body.shipping_address || {}
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
-    return sendJson(res, 200, { order: result.data, totals, payment: { status: 'Pending', provider: null } })
+    const order=result.data
+    const provider=String(body.payment_provider||'').toLowerCase()
+    try{
+      if(provider==='stripe'&&stripeSecret){
+        const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
+        return sendJson(res,200,{order,totals,payment})
+      }
+      if(provider==='paypal'&&paypalClientId&&paypalClientSecret){
+        const payment=await createPayPalCheckout({req,order,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
+        return sendJson(res,200,{order,totals,payment})
+      }
+      return sendJson(res, 200, { order, totals, payment: { status: 'Pending', provider: null, checkout_url: null } })
+    }catch(error){
+      return sendJson(res,502,{error:error.message,order,totals})
+    }
   }
 
   return sendJson(res, 404, { error: 'Public API route not found.' })
 }
 
 async function handleApi(req, res, url) {
+  if (url.pathname === '/api/webhooks/stripe' && req.method === 'POST') {
+    const raw=await readBuffer(req,2*1024*1024)
+    if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
+    const event=JSON.parse(raw.toString('utf8'))
+    const session=event?.data?.object||{}
+    const orderId=Number(session?.metadata?.order_id)
+    if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',session.id||'')
+    if(orderId&&event.type==='checkout.session.expired') await internalPaymentUpdate(orderId,'Failed','stripe',session.id||'')
+    return sendJson(res,200,{received:true})
+  }
   if (url.pathname.startsWith('/api/public/')) return handlePublicApi(req, res, url)
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
