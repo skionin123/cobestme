@@ -96,17 +96,16 @@ function safeSlug(value='') {
 }
 
 async function getPublishedStore(slug) {
-  const result = await supabaseFetch(`/rest/v1/published_stores?slug=eq.${encodeURIComponent(slug)}&select=owner_user_id,slug,custom_domain,snapshot,published_at&limit=1`, {
-    headers: apiHeaders()
-  })
-  return result.ok && Array.isArray(result.data) ? result.data[0] || null : null
+  const result = await rpc('public_store_payload', { p_slug: slug })
+  return result.ok ? result.data || null : null
 }
 
 async function getPublishedStoreByDomain(host) {
-  const result = await supabaseFetch(`/rest/v1/published_stores?custom_domain=eq.${encodeURIComponent(host)}&select=owner_user_id,slug,custom_domain,snapshot,published_at&limit=1`, {
+  const result = await supabaseFetch(`/rest/v1/published_stores?custom_domain=eq.${encodeURIComponent(host)}&select=slug&limit=1`, {
     headers: apiHeaders()
   })
-  return result.ok && Array.isArray(result.data) ? result.data[0] || null : null
+  const row = result.ok && Array.isArray(result.data) ? result.data[0] || null : null
+  return row?.slug ? getPublishedStore(row.slug) : null
 }
 
 function calculateCheckout(snapshot, body) {
@@ -147,14 +146,14 @@ async function handlePublicApi(req, res, url) {
   if (storeMatch && req.method === 'GET') {
     const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { slug: store.slug, published_at: store.published_at, ...store.snapshot })
+    return sendJson(res, 200, store)
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
     const store = host ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { slug: store.slug, published_at: store.published_at, ...store.snapshot })
+    return sendJson(res, 200, store)
   }
 
   const body = req.method === 'POST' ? await readJson(req) : {}
@@ -207,7 +206,7 @@ async function handlePublicApi(req, res, url) {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    const totals = calculateCheckout(store.snapshot, body)
+    const totals = calculateCheckout(store, body)
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
       p_slug: body.slug,
