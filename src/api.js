@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'cobest-auth-token'
 const REFRESH_KEY = 'cobest-refresh-token'
+const SITE_KEY = 'cobest-active-site-id'
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY) || ''
@@ -12,6 +13,9 @@ export function getRefreshToken() {
 export function isAuthenticated() {
   return Boolean(getToken())
 }
+
+export function getActiveSiteId(){ return localStorage.getItem(SITE_KEY) || '' }
+export function setActiveSiteId(id){ if(id) localStorage.setItem(SITE_KEY,String(id)); else localStorage.removeItem(SITE_KEY) }
 
 export function saveSession(payload) {
   if (payload?.access_token) localStorage.setItem(TOKEN_KEY, payload.access_token)
@@ -33,6 +37,7 @@ export function acceptSessionFromHash() {
 export function logout() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(REFRESH_KEY)
+  localStorage.removeItem(SITE_KEY)
 }
 
 let refreshing = null
@@ -57,6 +62,8 @@ async function request(path, options = {}, retry = true) {
   const headers = { 'content-type': 'application/json', ...(options.headers || {}) }
   const token = getToken()
   if (token) headers.authorization = `Bearer ${token}`
+  const siteId=getActiveSiteId()
+  if(siteId) headers['x-cobest-site-id']=siteId
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401 && retry && getRefreshToken()) {
     await refreshSession()
@@ -114,8 +121,19 @@ export async function saveWorkspace(workspace) {
     method: 'PUT',
     body: JSON.stringify(workspace)
   })
-  return Array.isArray(rows) ? rows[0] || null : rows
+  const result=Array.isArray(rows) ? rows[0] || null : rows
+  if(result?.id)setActiveSiteId(result.id)
+  return result
 }
+
+export async function listSites(){ return request('/api/sites') }
+export async function createSite(values={}){
+  const rows=await request('/api/sites',{method:'POST',body:JSON.stringify(values)})
+  const result=Array.isArray(rows)?rows[0]||null:rows
+  if(result?.id)setActiveSiteId(result.id)
+  return result
+}
+export async function deleteSite(id){ return request(`/api/sites/${id}`,{method:'DELETE'}) }
 
 export async function publishStore(payload) {
   return request('/api/publish', {
@@ -157,6 +175,7 @@ export async function uploadMedia(file) {
   const headers = { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name || 'upload.bin') }
   const token = getToken()
   if (token) headers.authorization = `Bearer ${token}`
+  const siteId=getActiveSiteId();if(siteId)headers['x-cobest-site-id']=siteId
   let response = await fetch('/api/media/upload', { method: 'POST', headers, body: file })
   if (response.status === 401 && getRefreshToken()) {
     await refreshSession()
