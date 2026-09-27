@@ -56,7 +56,7 @@ We will not skip ahead after a failure.
 | QA-002 | Authentication | Forgot password request | BLOCKED — provider rate limit; retest later |
 | QA-003 | Authentication | Password reset email callback | BLOCKED BY QA-002 |
 | QA-004 | Authentication | Set new password | BLOCKED BY QA-003 |
-| QA-005 | Authentication | Log out then log back in | NEXT |
+| QA-005 | Authentication | Log out then log back in | PARTIAL — logout PASS, relogin pending |
 | QA-006 | Onboarding | Start free → create account → onboarding | PENDING |
 | QA-007 | Onboarding | Complete onboarding and generate brief | PENDING |
 | QA-008 | Persistence | Refresh browser and verify saved workspace | PENDING |
@@ -251,3 +251,17 @@ BUG-007 is closed.
 ### QA-005 remains active
 
 Next action: test **Sign out → Log back in → same workspace restored**.
+
+
+### QA-005 progress — logout half PASS
+
+**Observed:** After clicking Sign out, the private dashboard disappeared.
+
+**Result so far:** PASS for session logout/private-area removal.
+
+Still required to complete QA-005:
+1. Click **Log in**.
+2. Sign back in with the same account.
+3. Confirm the same store/workspace loads again.
+
+QA-005 remains **PARTIAL** until the relogin/restoration step passes.
