@@ -6,7 +6,7 @@ import {
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
-import { AnalyticsAdvanced, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TeamManager } from './AdminAdvanced.jsx'
+import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TeamManager } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -316,7 +316,7 @@ const navGroups = [
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['blog','Blog',FileText],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
   { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
-  { label: 'Platform', items: [['team','Team',Users],['integrations','Integrations',Settings]] },
+  { label: 'Platform', items: [['team','Team',Users],['billing','Billing',BriefcaseBusiness],['integrations','Integrations',Settings]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -750,6 +750,7 @@ export default function App() {
   if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
   if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
   if(page==='team') content=<TeamManager/>
+  if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} media={mediaAssets} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
