@@ -57,7 +57,7 @@ We will not skip ahead after a failure.
 | QA-003 | Authentication | Password reset email callback | BLOCKED BY QA-002 |
 | QA-004 | Authentication | Set new password | BLOCKED BY QA-003 |
 | QA-005 | Authentication | Log out then log back in | PARTIAL — logout PASS, relogin pending |
-| QA-006 | Onboarding | Start free → create account → onboarding | PENDING |
+| QA-006 | Onboarding | Start free → create account → onboarding | NEXT |
 | QA-007 | Onboarding | Complete onboarding and generate brief | PENDING |
 | QA-008 | Persistence | Refresh browser and verify saved workspace | PENDING |
 | QA-009 | Workflow | Setup & Workflow progress/next step | PENDING |
@@ -277,3 +277,32 @@ Step 1 — **PASS**
 Remaining:
 - Log back in with the same account.
 - Confirm the same workspace/store loads again.
+
+
+### QA-005 final result — PASS
+
+**Result:** PASS
+
+Confirmed:
+- Sign out removed the private dashboard.
+- Logging back in with the same account succeeded.
+- The same store/workspace remained available after reauthentication.
+
+This confirms session logout and subsequent workspace restoration work as expected.
+
+## Next active test — QA-006
+
+### QA-006 — Start free → create account → onboarding
+
+**Expected:**
+1. Public homepage loads.
+2. **Start free** opens the Create Account screen.
+3. A brand-new email/password account can be created.
+4. Successful signup proceeds into onboarding.
+5. No login loop, blank screen, or UI crash occurs.
+
+**Important:** use a different email address that is not already registered in CoBest.
+
+**PASS:** new account reaches onboarding successfully.
+
+**FAIL:** signup errors unexpectedly, returns to login, stays on the signup screen without explanation, or onboarding does not load.
