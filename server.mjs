@@ -537,7 +537,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/auth/reset' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
-    const redirectTo = 'https://cobest.me/?mode=recovery'
+    const redirectTo = 'https://cobest.me/reset-password'
     const result = await supabaseFetch('/auth/v1/recover', {
       method: 'POST', headers: apiHeaders(), body: JSON.stringify({ email: body.email, redirect_to: redirectTo })
     })
