@@ -16,6 +16,8 @@ const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
 const paypalBase = (process.env.PAYPAL_ENV || 'sandbox').toLowerCase() === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const resendApiKey = process.env.RESEND_API_KEY || ''
 const emailFrom = process.env.EMAIL_FROM || 'CoBest <onboarding@resend.dev>'
+const stripeLaunchPriceId = process.env.STRIPE_LAUNCH_PRICE_ID || ''
+const stripeGrowthPriceId = process.env.STRIPE_GROWTH_PRICE_ID || ''
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -111,6 +113,56 @@ async function internalPaymentUpdate(orderId, status, provider, reference='') {
   })
   if (!result.ok) throw new Error(typeof result.data === 'string' ? result.data : result.data?.message || result.data?.error || 'Unable to update payment.')
   return result.data
+}
+
+async function internalSubscriptionUpdate({ownerId,plan,status,customer='',subscription='',periodEnd=null}) {
+  if(!internalSecret)throw new Error('Internal billing bridge is not configured.')
+  const result=await rpc('internal_set_subscription',{
+    p_secret:internalSecret,p_owner_user_id:ownerId,p_plan:plan||'Free',p_status:status||'inactive',
+    p_provider:'stripe',p_customer_reference:customer||'',p_subscription_reference:subscription||'',
+    p_current_period_end:periodEnd?new Date(Number(periodEnd)*1000).toISOString():null
+  })
+  if(!result.ok)throw new Error(result.data?.message||result.data?.error||'Unable to update subscription.')
+  return result.data
+}
+
+async function stripeRequest(path,{method='GET',params=null}={}) {
+  if(!stripeSecret)throw new Error('Stripe is not configured.')
+  const response=await fetch(`https://api.stripe.com${path}`,{
+    method,
+    headers:{authorization:`Bearer ${stripeSecret}`,...(params?{'content-type':'application/x-www-form-urlencoded'}:{})},
+    body:params?params.toString():undefined
+  })
+  const data=await response.json().catch(()=>({}))
+  if(!response.ok)throw new Error(data?.error?.message||'Stripe request failed.')
+  return data
+}
+
+async function createStripeSubscriptionCheckout({req,user,ownerId,plan}) {
+  const priceId=plan==='Growth'?stripeGrowthPriceId:stripeLaunchPriceId
+  if(!priceId)throw new Error(`${plan} Stripe price is not configured.`)
+  const params=new URLSearchParams()
+  params.set('mode','subscription')
+  params.set('success_url',`${requestOrigin(req)}/?billing=success`)
+  params.set('cancel_url',`${requestOrigin(req)}/?billing=cancelled`)
+  params.set('customer_email',user.email||'')
+  params.set('client_reference_id',String(ownerId))
+  params.set('metadata[billing]','subscription')
+  params.set('metadata[owner_id]',String(ownerId))
+  params.set('metadata[plan]',plan)
+  params.set('subscription_data[metadata][owner_id]',String(ownerId))
+  params.set('subscription_data[metadata][plan]',plan)
+  params.set('line_items[0][price]',priceId)
+  params.set('line_items[0][quantity]','1')
+  const session=await stripeRequest('/v1/checkout/sessions',{method:'POST',params})
+  return session
+}
+
+async function createStripePortal({req,customer}) {
+  const params=new URLSearchParams()
+  params.set('customer',customer)
+  params.set('return_url',`${requestOrigin(req)}/`)
+  return stripeRequest('/v1/billing_portal/sessions',{method:'POST',params})
 }
 
 function requestOrigin(req) {
@@ -389,10 +441,22 @@ async function handleApi(req, res, url) {
     const raw=await readBuffer(req,2*1024*1024)
     if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
     const event=JSON.parse(raw.toString('utf8'))
-    const session=event?.data?.object||{}
-    const orderId=Number(session?.metadata?.order_id)
-    if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',session.id||'')
-    if(orderId&&event.type==='checkout.session.expired') await internalPaymentUpdate(orderId,'Failed','stripe',session.id||'')
+    const object=event?.data?.object||{}
+    const orderId=Number(object?.metadata?.order_id)
+    if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',object.id||'')
+    if(orderId&&event.type==='checkout.session.expired') await internalPaymentUpdate(orderId,'Failed','stripe',object.id||'')
+
+    if(event.type==='checkout.session.completed'&&object?.metadata?.billing==='subscription'){
+      const subscription=object.subscription?await stripeRequest(`/v1/subscriptions/${encodeURIComponent(object.subscription)}`):null
+      const ownerId=object.metadata.owner_id||object.client_reference_id
+      const plan=object.metadata.plan||subscription?.metadata?.plan||'Launch'
+      if(ownerId&&subscription)await internalSubscriptionUpdate({ownerId,plan,status:subscription.status,customer:object.customer||subscription.customer,subscription:subscription.id,periodEnd:subscription.current_period_end})
+    }
+    if(event.type==='customer.subscription.updated'||event.type==='customer.subscription.deleted'){
+      const ownerId=object?.metadata?.owner_id
+      const plan=object?.metadata?.plan||'Free'
+      if(ownerId)await internalSubscriptionUpdate({ownerId,plan,status:object.status||'canceled',customer:object.customer||'',subscription:object.id||'',periodEnd:object.current_period_end})
+    }
     return sendJson(res,200,{received:true})
   }
   if (url.pathname.startsWith('/api/public/')) return handlePublicApi(req, res, url)
@@ -462,6 +526,30 @@ async function handleApi(req, res, url) {
       method: 'PUT', headers: apiHeaders(token), body: JSON.stringify({ password: body.password })
     })
     return sendJson(res, result.status, result.data)
+  }
+
+  if (url.pathname === '/api/billing/status' && req.method === 'GET') {
+    const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
+    const subscription=result.ok&&Array.isArray(result.data)?result.data[0]||null:null
+    return sendJson(res,200,{subscription,plan:subscription?.plan||'Free',stripe_connected:Boolean(stripeSecret&&stripeLaunchPriceId&&stripeGrowthPriceId)})
+  }
+
+  if (url.pathname === '/api/billing/checkout' && req.method === 'POST') {
+    if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
+    if(!['Owner','Admin'].includes(role))return sendJson(res,403,{error:'Only owners and admins can change billing.'})
+    const body=await readJson(req)
+    const plan=body?.plan
+    if(!['Launch','Growth'].includes(plan))return sendJson(res,400,{error:'Choose Launch or Growth.'})
+    try{const session=await createStripeSubscriptionCheckout({req,user,ownerId,plan});return sendJson(res,200,{checkout_url:session.url,session_id:session.id})}
+    catch(error){return sendJson(res,502,{error:error.message})}
+  }
+
+  if (url.pathname === '/api/billing/portal' && req.method === 'POST') {
+    if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
+    const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=customer_reference&limit=1`,{headers:apiHeaders(token)})
+    const customer=result.ok&&Array.isArray(result.data)?result.data[0]?.customer_reference:null
+    if(!customer)return sendJson(res,400,{error:'No Stripe billing customer exists yet.'})
+    try{const portal=await createStripePortal({req,customer});return sendJson(res,200,{url:portal.url})}catch(error){return sendJson(res,502,{error:error.message})}
   }
 
   if (url.pathname === '/api/me' && req.method === 'GET') {
