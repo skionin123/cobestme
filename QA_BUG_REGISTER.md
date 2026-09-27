@@ -444,3 +444,92 @@ Commits:
 - `107f433` distinct preview/storefront visual styles
 
 Retest: **PENDING after deployment**
+
+
+### MVP-002 second design review — themes still shared the same section structure
+
+**Result:** IMPROVEMENT REQUIRED
+
+User feedback:
+- Theme colors/typography improved, but themes still used essentially the same section stack.
+- User requested genuinely different kinds of sections per theme.
+
+Implemented:
+- Added a theme-recipe system so each theme has its own default section composition.
+- Theme selection now changes both visual styling **and** the actual Home-page section structure.
+- Theme-specific sections are editable in the Website Editor and can be reordered.
+
+Distinct section recipes now include:
+
+**Aurelia**
+- Split hero
+- Featured collection
+- Image + story
+- Brand quote
+- Newsletter
+
+**Mono**
+- Announcement marquee
+- Utility hero
+- Spec grid
+- Product grid
+- Statement band
+
+**Atelier**
+- Editorial hero
+- Collection spotlight
+- Maison story
+- Selected pieces
+- Journal cards
+- Private list
+
+**Studio**
+- Campaign hero
+- Category strip
+- Lookbook mosaic
+- Latest drop
+- Campaign CTA
+
+**Market**
+- Promo bar
+- Retail hero
+- Shop categories
+- Best sellers
+- Why-shop-here benefits
+- Offers signup
+
+**Editorial**
+- Magazine masthead
+- Issue opener
+- Editorial story grid
+- Objects in this issue
+- Latest stories
+- Reader list
+
+**Vanta**
+- Immersive hero
+- Signature collection
+- Craft metrics
+- Selected pieces
+- Private-access CTA
+
+**Bloom**
+- Soft hero
+- Routine steps
+- Ingredient cards
+- Shop the ritual
+- Customer story
+- Community signup
+
+Additional changes:
+- Theme library previews now visually represent each theme's different section recipe.
+- New theme-specific sections have editable heading/body/button content in the editor.
+- New sections participate in section reordering.
+- Responsive styles added for theme-specific layouts.
+
+Commits:
+- `b873c09` theme recipe system and editable sections
+- `51e1156` section card rendering fix
+- `966bb3e` distinct section layouts and responsive styling
+
+Retest: **PENDING after deployment**
