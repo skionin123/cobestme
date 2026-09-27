@@ -581,7 +581,12 @@ function ResetRequest({onBack}) {
     try{
       await resetPassword(clean)
       setMessage('Reset email sent. Open the newest CoBest reset email. The reset button should return you to cobest.me/reset-password.')
-    }catch(err){setError(err.message)}finally{setBusy(false)}
+    }catch(err){
+      const raw=String(err.message||'')
+      if(raw.toLowerCase().includes('rate limit')||raw.toLowerCase().includes('too many')) {
+        setError('Too many reset emails were requested. Email sending is temporarily limited. Please wait before requesting another reset link, then use only the newest email.')
+      } else setError(raw)
+    }finally{setBusy(false)}
   }
   return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back to login</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Reset your password</h1><p>Enter your account email and CoBest will send a password-reset link back to this website.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" autoComplete="email" required/></Field><Button type="submit" disabled={busy}>{busy?'Sending…':'Send reset link'}</Button><div className="auth-divider"><span>Remembered your password?</span></div><Button type="button" variant="secondary" onClick={onBack}>Back to log in</Button></form></div>
 }
@@ -627,6 +632,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch,onForgot}) {
       const raw=String(err.message||'')
       if(!signup&&raw.toLowerCase().includes('invalid login credentials')) setError('Email or password is incorrect. If this account already exists, use Forgot password to set a new password.')
       else if(signup&&raw.toLowerCase().includes('already')) setError('This email already has an account. Use Log in or Forgot password.')
+      else if(raw.toLowerCase().includes('rate limit')||raw.toLowerCase().includes('too many')) setError('Too many account emails were requested. Please wait before trying again.')
       else setError(raw)
     }
     finally { setBusy(false) }
