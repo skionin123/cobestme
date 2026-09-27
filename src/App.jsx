@@ -590,19 +590,15 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
 function ThemePreview({theme,large=false}) {
   const t=theme||themePresets.Aurelia
   const recipe=themeRecipes[t.name]||themeRecipes.Aurelia
-  const mini=recipe.sections.slice(0,large?6:5)
-  const block=id=>{
-    const label=recipe.labels[id]||id
-    if(['hero','masthead'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><span>{label}</span></div>
-    if(['featured','signatureCollection','categoryTiles','storyGrid','ingredientCards','journalTeasers'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><div><i/><i/><i/></div></div>
-    if(['imageStory','collectionSpotlight','lookbook','issueIntro'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><i/><div><b>{label}</b><span>{t.description}</span></div></div>
-    if(['quote','signalBand','campaignBanner','vipBanner','testimonial','marquee','promoBar'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><span>{(recipe.defaults[id]?.title||t.previewHeading)}</span></div>
-    if(['specGrid','craftStats','routineSteps','benefitStrip','categoryStrip'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><div><span/><span/><span/></div></div>
-    return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b></div>
-  }
-  return <div className={`theme-showcase theme-showcase-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-button-radius':`${t.buttonRadius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
-    <div className="theme-showcase-header"><b>{t.name}</b><span>{t.category}</span><i/></div>
-    <div className="theme-recipe-preview">{mini.map(block)}</div>
+  const sections=recipe.sections.slice(0,3)
+  return <div className={`theme-thumb theme-thumb-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
+    <div className="theme-thumb-browser">
+      <div className="theme-thumb-top"><b>{t.name}</b><span>Shop&nbsp;&nbsp;About</span><i/></div>
+      <div className="theme-thumb-hero"><div><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><button>Explore</button></div><div className="theme-thumb-art"><i/><b/></div></div>
+      <div className="theme-thumb-sections">
+        {sections.map((id,i)=><div key={id} className={`theme-thumb-section section-${i+1}`}><span>{recipe.labels[id]||id}</span><div><i/><i/><i/></div></div>)}
+      </div>
+    </div>
   </div>
 }
 function ThemeLibrary({editor,setEditor,setPage}) {
@@ -642,16 +638,24 @@ function ThemeLibrary({editor,setEditor,setPage}) {
   return <div className="page-wrap">
     <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose a design direction, then choose only the sections your client actually needs. Themes are starting systems, not locked page templates.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
 
-    <section className="panel current-theme-panel">
-      <div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><div className="theme-current-actions"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><span className="status active">Draft</span></div></div>
-      <ThemePreview theme={currentTheme} large/>
+    <section className="panel current-theme-panel compact-current-theme">
+      <div className="current-theme-layout">
+        <ThemePreview theme={currentTheme} large/>
+        <div className="current-theme-info">
+          <span className="overline">CURRENT THEME</span>
+          <h2>{current}</h2>
+          <p>{currentTheme.description}</p>
+          <div className="current-theme-tags"><span>{currentTheme.category}</span><span>{currentTheme.fit}</span></div>
+          <div className="current-theme-buttons"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><Button onClick={()=>setPage('editor')}>Customize <ArrowRight size={15}/></Button></div>
+        </div>
+      </div>
     </section>
 
     <div className="page-section-head"><div><span>CoBest themes</span><h2>Choose a design direction</h2><p className="field-help">Each theme has different section types. Clients can pick which sections to include before applying it.</p></div></div>
 
     <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
-      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div>{current===name?<Button variant="secondary" onClick={()=>openPicker(name)}>Edit sections</Button>:<Button variant="secondary" onClick={()=>openPicker(name)}>Choose theme</Button>}</div>
+      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
     </article>)}</div>
 
     {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
