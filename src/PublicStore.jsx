@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
-import { getPublicStore, getPublicStoreByDomain, publicAction } from './api.js'
+import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
 const keyFor = slug => `cobest-public-cart-${slug||'store'}`
@@ -136,7 +136,7 @@ export default function PublicStore({slug:slugProp,host}) {
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
     {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
-    {accountOpen&&<OrderLookup slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
+    {accountOpen&&<CustomerAccount slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
   </div>
 }
 
@@ -172,6 +172,66 @@ function CartDrawer({cart,currency,subtotal,onClose,qty,remove,onCheckout}) {
   return <div className="cart-drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={e=>e.stopPropagation()}><div className="cart-drawer-head"><h2>Your cart</h2><button onClick={onClose}><X size={20}/></button></div>{cart.map(x=><div className="cart-line" key={x.id}><div><strong>{x.name}</strong><span>{money(x.price,currency)}</span></div><div className="cart-qty"><button onClick={()=>qty(x.id,-1)}><Minus size={14}/></button><b>{x.quantity}</b><button onClick={()=>qty(x.id,1)}><Plus size={14}/></button><button className="cart-remove" onClick={()=>remove(x.id)}><Trash2 size={15}/></button></div></div>)}{!cart.length&&<p>Your cart is empty.</p>}<div className="cart-total"><span>Subtotal</span><strong>{money(subtotal,currency)}</strong></div><button className="btn btn-primary" disabled={!cart.length} onClick={onCheckout}>Checkout</button></aside></div>
 }
 
+function CustomerAccount({slug,currency,onClose}) {
+  const [authed,setAuthed]=useState(isAuthenticated())
+  const [signupMode,setSignupMode]=useState(false)
+  const [credentials,setCredentials]=useState({email:'',password:''})
+  const [data,setData]=useState(null)
+  const [profile,setProfile]=useState(null)
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const [message,setMessage]=useState('')
+  const [guest,setGuest]=useState({order_number:'',email:''})
+  const [guestOrder,setGuestOrder]=useState(null)
+
+  const loadAccount=async()=>{
+    setBusy(true);setError('')
+    try{
+      await publicCustomerAction('link',{slug})
+      const account=await publicCustomerAction('account',{slug})
+      setData(account);setProfile(account.customer);setAuthed(true)
+    }catch(err){setError(err.message)}
+    finally{setBusy(false)}
+  }
+  useEffect(()=>{if(authed)loadAccount()},[])
+
+  const auth=async e=>{
+    e.preventDefault();setBusy(true);setError('');setMessage('')
+    try{
+      const result=signupMode?await signUp(credentials.email,credentials.password):await signIn(credentials.email,credentials.password)
+      if(signupMode&&!result?.access_token){setMessage('Account created. Confirm your email, then return here and log in.');return}
+      setAuthed(true)
+      await publicCustomerAction('link',{slug})
+      const account=await publicCustomerAction('account',{slug})
+      setData(account);setProfile(account.customer)
+    }catch(err){setError(err.message)}
+    finally{setBusy(false)}
+  }
+  const saveProfile=async()=>{
+    setBusy(true);setError('')
+    try{
+      const updated=await publicCustomerAction('profile',{slug,name:profile.name,phone:profile.phone,address:profile.address||{},marketing_consent:!!profile.marketing_consent})
+      setProfile(updated);setData(d=>({...d,customer:updated}));setMessage('Profile saved.')
+    }catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+  const signOut=()=>{logout();setAuthed(false);setData(null);setProfile(null);setMessage('Signed out.')}
+  const guestLookup=async()=>{
+    setBusy(true);setError('');setGuestOrder(null)
+    try{const x=await publicAction('order-lookup',{slug,...guest});setGuestOrder(x.order)}
+    catch(err){setError(err.message)}finally{setBusy(false)}
+  }
+
+  return <Modal title="Customer account" onClose={onClose}><div className="customer-account">
+    {error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}
+    {!authed&&<><form className="modal-form" onSubmit={auth}><h3>{signupMode?'Create customer account':'Log in'}</h3><Field label="Email"><input type="email" value={credentials.email} onChange={e=>setCredentials({...credentials,email:e.target.value})} required/></Field><Field label="Password"><input type="password" minLength="8" value={credentials.password} onChange={e=>setCredentials({...credentials,password:e.target.value})} required/></Field><button className="btn btn-primary" disabled={busy}>{busy?'Please wait…':signupMode?'Create account':'Log in'}</button><button type="button" className="auth-link" onClick={()=>setSignupMode(v=>!v)}>{signupMode?'Already have an account? Log in':'New customer? Create an account'}</button></form><div className="account-divider"><span>or track an order without an account</span></div><div className="modal-form"><Field label="Order number"><input value={guest.order_number} onChange={e=>setGuest({...guest,order_number:e.target.value.toUpperCase()})} placeholder="CO-XXXXXXXX"/></Field><Field label="Checkout email"><input type="email" value={guest.email} onChange={e=>setGuest({...guest,email:e.target.value})}/></Field><button className="btn btn-secondary" disabled={busy||!guest.order_number||!guest.email} onClick={guestLookup}>Find order</button>{guestOrder&&<OrderResult order={guestOrder} currency={currency}/>}</div></>}
+    {authed&&<>{busy&&!data?<p>Loading account…</p>:data&&profile&&<div className="customer-portal"><div className="customer-portal-head"><div><span className="overline">PROFILE</span><h3>{profile.name||profile.email}</h3><p>{profile.email}</p></div><button className="btn btn-secondary" onClick={signOut}>Sign out</button></div><div className="form-grid two"><Field label="Name"><input value={profile.name||''} onChange={e=>setProfile({...profile,name:e.target.value})}/></Field><Field label="Phone"><input value={profile.phone||''} onChange={e=>setProfile({...profile,phone:e.target.value})}/></Field></div><label className="check-row"><input type="checkbox" checked={!!profile.marketing_consent} onChange={e=>setProfile({...profile,marketing_consent:e.target.checked})}/> Email me store updates</label><button className="btn btn-secondary" disabled={busy} onClick={saveProfile}>Save profile</button><div className="customer-portal-orders"><span className="overline">ORDERS</span>{(data.orders||[]).map(order=><OrderResult key={order.id} order={order} currency={currency}/>) }{!(data.orders||[]).length&&<p>No orders yet.</p>}</div></div>}</>}
+  </div></Modal>
+}
+
+function OrderResult({order,currency}) {
+  return <div className="customer-order-result"><div><span>Order</span><strong>{order.order_number}</strong></div><div><span>Placed</span><strong>{new Date(order.created_at).toLocaleString()}</strong></div><div><span>Payment</span><strong>{order.payment_status}</strong></div><div><span>Fulfillment</span><strong>{order.fulfillment_status}</strong></div>{order.tracking_number&&<div><span>Tracking</span><strong>{order.carrier} {order.tracking_number}</strong></div>}<div><span>Total</span><strong>{money(order.total,currency)}</strong></div><div className="customer-order-items">{(order.items||[]).map((x,i)=><span key={i}>{x.quantity} × {x.name}</span>)}</div></div>
+}
+
 function OrderLookup({slug,currency,onClose}) {
   const [form,setForm]=useState({order_number:'',email:''})
   const [order,setOrder]=useState(null)
@@ -182,7 +242,7 @@ function OrderLookup({slug,currency,onClose}) {
     try{const data=await publicAction('order-lookup',{slug,...form});setOrder(data.order)}
     catch(err){setError(err.message)}finally{setBusy(false)}
   }
-  return <Modal title="Customer order lookup" onClose={onClose}><div className="modal-form"><p>Enter the order number and email used at checkout.</p>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Order number"><input value={form.order_number} onChange={e=>setForm({...form,order_number:e.target.value.toUpperCase()})} placeholder="CO-XXXXXXXX"/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.order_number||!form.email} onClick={lookup}>{busy?'Looking up…':'Find order'}</button>{order&&<div className="customer-order-result"><div><span>Order</span><strong>{order.order_number}</strong></div><div><span>Placed</span><strong>{new Date(order.created_at).toLocaleString()}</strong></div><div><span>Payment</span><strong>{order.payment_status}</strong></div><div><span>Fulfillment</span><strong>{order.fulfillment_status}</strong></div>{order.tracking_number&&<div><span>Tracking</span><strong>{order.carrier} {order.tracking_number}</strong></div>}<div><span>Total</span><strong>{money(order.total,currency)}</strong></div><div className="customer-order-items">{(order.items||[]).map((x,i)=><span key={i}>{x.quantity} × {x.name}</span>)}</div></div>}</div></Modal>
+  return <Modal title="Customer order lookup" onClose={onClose}><div className="modal-form"><p>Enter the order number and email used at checkout.</p>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Order number"><input value={form.order_number} onChange={e=>setForm({...form,order_number:e.target.value.toUpperCase()})} placeholder="CO-XXXXXXXX"/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy||!form.order_number||!form.email} onClick={lookup}>{busy?'Looking up…':'Find order'}</button>{order&&<OrderResult order={order} currency={currency}/>} </div></Modal>
 }
 
 function Checkout({store,cart,currency,paymentOptions={},onClose,onComplete}) {
