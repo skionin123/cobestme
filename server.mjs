@@ -868,7 +868,11 @@ createServer(async (req, res) => {
       filePath = join(root, 'index.html')
     }
     const body = await readFile(filePath)
-    res.writeHead(200, { 'content-type': mime[extname(filePath)] || 'application/octet-stream' })
+    const extension = extname(filePath)
+    const headers = { 'content-type': mime[extension] || 'application/octet-stream' }
+    if (extension === '.html') headers['cache-control'] = 'no-store, max-age=0, must-revalidate'
+    else if (url.pathname.startsWith('/assets/')) headers['cache-control'] = 'public, max-age=31536000, immutable'
+    res.writeHead(200, headers)
     res.end(body)
   } catch (error) {
     console.error(error)
