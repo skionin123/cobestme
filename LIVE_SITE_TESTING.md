@@ -184,3 +184,22 @@ The Supabase Auth project URL configuration must use:
 After changing Auth URL Configuration, request a NEW password reset email. Existing reset links may remain expired or point to the previous localhost configuration.
 
 Manual retest: **PENDING**
+
+
+## One-by-one QA mode — 2026-09-28
+
+Formal production QA is now running one test at a time.
+
+Rules:
+- Do not move to the next test after a failure.
+- Capture exact expected vs actual behavior.
+- Log screenshots/error messages and device/browser.
+- Fix confirmed bugs only.
+- Deploy and retest the same case.
+- Record commit/deployment before continuing.
+
+Dedicated bug register: `QA_BUG_REGISTER.md`
+
+Current first test: **QA-001 Existing user login**.
+
+Current production deployment: `76a9489b-87d1-4046-95bb-677d27f22fd1` — SUCCESS.
