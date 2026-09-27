@@ -5,8 +5,8 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
   Smartphone, Sparkles, Store, Tablet, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
-import { AnalyticsAdvanced, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings } from './AdminAdvanced.jsx'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, getWorkspace, isAuthenticated, listResource, logout, resetPassword, saveWorkspace, signIn, signUp, updatePassword } from './api.js'
+import { AnalyticsAdvanced, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, TeamManager } from './AdminAdvanced.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -315,7 +315,8 @@ const navGroups = [
   { label: '', items: [['dashboard','Home',LayoutDashboard],['orders','Orders',ShoppingBag],['products','Products',Package],['collections','Collections',Store],['customers','Customers',Users]] },
   { label: 'Sales channels', items: [['pages','Online store',Store],['editor','Website editor',Palette],['storefront','View store',Eye]] },
   { label: 'Content', items: [['media','Media',ImageIcon],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
-  { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness],['integrations','Integrations',Settings]] },
+  { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
+  { label: 'Platform', items: [['team','Team',Users],['integrations','Integrations',Settings]] },
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -614,10 +615,19 @@ export default function App() {
   const safeEditor = normalizeEditor(editor)
 
   useEffect(()=>{
-    const queryMode=new URLSearchParams(window.location.search).get('mode')
+    const params=new URLSearchParams(window.location.search)
+    const queryMode=params.get('mode')
+    const invite=params.get('invite')
     if(queryMode==='recovery'){
       acceptSessionFromHash()
       if(isAuthenticated()) setMode('recovery')
+      return
+    }
+    if(invite){
+      localStorage.setItem('cobest-pending-invite',invite)
+      if(isAuthenticated()){
+        acceptTeamInvite(invite).then(()=>{localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app');setPage('dashboard')}).catch(()=>setMode('login'))
+      }else setMode('login')
       return
     }
     if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
@@ -661,7 +671,7 @@ export default function App() {
 
   const complete = () => { setMode('app'); setPage('dashboard'); window.scrollTo(0,0) }
   const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
-  const authSuccess=(next)=>{ setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
+  const authSuccess=async(next)=>{ const invite=localStorage.getItem('cobest-pending-invite'); if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app')}catch{setMode(next)}}else setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
   const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
   const addProduct=async(draft)=>{
     const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
@@ -718,6 +728,7 @@ export default function App() {
   if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
   if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
   if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
+  if(page==='team') content=<TeamManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
