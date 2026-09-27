@@ -94,6 +94,80 @@ const themePresets = {
   }
 }
 
+const themeRecipes = {
+  Aurelia: {
+    sections:['hero','featured','imageStory','quote','newsletter'],
+    labels:{hero:'Split hero',featured:'Featured collection',imageStory:'Image + story',quote:'Brand quote',newsletter:'Newsletter'},
+    defaults:{
+      imageStory:{eyebrow:'THE MATERIALS',title:'Made to feel at home.',body:'Pair a strong image-led moment with a short story about materials, process, or place.',button:'Read our story'},
+      quote:{eyebrow:'OUR POINT OF VIEW',title:'Keep only what earns its place.',body:'A quiet statement section for the idea behind the brand.'}
+    }
+  },
+  Mono: {
+    sections:['marquee','hero','specGrid','featured','signalBand'],
+    labels:{marquee:'Announcement marquee',hero:'Utility hero',specGrid:'Spec grid',featured:'Product grid',signalBand:'Statement band'},
+    defaults:{
+      marquee:{title:'NEW DROP  /  FREE SHIPPING  /  BUILT TO LAST  /  NEW DROP'},
+      specGrid:{eyebrow:'SYSTEM / 01',title:'Designed with purpose.',body:'Three direct reasons customers should care about the product.',button:'View details'},
+      signalBand:{eyebrow:'MANIFESTO',title:'LESS NOISE. BETTER OBJECTS.',body:'A high-impact closing statement.'}
+    }
+  },
+  Atelier: {
+    sections:['hero','collectionSpotlight','story','featured','journalTeasers','newsletter'],
+    labels:{hero:'Editorial hero',collectionSpotlight:'Collection spotlight',story:'Maison story',featured:'Selected pieces',journalTeasers:'Journal cards',newsletter:'Private list'},
+    defaults:{
+      collectionSpotlight:{eyebrow:'COLLECTION NO. 03',title:'An edit of enduring pieces.',body:'Use one cinematic collection moment to create pace before the product grid.',button:'Discover the collection'},
+      journalTeasers:{eyebrow:'JOURNAL',title:'From the atelier',body:'Stories about process, material, people, and place.'}
+    }
+  },
+  Studio: {
+    sections:['hero','categoryStrip','lookbook','featured','campaignBanner'],
+    labels:{hero:'Campaign hero',categoryStrip:'Category strip',lookbook:'Lookbook mosaic',featured:'Latest drop',campaignBanner:'Campaign CTA'},
+    defaults:{
+      categoryStrip:{title:'NEW  /  OUTERWEAR  /  ESSENTIALS  /  OBJECTS  /  ARCHIVE'},
+      lookbook:{eyebrow:'LOOK 01—06',title:'The campaign, in motion.',body:'A graphic image mosaic designed for fashion, creative, and culture-led brands.'},
+      campaignBanner:{eyebrow:'DROP 02',title:'MAKE IT YOURS.',body:'A full-width campaign callout.',button:'Shop the drop'}
+    }
+  },
+  Market: {
+    sections:['promoBar','hero','categoryTiles','featured','benefitStrip','newsletter'],
+    labels:{promoBar:'Promo bar',hero:'Retail hero',categoryTiles:'Shop categories',featured:'Best sellers',benefitStrip:'Why shop here',newsletter:'Offers signup'},
+    defaults:{
+      promoBar:{title:'FREE DELIVERY OVER ₱2,000  •  EASY RETURNS  •  NEW PICKS WEEKLY'},
+      categoryTiles:{eyebrow:'SHOP BY MOOD',title:'Find your next favorite.',body:'Three bold category tiles help customers get to products faster.'},
+      benefitStrip:{title:'Fast delivery|Easy returns|Small-batch picks',body:'Clear retail reassurance close to the buying journey.'}
+    }
+  },
+  Editorial: {
+    sections:['masthead','issueIntro','storyGrid','featured','journalTeasers','newsletter'],
+    labels:{masthead:'Magazine masthead',issueIntro:'Issue opener',storyGrid:'Editorial story grid',featured:'Objects in this issue',journalTeasers:'Latest stories',newsletter:'Reader list'},
+    defaults:{
+      masthead:{eyebrow:'COBEST EDITION',title:'THE OBJECTS ISSUE',body:'VOL. 04  /  SEPTEMBER 2026'},
+      issueIntro:{eyebrow:'EDITOR’S NOTE',title:'A slower way to discover what is worth keeping.',body:'Lead with an editorial introduction before products appear.'},
+      storyGrid:{eyebrow:'FEATURES',title:'Three stories. One point of view.',body:'A modular magazine grid for interviews, essays, or collection stories.'},
+      journalTeasers:{eyebrow:'LATEST',title:'More from the journal',body:'Secondary stories continue the editorial rhythm.'}
+    }
+  },
+  Vanta: {
+    sections:['hero','signatureCollection','craftStats','featured','vipBanner'],
+    labels:{hero:'Immersive hero',signatureCollection:'Signature collection',craftStats:'Craft metrics',featured:'Selected pieces',vipBanner:'Private access CTA'},
+    defaults:{
+      signatureCollection:{eyebrow:'SIGNATURE SERIES',title:'Precision in every detail.',body:'A dark, gallery-like collection section for premium products.',button:'Explore signatures'},
+      craftStats:{title:'24|08|100%',body:'Hours of finishing|Quality checks|Considered materials'},
+      vipBanner:{eyebrow:'PRIVATE ACCESS',title:'Enter the inner circle.',body:'Early releases, private previews, and limited editions.',button:'Request access'}
+    }
+  },
+  Bloom: {
+    sections:['hero','routineSteps','ingredientCards','featured','testimonial','newsletter'],
+    labels:{hero:'Soft hero',routineSteps:'Routine steps',ingredientCards:'Ingredient cards',featured:'Shop the ritual',testimonial:'Customer story',newsletter:'Community signup'},
+    defaults:{
+      routineSteps:{eyebrow:'YOUR DAILY RITUAL',title:'Three simple steps.',body:'Cleanse|Treat|Restore'},
+      ingredientCards:{eyebrow:'WHAT’S INSIDE',title:'Gentle by design.',body:'Botanical oils|Barrier support|Daily hydration'},
+      testimonial:{eyebrow:'LOVED DAILY',title:'“It made the whole routine feel easy.”',body:'Use a soft testimonial moment to build trust before signup.'}
+    }
+  }
+}
+
 const typeSuggestions = {
   'Online Store': { pages: ['Home','Shop','Collections','About','FAQ','Contact'], features: ['Ecommerce','Shopping cart','Product search','Product filters','Newsletter','Reviews'] },
   'Business Website': { pages: ['Home','About','Services','Testimonials','FAQ','Contact'], features: ['Contact forms','Newsletter'] },
@@ -150,7 +224,8 @@ const defaultEditor = {
   header: { logoText: '', menu: ['Shop','About','Contact'] },
   newsletter: { heading: 'Stay in the loop.', body: 'New products, stories, and updates.', button: 'Join' },
   footer: { text: 'Built with CoBest', menu: ['Contact'] },
-  sectionOrder: ['hero','featured','story','newsletter']
+  sectionOrder: [...themeRecipes.Aurelia.sections],
+  sectionContent: { ...themeRecipes.Aurelia.defaults }
 }
 
 function normalizeOnboarding(value = {}) {
@@ -175,6 +250,7 @@ function normalizeEditor(value = {}) {
   merged.footer = { ...defaultEditor.footer, ...((value || {}).footer || {}) }
   merged.currentPage = (value || {}).currentPage || 'Home'
   merged.sectionOrder = Array.isArray((value || {}).sectionOrder) ? (value || {}).sectionOrder : [...defaultEditor.sectionOrder]
+  merged.sectionContent = { ...defaultEditor.sectionContent, ...((value || {}).sectionContent || {}) }
   return merged
 }
 
@@ -513,17 +589,29 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
 
 function ThemePreview({theme,large=false}) {
   const t=theme||themePresets.Aurelia
+  const recipe=themeRecipes[t.name]||themeRecipes.Aurelia
+  const mini=recipe.sections.slice(0,large?6:5)
+  const block=id=>{
+    const label=recipe.labels[id]||id
+    if(['hero','masthead'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><span>{label}</span></div>
+    if(['featured','signatureCollection','categoryTiles','storyGrid','ingredientCards','journalTeasers'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><div><i/><i/><i/></div></div>
+    if(['imageStory','collectionSpotlight','lookbook','issueIntro'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><i/><div><b>{label}</b><span>{t.description}</span></div></div>
+    if(['quote','signalBand','campaignBanner','vipBanner','testimonial','marquee','promoBar'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><span>{(recipe.defaults[id]?.title||t.previewHeading)}</span></div>
+    if(['specGrid','craftStats','routineSteps','benefitStrip','categoryStrip'].includes(id)) return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b><div><span/><span/><span/></div></div>
+    return <div key={id} className={`theme-mini-section mini-${id}`}><b>{label}</b></div>
+  }
   return <div className={`theme-showcase theme-showcase-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-button-radius':`${t.buttonRadius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
-    <div className="theme-showcase-header"><b>{t.name}</b><span>Shop&nbsp;&nbsp;Collections&nbsp;&nbsp;About</span><i/></div>
-    <div className="theme-showcase-hero"><div><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><p>{t.description}</p><button>Shop the edit</button></div><div className="theme-showcase-art"><span/><b/><i/></div></div>
-    <div className="theme-showcase-products"><div><i/><span>Edition 01</span></div><div><i/><span>Edition 02</span></div><div><i/><span>Edition 03</span></div></div>
+    <div className="theme-showcase-header"><b>{t.name}</b><span>{t.category}</span><i/></div>
+    <div className="theme-recipe-preview">{mini.map(block)}</div>
   </div>
 }
-
 function ThemeLibrary({editor,setEditor,setPage}) {
   const current=editor.theme?.name||'Aurelia'
   const currentTheme=themePresets[current]||{...themePresets.Aurelia,...editor.theme}
-  const useTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
+  const useTheme=name=>setEditor(prev=>{
+    const recipe=themeRecipes[name]||themeRecipes.Aurelia
+    return {...prev,theme:{...(themePresets[name]||themePresets.Aurelia)},sectionOrder:[...recipe.sections],sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},selected:recipe.sections[0]||'hero'}
+  })
   return <div className="page-wrap">
     <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Original CoBest themes built around modern ecommerce patterns: editorial storytelling, bold campaign layouts, minimalist product grids, and conversion-friendly retail.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
     <section className="panel current-theme-panel"><div className="panel-head"><div><span>Current theme</span><h3>{current}</h3></div><span className="status active">Draft</span></div><ThemePreview theme={currentTheme} large/></section>
@@ -589,9 +677,12 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
     return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><select className="editor-page-select" value={currentPage} onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Preview</Button><Button onClick={save}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>{currentPage} sections</span><button onClick={add}><Plus size={16}/></button></div><button className={`section-item ${editor.selected==='page-intro'?'active':''}`} onClick={()=>setEditor({...editor,selected:'page-intro'})}><div className="section-thumb"><FileText size={14}/></div><strong>Page intro</strong></button>{(pageData.blocks||[]).map(b=><button draggable key={b.id} onDragStart={()=>setDragId(b.id)} onDragOver={e=>e.preventDefault()} onDrop={()=>{reorder(dragId,b.id);setDragId(null)}} className={`section-item ${editor.selected===b.id?'active':''}`} onClick={()=>setEditor({...editor,selected:b.id})}><span className="drag-dots">⠿</span><div className="section-thumb"><LayoutDashboard size={14}/></div><strong>{b.title||'Section'}</strong></button>)}<button className="add-section" onClick={add}><Plus size={15}/> Add section</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><div className="subpage-preview" style={{'--brand':data.primaryColor,'--paper':data.secondaryColor}}><header><strong>{editor.header?.logoText||data.businessName||'Your Store'}</strong></header><section className="subpage-hero"><small>{currentPage.toUpperCase()}</small><h1>{pageData.title||currentPage}</h1><p>{pageData.body||'Add page content using the settings panel.'}</p></section>{(pageData.blocks||[]).map(b=><EditorBlock key={b.id} block={b}/>)}</div></div></main><aside className="settings-panel"><div className="settings-head"><span>Page settings</span><strong>{editor.selected==='page-intro'?'Page intro':selected?.title||'Section'}</strong></div>{editor.selected==='page-intro'&&<div className="settings-form"><Field label="Page title"><input value={pageData.title||''} onChange={e=>updatePage('title',e.target.value)}/></Field><Field label="Intro/body"><textarea rows="6" value={pageData.body||''} onChange={e=>updatePage('body',e.target.value)}/></Field><label className="check-row"><input type="checkbox" checked={meta.visible!==false} onChange={e=>updateMeta('visible',e.target.checked)}/> Visible on published store</label><Field label="SEO title"><input value={meta.seo_title||''} onChange={e=>updateMeta('seo_title',e.target.value)}/></Field><Field label="SEO description"><textarea rows="4" value={meta.seo_description||''} onChange={e=>updateMeta('seo_description',e.target.value)}/></Field></div>}{selected&&<BlockSettings block={selected} update={updateBlock} remove={remove} media={media}/>}</aside></div></div>
   }
 
-  const fixed=[['header','Header'],['hero','Hero'],['featured','Featured products'],['story','Brand story'],['newsletter','Newsletter'],['footer','Footer']]
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const themeLabels=Object.entries(recipe.labels||{})
+  const themeIds=new Set(recipe.sections||[])
+  const fixed=[['header','Header'],['hero','Hero'],['featured','Featured products'],['story','Brand story'],['newsletter','Newsletter'],['footer','Footer'],...themeLabels]
   const customs=(editor.blocks||[]).map(b=>[b.id,b.title||'Content block'])
-  const mainIds=[...new Set([...(editor.sectionOrder||['hero','featured','story','newsletter']),...customs.map(x=>x[0])])].filter(id=>['hero','featured','story','newsletter'].includes(id)||(editor.blocks||[]).some(b=>b.id===id))
+  const mainIds=[...new Set([...(editor.sectionOrder||recipe.sections||['hero','featured','story','newsletter']),...customs.map(x=>x[0])])].filter(id=>themeIds.has(id)||['hero','featured','story','newsletter'].includes(id)||(editor.blocks||[]).some(b=>b.id===id))
   const labels=new Map([...fixed,...customs])
   const sections=[['header','Header'],...mainIds.map(id=>[id,labels.get(id)||'Content block']),['footer','Footer']]
   const update=(section,key,value)=>setEditor(prev=>({...prev,[section]:{...prev[section],[key]:value}}))
@@ -600,7 +691,15 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
   const addBlock=()=>{const id=`block-${Date.now()}`;const block={id,type:'text',title:'New content block',body:'Add your content here.',background:'#ffffff',text:'#171717',padding:48,margin:0,columns:1,columnTemplate:'1fr',gap:20,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'Item one, Item two, Item three'};setEditor(prev=>({...prev,blocks:[...(prev.blocks||[]),block],sectionOrder:[...(prev.sectionOrder||['hero','featured','story','newsletter']).filter(x=>x!=='newsletter'),id,'newsletter'],selected:id}))}
   const removeBlock=()=>{if(!selectedBlock)return;setEditor(prev=>({...prev,blocks:(prev.blocks||[]).filter(b=>b.id!==selectedBlock.id),sectionOrder:(prev.sectionOrder||[]).filter(x=>x!==selectedBlock.id),selected:'hero'}))}
   const reorder=(from,to)=>setEditor(prev=>{const order=[...(prev.sectionOrder||[])];const i=order.indexOf(from),j=order.indexOf(to);if(i<0||j<0||i===j)return prev;const [m]=order.splice(i,1);order.splice(j,0,m);return {...prev,sectionOrder:order}})
-  return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><select className="editor-page-select" value="Home" onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Live preview</Button><Button onClick={save}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>Home sections</span><button onClick={addBlock}><Plus size={16}/></button></div>{sections.map(([id,label],i)=>{const draggable=!['header','footer'].includes(id);return <button draggable={draggable} key={id} onDragStart={()=>draggable&&setDragId(id)} onDragOver={e=>draggable&&e.preventDefault()} onDrop={()=>{if(draggable){reorder(dragId,id);setDragId(null)}}} className={`section-item ${editor.selected===id?'active':''}`} onClick={()=>setEditor({...editor,selected:id})}>{draggable&&<span className="drag-dots">⠿</span>}<div className="section-thumb">{id.startsWith('block-')?<Plus size={14}/>:i<2?<ImageIcon size={14}/>:<LayoutDashboard size={14}/>}</div><strong>{label}</strong></button>})}<button className="add-section" onClick={addBlock}><Plus size={15}/> Add content block</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><StorefrontMini data={data} products={products} editor={editor}/></div></main><aside className="settings-panel"><div className="settings-head"><span>Section settings</span><strong>{sections.find(s=>s[0]===editor.selected)?.[1]||'Section'}</strong></div>{editor.selected==='header'&&<div className="settings-form"><Field label="Store/logo text"><input value={editor.header?.logoText||''} onChange={e=>update('header','logoText',e.target.value)} placeholder={data.businessName||'Store name'}/></Field><Field label="Menu items (comma separated)"><input value={(editor.header?.menu||[]).join(', ')} onChange={e=>update('header','menu',e.target.value.split(',').map(x=>x.trim()).filter(Boolean))}/></Field></div>}{editor.selected==='hero'&&<div className="settings-form"><Field label="Eyebrow"><input value={editor.hero.eyebrow} onChange={e=>update('hero','eyebrow',e.target.value)}/></Field><Field label="Heading"><textarea rows="3" value={editor.hero.heading} onChange={e=>update('hero','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.hero.body} onChange={e=>update('hero','body',e.target.value)}/></Field><Field label="Button label"><input value={editor.hero.button} onChange={e=>update('hero','button',e.target.value)}/></Field><Field label="Alignment"><div className="segment"><button className={editor.hero.align==='left'?'active':''} onClick={()=>update('hero','align','left')}>Left</button><button className={editor.hero.align==='center'?'active':''} onClick={()=>update('hero','align','center')}>Center</button></div></Field></div>}{editor.selected==='featured'&&<div className="settings-form"><Field label="Section heading"><input value={editor.featured.title} onChange={e=>update('featured','title',e.target.value)}/></Field><Field label="Columns"><div className="segment">{[2,3,4].map(n=><button key={n} className={editor.featured.columns===n?'active':''} onClick={()=>update('featured','columns',n)}>{n}</button>)}</div></Field></div>}{editor.selected==='story'&&<div className="settings-form"><Field label="Heading"><input value={editor.story.title} onChange={e=>update('story','title',e.target.value)}/></Field><Field label="Body"><textarea rows="5" value={editor.story.body} onChange={e=>update('story','body',e.target.value)}/></Field></div>}{editor.selected==='newsletter'&&<div className="settings-form"><Field label="Heading"><input value={editor.newsletter?.heading||''} onChange={e=>update('newsletter','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.newsletter?.body||''} onChange={e=>update('newsletter','body',e.target.value)}/></Field><Field label="Button"><input value={editor.newsletter?.button||'Join'} onChange={e=>update('newsletter','button',e.target.value)}/></Field></div>}{editor.selected==='footer'&&<div className="settings-form"><Field label="Footer text"><input value={editor.footer?.text||''} onChange={e=>update('footer','text',e.target.value)}/></Field><p className="field-help">Footer links are managed in Online store → Navigation.</p></div>}{selectedBlock&&<BlockSettings block={selectedBlock} update={updateBlock} remove={removeBlock} media={media}/>}<div className="settings-form precision-controls"><span className="overline">GLOBAL STYLE</span><Field label={`Section gap: ${editor.theme?.sectionGap||32}px`}><input type="range" min="0" max="96" value={editor.theme?.sectionGap||32} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),sectionGap:Number(e.target.value)}}))}/></Field><Field label={`Card radius: ${editor.theme?.radius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.radius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),radius:Number(e.target.value)}}))}/></Field></div><div className="project-context"><span>PROJECT CONTEXT</span><strong>{data.goals[0]||'Website goal'}</strong><p>{data.primaryAction}</p><div><b>Direction</b><em>{data.styles.join(' + ')}</em></div><div><b>Audience</b><em>{data.audience}</em></div></div></aside></div></div>
+  return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><select className="editor-page-select" value="Home" onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Live preview</Button><Button onClick={save}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>Home sections</span><button onClick={addBlock}><Plus size={16}/></button></div>{sections.map(([id,label],i)=>{const draggable=!['header','footer'].includes(id);return <button draggable={draggable} key={id} onDragStart={()=>draggable&&setDragId(id)} onDragOver={e=>draggable&&e.preventDefault()} onDrop={()=>{if(draggable){reorder(dragId,id);setDragId(null)}}} className={`section-item ${editor.selected===id?'active':''}`} onClick={()=>setEditor({...editor,selected:id})}>{draggable&&<span className="drag-dots">⠿</span>}<div className="section-thumb">{id.startsWith('block-')?<Plus size={14}/>:i<2?<ImageIcon size={14}/>:<LayoutDashboard size={14}/>}</div><strong>{label}</strong></button>})}<button className="add-section" onClick={addBlock}><Plus size={15}/> Add content block</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><StorefrontMini data={data} products={products} editor={editor}/></div></main><aside className="settings-panel"><div className="settings-head"><span>Section settings</span><strong>{sections.find(s=>s[0]===editor.selected)?.[1]||'Section'}</strong></div>{editor.selected==='header'&&<div className="settings-form"><Field label="Store/logo text"><input value={editor.header?.logoText||''} onChange={e=>update('header','logoText',e.target.value)} placeholder={data.businessName||'Store name'}/></Field><Field label="Menu items (comma separated)"><input value={(editor.header?.menu||[]).join(', ')} onChange={e=>update('header','menu',e.target.value.split(',').map(x=>x.trim()).filter(Boolean))}/></Field></div>}{editor.selected==='hero'&&<div className="settings-form"><Field label="Eyebrow"><input value={editor.hero.eyebrow} onChange={e=>update('hero','eyebrow',e.target.value)}/></Field><Field label="Heading"><textarea rows="3" value={editor.hero.heading} onChange={e=>update('hero','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.hero.body} onChange={e=>update('hero','body',e.target.value)}/></Field><Field label="Button label"><input value={editor.hero.button} onChange={e=>update('hero','button',e.target.value)}/></Field><Field label="Alignment"><div className="segment"><button className={editor.hero.align==='left'?'active':''} onClick={()=>update('hero','align','left')}>Left</button><button className={editor.hero.align==='center'?'active':''} onClick={()=>update('hero','align','center')}>Center</button></div></Field></div>}{editor.selected==='featured'&&<div className="settings-form"><Field label="Section heading"><input value={editor.featured.title} onChange={e=>update('featured','title',e.target.value)}/></Field><Field label="Columns"><div className="segment">{[2,3,4].map(n=><button key={n} className={editor.featured.columns===n?'active':''} onClick={()=>update('featured','columns',n)}>{n}</button>)}</div></Field></div>}{editor.selected==='story'&&<div className="settings-form"><Field label="Heading"><input value={editor.story.title} onChange={e=>update('story','title',e.target.value)}/></Field><Field label="Body"><textarea rows="5" value={editor.story.body} onChange={e=>update('story','body',e.target.value)}/></Field></div>}{editor.selected==='newsletter'&&<div className="settings-form"><Field label="Heading"><input value={editor.newsletter?.heading||''} onChange={e=>update('newsletter','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.newsletter?.body||''} onChange={e=>update('newsletter','body',e.target.value)}/></Field><Field label="Button"><input value={editor.newsletter?.button||'Join'} onChange={e=>update('newsletter','button',e.target.value)}/></Field></div>}{editor.selected==='footer'&&<div className="settings-form"><Field label="Footer text"><input value={editor.footer?.text||''} onChange={e=>update('footer','text',e.target.value)}/></Field><p className="field-help">Footer links are managed in Online store → Navigation.</p></div>}{themeIds.has(editor.selected)&&!['hero','featured','story','newsletter'].includes(editor.selected)&&<ThemeSectionSettings id={editor.selected} editor={editor} setEditor={setEditor}/>} {selectedBlock&&<BlockSettings block={selectedBlock} update={updateBlock} remove={removeBlock} media={media}/>}<div className="settings-form precision-controls"><span className="overline">GLOBAL STYLE</span><Field label={`Section gap: ${editor.theme?.sectionGap||32}px`}><input type="range" min="0" max="96" value={editor.theme?.sectionGap||32} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),sectionGap:Number(e.target.value)}}))}/></Field><Field label={`Card radius: ${editor.theme?.radius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.radius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),radius:Number(e.target.value)}}))}/></Field></div><div className="project-context"><span>PROJECT CONTEXT</span><strong>{data.goals[0]||'Website goal'}</strong><p>{data.primaryAction}</p><div><b>Direction</b><em>{data.styles.join(' + ')}</em></div><div><b>Audience</b><em>{data.audience}</em></div></div></aside></div></div>
+}
+
+function ThemeSectionSettings({id,editor,setEditor}){
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const base=recipe.defaults?.[id]||{}
+  const value={...base,...(editor.sectionContent?.[id]||{})}
+  const update=(key,val)=>setEditor(prev=>({...prev,sectionContent:{...(prev.sectionContent||{}),[id]:{...(prev.sectionContent?.[id]||base),[key]:val}}}))
+  return <div className="settings-form"><span className="overline">THEME SECTION</span>{'eyebrow' in base&&<Field label="Eyebrow"><input value={value.eyebrow||''} onChange={e=>update('eyebrow',e.target.value)}/></Field>}<Field label="Heading / statement"><textarea rows="3" value={value.title||''} onChange={e=>update('title',e.target.value)}/></Field>{'body' in base&&<Field label={['specGrid','craftStats','routineSteps','benefitStrip','categoryStrip','ingredientCards'].includes(id)?'Items (use | between items)':'Body'}><textarea rows="4" value={value.body||''} onChange={e=>update('body',e.target.value)}/></Field>}{'button' in base&&<Field label="Button label"><input value={value.button||''} onChange={e=>update('button',e.target.value)}/></Field>}<p className="field-help">This section is part of the {editor.theme?.name} theme recipe. You can reorder it from the section list.</p></div>
 }
 
 function BlockSettings({block,update,remove,media=[]}){
@@ -615,6 +714,20 @@ function EditorBlock({block}){
   return <section className="sf-custom-block" style={{background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px`,margin:`${block.margin||0}px`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius??0}px`,fontSize:`${block.fontSize||16}px`}}><div className="sf-custom-inner" style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns}, minmax(0, 1fr))`,gap:`${block.gap??20}px`,maxWidth:`${block.maxWidth||1180}px`}}>{Array.from({length:columns}).map((_,idx)=><div key={idx}>{block.type==='image'&&block.imageUrl?<img src={block.imageUrl} alt={block.title||'Content image'}/>:null}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(item=><li key={item}>{item}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
 }
 
+function ThemeSection({id,editor}) {
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const d={...(recipe.defaults?.[id]||{}),...(editor.sectionContent?.[id]||{})}
+  const parts=String(d.body||'').split('|').map(x=>x.trim()).filter(Boolean)
+  if(id==='marquee'||id==='promoBar') return <section className={`theme-section ts-${id}`}><div className="ts-marquee">{Array(3).fill(d.title||'NEW COLLECTION').map((x,i)=><span key={i}>{x}</span>)}</div></section>
+  if(id==='imageStory'||id==='collectionSpotlight'||id==='issueIntro') return <section className={`theme-section ts-${id}`}><div className="ts-visual"><i/><b/><span/></div><div className="ts-copy"><small>{d.eyebrow}</small><h2>{d.title}</h2><p>{d.body}</p>{d.button&&<button>{d.button}</button>}</div></section>
+  if(id==='lookbook') return <section className="theme-section ts-lookbook"><div className="ts-copy"><small>{d.eyebrow}</small><h2>{d.title}</h2><p>{d.body}</p></div><div className="lookbook-grid"><i/><i/><i/><i/><i/></div></section>
+  if(id==='quote'||id==='signalBand'||id==='campaignBanner'||id==='vipBanner'||id==='testimonial') return <section className={`theme-section ts-${id}`}><small>{d.eyebrow}</small><h2>{d.title}</h2>{d.body&&<p>{d.body}</p>}{d.button&&<button>{d.button}</button>}</section>
+  if(id==='specGrid'||id==='craftStats'||id==='routineSteps'||id==='benefitStrip'||id==='categoryStrip') return <section className={`theme-section ts-${id}`}><div className="ts-section-head"><small>{d.eyebrow}</small><h2>{d.title}</h2>{id!=='categoryStrip'&&d.body&&!parts.length&&<p>{d.body}</p>}</div><div className="ts-three-grid">{(parts.length?parts:['Thoughtful design','Useful details','Built to last']).slice(0,5).map((x,i)=><article key={x+i}><b>{String(i+1).padStart(2,'0')}</b><span>{x}</span></article>)}</div></section>
+  if(id==='categoryTiles'||id==='ingredientCards'||id==='storyGrid'||id==='signatureCollection'||id==='journalTeasers') return <section className={`theme-section ts-${id}`}><div className="ts-section-head"><small>{d.eyebrow}</small><h2>{d.title}</h2><p>{d.body}</p></div><div className="ts-card-grid">{['One','Two','Three'].map((x,i)=><article key={x}><div className="ts-card-art art-"+i><i/></div><span>0{i+1}</span><h3>{parts[i]||['Objects','Stories','Collections'][i]}</h3></article>)}</div></section>
+  if(id==='masthead') return <section className="theme-section ts-masthead"><div><small>{d.eyebrow}</small><h1>{d.title}</h1><p>{d.body}</p></div><span>COBEST / EDITION</span></section>
+  return null
+}
+
 function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNavigate}) {
   const visible = products.filter(x=>x.status==='Active')
   const blocks=editor.blocks||[]
@@ -626,7 +739,7 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
     if(id==='featured') return <section key={id} className="sf-products"><div className="sf-section-head"><h2>{editor.featured.title}</h2><span>{visible.length} products</span></div><div className={`sf-product-grid columns-${editor.featured.columns}`}>{visible.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price)}</p>{full&&<button className="sf-add-cart" onClick={()=>onAdd?.(p)}>Add to cart</button>}</article>)}</div>{!visible.length&&<div className="empty-panel"><Package size={22}/><strong>No active products</strong><p>Activate a product in Catalog to show it in the storefront.</p></div>}</section>
     if(id==='story') return <section key={id} className="sf-story"><small>OUR APPROACH</small><h2>{editor.story.title}</h2><p>{editor.story.body}</p></section>
     if(id==='newsletter') return <section key={id} className="sf-newsletter"><h2>{editor.newsletter?.heading||'Stay in the loop.'}</h2><p>{editor.newsletter?.body||'New products, stories, and updates.'}</p><div><span>Email address</span><button>{editor.newsletter?.button||'Join'}</button></div></section>
-    const block=map.get(id);return block?<EditorBlock key={id} block={block}/>:null
+    const block=map.get(id);if(block)return <EditorBlock key={id} block={block}/>;return <ThemeSection key={id} id={id} editor={editor}/>
   }
   return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
