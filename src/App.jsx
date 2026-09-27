@@ -331,10 +331,25 @@ const navItems = navGroups.flatMap(group => group.items)
 
 function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite }) {
   const [mobile, setMobile] = useState(false)
+  const activeSite = sites.find(site=>String(site.id)===String(activeSiteId))
+  const activeSiteName = activeSite?.site_name || activeSite?.slug || businessName || 'Untitled website'
   return <div className="app-shell">
     <aside className={`app-sidebar ${mobile?'open':''}`}>
       <div className="sidebar-top"><Logo inverse/><button className="mobile-close" onClick={()=>setMobile(false)}><X/></button></div>
-      <div className="store-switch site-switcher"><div className="store-avatar">{(businessName||'C').charAt(0)}</div><div><strong>{businessName||'Your Store'}</strong><select aria-label="Active site" value={activeSiteId||''} onChange={e=>onSiteChange?.(e.target.value)}><option value="" disabled>Select site</option>{sites.map(s=><option key={s.id} value={s.id}>{s.site_name||s.slug||'Untitled site'}</option>)}</select></div><button title="Create another site" onClick={onCreateSite}><Plus size={15}/></button></div>
+      <div className="site-switcher">
+        <div className="site-switcher-head">
+          <div className="store-avatar">{String(activeSiteName||'C').charAt(0).toUpperCase()}</div>
+          <div className="site-switcher-copy"><span>Current store</span><strong>{activeSiteName}</strong></div>
+          <button className="site-add-button" title="Create another site" onClick={onCreateSite} aria-label="Create another site"><Plus size={16}/></button>
+        </div>
+        <label className="site-switcher-control">
+          <Store size={14}/>
+          <select aria-label="Active site" value={activeSiteId||''} onChange={e=>onSiteChange?.(e.target.value)}>
+            <option value="" disabled>Select site</option>
+            {sites.map(s=><option key={s.id} value={s.id}>{s.site_name||s.slug||'Untitled website'}</option>)}
+          </select>
+        </label>
+      </div>
       <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
       <div className="sidebar-bottom"><button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button><button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
     </aside>
