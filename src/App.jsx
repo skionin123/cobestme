@@ -774,6 +774,9 @@ function BuilderLibrary({onAdd}){
 function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPublish,onSettings,onManagePages,workspace}) {
   const currentPage=editor.currentPage||'Home'
   const [dragId,setDragId]=useState(null)
+  const [leftMode,setLeftMode]=useState('layers')
+  const [zoom,setZoom]=useState(100)
+  const [saveState,setSaveState]=useState('')
   const historyRef=useRef([])
   const futureRef=useRef([])
   const lastRef=useRef(JSON.stringify(editor))
@@ -789,10 +792,27 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPu
   },[editor])
   const undo=()=>{if(!historyRef.current.length)return;const previous=historyRef.current.pop();futureRef.current.push(JSON.parse(JSON.stringify(editor)));skipHistoryRef.current=true;setEditor(previous)}
   const redo=()=>{if(!futureRef.current.length)return;const next=futureRef.current.pop();historyRef.current.push(JSON.parse(JSON.stringify(editor)));skipHistoryRef.current=true;setEditor(next)}
-  const save=()=>{
+  const save=async()=>{
     try{localStorage.setItem('cobest-v4-editor',JSON.stringify(editor))}catch{}
-    if(isAuthenticated()) saveWorkspace({onboarding:data,editor,settings:{}}).catch(()=>{})
-    alert('Website changes saved.')
+    setSaveState('Saving…')
+    try{
+      if(isAuthenticated()) await saveWorkspace({
+        onboarding:data,
+        editor,
+        settings:{...(workspace?.settings||{})},
+        slug:workspace?.slug,
+        custom_domain:workspace?.custom_domain,
+        site_name:workspace?.site_name||data.businessName,
+        plan:workspace?.plan||'Free',
+        currency:workspace?.currency||'PHP',
+        timezone:workspace?.timezone||'Asia/Manila'
+      })
+      setSaveState('Saved')
+      setTimeout(()=>setSaveState(''),1600)
+    }catch(err){
+      setSaveState('Save failed')
+      alert(err.message||'Website changes could not be saved.')
+    }
   }
   const changePage=p=>setEditor(prev=>({...prev,currentPage:p,selected:p==='Home'?'hero':'page-intro',pageContent:{...(prev.pageContent||{}),[p]:prev.pageContent?.[p]||{title:p,body:'',blocks:[]}}}))
 
