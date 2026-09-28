@@ -167,7 +167,8 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     case 'navbar':return createPrebuiltSection('navbar')
     case 'dropdown':{
       const n=base(type,'div','Dropdown')
-      n.children=[base('button','button','Dropdown Toggle','Menu'),base('div','div','Dropdown List','Dropdown content')]
+      n.attributes={'data-dropdown':'true'}
+      n.children=[{...base('button','button','Dropdown Toggle','Menu'),attributes:{'data-dropdown-toggle':'true'}},{...base('div','div','Dropdown List','Dropdown content'),attributes:{'data-dropdown-list':'true',hidden:'true'}}]
       return n
     }
     case 'footer':return createPrebuiltSection('footer')
@@ -185,7 +186,7 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     }
     case 'lightbox':{
       const n=base(type,'a','Lightbox','Open image')
-      n.attributes={href:'#'}
+      n.attributes={href:'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=1600&q=80','data-lightbox':'true'}
       return n
     }
     case 'html':{
