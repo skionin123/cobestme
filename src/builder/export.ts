@@ -105,6 +105,15 @@ function siteRuntime(project:BuilderProject){
     const slides=[...slider.children];let index=0;const show=()=>slides.forEach((x,i)=>x.hidden=i!==index);show();
     slider.addEventListener('click',()=>{index=(index+1)%slides.length;show()});
   });
+  document.querySelectorAll('[data-dropdown]').forEach(dropdown=>{
+    const toggle=dropdown.querySelector('[data-dropdown-toggle]'),list=dropdown.querySelector('[data-dropdown-list]');
+    toggle?.addEventListener('click',event=>{event.preventDefault();if(list)list.hidden=!list.hidden});
+  });
+  document.querySelectorAll('[data-lightbox]').forEach(link=>link.addEventListener('click',event=>{
+    event.preventDefault();const src=link.getAttribute('href');if(!src)return;
+    const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.86);display:grid;place-items:center;padding:30px;cursor:zoom-out';
+    const img=document.createElement('img');img.src=src;img.style.cssText='max-width:min(1200px,92vw);max-height:90vh;object-fit:contain';overlay.appendChild(img);overlay.onclick=()=>overlay.remove();document.body.appendChild(overlay);
+  }));
   document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{
     const action=form.getAttribute('action');if(!action||action==='#'){event.preventDefault();form.dataset.state='success';}
   }));
