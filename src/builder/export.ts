@@ -152,17 +152,25 @@ function dataUrlToBytes(url:string){
 
 export function exportFiles(project:BuilderProject){
   const files:Record<string,ZipValue>={}
-  files['styles.css']=compileProjectCss(project)
+  const assetPaths=new Map<string,string>()
+  for(const asset of project.assets){
+    if(!asset.url.startsWith('data:'))continue
+    const safe=(asset.id+'-'+asset.name).replace(/[^a-zA-Z0-9._-]/g,'-')
+    const path='assets/'+safe
+    const bytes=dataUrlToBytes(asset.url)
+    if(bytes){files[path]=bytes;assetPaths.set(asset.url,path)}
+  }
+  const rewriteAssets=(value:string)=>{
+    let next=value
+    for(const [url,path] of assetPaths)next=next.split(url).join(path)
+    return next
+  }
+  files['styles.css']=rewriteAssets(compileProjectCss(project))
   files['site.js']=siteRuntime(project)
-  for(const page of project.pages)files[pageFileName(page.slug)]=shellHtml(project,page.id)
+  for(const page of project.pages)files[pageFileName(page.slug)]=rewriteAssets(shellHtml(project,page.id))
   files['sitemap.xml']=sitemap(project)
   const exported:ExportedProject={schemaVersion:1,project,exportedAt:new Date().toISOString()}
   files['project.cobest.json']=JSON.stringify(exported,null,2)
-  for(const asset of project.assets){
-    if(!asset.url.startsWith('data:'))continue
-    const bytes=dataUrlToBytes(asset.url)
-    if(bytes)files['assets/'+asset.name.replace(/[^a-zA-Z0-9._-]/g,'-')]=bytes
-  }
   return files
 }
 
