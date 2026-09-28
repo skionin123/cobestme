@@ -112,7 +112,7 @@ export default function PublicStore({slug:slugProp,host}) {
 
   const pageData=store?.editor?.pageContent?.[page]||{}
   const features=store?.onboarding?.features||[]
-  return <div className="public-store-shell" style={{'--brand':store?.onboarding?.primaryColor||'#171717','--paper':store?.onboarding?.secondaryColor||'#f4f1eb','--accent':store?.onboarding?.accentColor||'#b69a78',fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>
+  return <div className="public-store-shell" style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{store.editor.customCss}</style>:null}
     <header className="public-store-header">
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
       <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
@@ -151,7 +151,7 @@ function Home({store,products,currency,onShop,onAdd}) {
     <section className={`public-hero align-${hero.align||'left'}`}><div><small>{hero.eyebrow||'WELCOME'}</small><h1>{hero.heading||store.onboarding?.businessName||'Welcome'}</h1><p>{hero.body||store.onboarding?.businessDescription}</p><button onClick={onShop}>{hero.button||'Shop now'}</button></div><div className="public-hero-art"/></section>
     <section className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd}/></section>
     <section className="public-story"><small>OUR STORY</small><h2>{story.title||store.onboarding?.businessName}</h2><p>{story.body||store.onboarding?.businessDescription}</p></section>
-    {blocks.map(block=><ContentBlock key={block.id} block={block}/>)}
+    {blocks.map(block=><ContentBlock key={block.id} block={block} products={products} currency={currency} onAdd={onAdd}/>)}
   </>
 }
 
@@ -286,10 +286,16 @@ function defaultPageBody(name,store){
   return `Edit the ${name} page in CoBest to add your content.`
 }
 
-function ContentBlock({block}) {
+function ContentBlock({block,products=[],currency='PHP',onAdd}) {
   const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
   const columns=Number(block.columns||1)
-  return <section className="public-content-block" style={{background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px 5vw`,margin:`${block.margin||0}px 0`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius||0}px`,fontSize:`${block.fontSize||16}px`}}><div style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns},minmax(0,1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}>{Array.from({length:columns}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
+  const visible=(products||[]).filter(x=>x.status==='Active').slice(0,Number(block.productLimit||4))
+  const style={background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px 5vw`,margin:`${block.margin||0}px 0`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius||0}px`,fontSize:`${block.fontSize||16}px`}
+  if(block.type==='spacer') return <section className="public-content-block public-block-spacer" style={{...style,minHeight:`${block.padding??48}px`}}/>
+  if(block.type==='products') return <section className="public-content-block public-block-products" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><div className="public-section-title"><h2>{block.title||'Products'}</h2></div><ProductGrid products={visible} currency={currency} onAdd={onAdd}/></div></section>
+  if(block.type==='cta') return <section className="public-content-block public-block-cta" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><h2>{block.title}</h2><p>{block.body}</p><a className="btn btn-primary" href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
+  if(block.type==='quote') return <section className="public-content-block public-block-quote" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
+  return <section className="public-content-block" style={style}><div style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns},minmax(0,1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}>{Array.from({length:columns}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
 }
 
 function Newsletter({slug}) {
