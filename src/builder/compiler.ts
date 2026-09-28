@@ -27,7 +27,9 @@ function compileStateSelector(className:string,state:NodeState){
 }
 
 export function compileProjectCss(project:BuilderProject){
-  const rootVars=Object.entries(project.globals.colors).map(([key,value])=>`--${key}:${value};`).join('')
+  const colorVars=Object.entries(project.globals.colors).map(([key,value])=>`--${key}:${value};`).join('')
+  const textVars=Object.entries(project.globals.textStyles).flatMap(([styleName,props])=>Object.entries(props).map(([key,value])=>`--text-${styleName}-${key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${value};`)).join('')
+  const rootVars=colorVars+textVars
   let base=`:root{${rootVars}}*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;min-height:100%}body{overflow-x:hidden}img,video{max-width:100%;display:block}button,input,textarea,select{font:inherit}a{color:inherit}details summary{cursor:pointer}`
   const responsive:Record<string,string[]>={tablet:[],mobileLandscape:[],mobilePortrait:[]}
   for(const [className,breakpoints] of Object.entries(project.styles)){
