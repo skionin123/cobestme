@@ -83,8 +83,7 @@ function runtimeNodeIdHtml(html:string,project:BuilderProject){
 
 function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsPath='site.js'){
   const page=project.pages.find(p=>p.id===pageId)||project.pages[0]
-  let body=renderPageBody(project,page.id,false)
-  body=runtimeNodeIdHtml(body,project)
+  const body=renderPageBody(project,page.id,false)
   const title=page.seo.title||page.name
   const description=page.seo.description||''
   const og=page.seo.ogImage?`<meta property="og:image" content="${page.seo.ogImage}">`:''
