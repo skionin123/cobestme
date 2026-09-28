@@ -1060,3 +1060,15 @@
 .sf-block-spacer{border-left:0!important;border-right:0!important}
 @media(max-width:800px){.sf-custom-products{grid-template-columns:repeat(2,minmax(0,1fr))!important}.sf-custom-heading{align-items:flex-start;flex-direction:column}.sf-block-quote blockquote{font-size:32px}}
 @media(max-width:560px){.sf-custom-products{grid-template-columns:1fr!important}}
+
+
+/* Published storefront parity for builder typography */
+.public-store-shell{background:var(--surface,#fff);font-size:var(--body-size,16px);font-weight:var(--body-weight,400);line-height:var(--body-line,1.6);letter-spacing:var(--letter-spacing,0)}
+.public-store-shell h1,.public-store-shell h2,.public-store-shell h3,.public-store-brand,.public-footer strong{font-family:var(--display-font,Georgia,serif);font-weight:var(--heading-weight,600)}
+.public-store-shell h1,.public-hero h1,.public-page-intro h1{font-size:var(--h1-size,62px)}
+.public-store-shell h2,.public-story h2,.public-newsletter h2,.public-content-block h2{font-size:var(--h2-size,36px)}
+.public-store-header nav,.public-footer-links{font-weight:var(--nav-weight,500)}
+.public-store-shell button,.public-store-shell .btn,.public-store-shell a{font-weight:var(--button-weight,600)}
+.public-block-cta{text-align:center}.public-block-cta p{max-width:680px;margin:0 auto 22px}.public-block-cta .btn{text-decoration:none;display:inline-flex}
+.public-block-quote{text-align:center}.public-block-quote blockquote{font-family:var(--display-font,Georgia,serif);font-size:clamp(28px,4vw,58px);line-height:1.08;max-width:900px;margin:0 auto}.public-block-quote cite{display:block;margin-top:18px;font-style:normal;font-size:12px;opacity:.7}
+.public-block-spacer{border-left:0!important;border-right:0!important}
