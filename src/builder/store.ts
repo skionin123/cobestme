@@ -204,11 +204,15 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     updateNode:(nodeId,patch)=>commit('Edit element',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,...clone(patch)}))
-      const selected=findNode(page.root,nodeId)
-      if(selected?.componentId){
-        const component=draft.components.find(c=>c.id===selected.componentId)
+      let cursor=findNode(page.root,nodeId)
+      let componentRoot:BuilderNode|null=cursor
+      while(componentRoot&&!componentRoot.componentId){
+        componentRoot=findParent(page.root,componentRoot.id)
+      }
+      if(componentRoot?.componentId){
+        const component=draft.components.find(c=>c.id===componentRoot!.componentId)
         if(component){
-          component.master={...clone(selected),componentInstanceId:undefined}
+          component.master={...clone(componentRoot),componentInstanceId:undefined}
           component.updatedAt=new Date().toISOString()
           Object.assign(draft,replaceComponentInstances(draft,component.id,component.master))
         }
@@ -310,7 +314,20 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     addInteraction:interaction=>commit('Add interaction',draft=>{draft.interactions.push(interaction)}),
     updateInteraction:(id,patch)=>commit('Edit interaction',draft=>{const x=draft.interactions.find(i=>i.id===id);if(x)Object.assign(x,patch)}),
     deleteInteraction:id=>commit('Delete interaction',draft=>{draft.interactions=draft.interactions.filter(i=>i.id!==id)}),
-    addCollection:collection=>commit('Add CMS collection',draft=>{draft.collections.push(collection)}),
+    addCollection:collection=>commit('Add CMS collection',draft=>{
+      const templateId=uid('page')
+      const templateRoot:BuilderNode={
+        id:uid('root'),type:'div',tag:'main',name:collection.name+' Template',classes:['page-shell'],attributes:{},children:[
+          {id:uid('section'),type:'section',tag:'section',name:'CMS Template',classes:['section'],attributes:{collectionId:collection.id},children:[
+            {id:uid('heading'),type:'heading',tag:'h1',name:'CMS Title',classes:['heading'],attributes:{'data-cms-field':'title'},content:'Collection item title',children:[]},
+            {id:uid('paragraph'),type:'paragraph',tag:'p',name:'CMS Content',classes:['paragraph'],attributes:{'data-cms-field':'description'},content:'Collection item content',children:[]}
+          ]}
+        ]
+      }
+      const next={...collection,templatePageId:templateId}
+      draft.collections.push(next)
+      draft.pages.push({id:templateId,name:collection.name+' Template',slug:'/'+collection.slug+'/{slug}',seo:{title:collection.name+' Template',description:'',slug:'/'+collection.slug+'/{slug}'},root:templateRoot,isCollectionTemplate:true,collectionId:collection.id})
+    }),
     updateCollection:(id,patch)=>commit('Edit CMS collection',draft=>{const x=draft.collections.find(c=>c.id===id);if(x)Object.assign(x,clone(patch))}),
     deleteCollection:id=>commit('Delete CMS collection',draft=>{
       draft.collections=draft.collections.filter(c=>c.id!==id)
