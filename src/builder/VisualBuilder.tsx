@@ -112,6 +112,8 @@ export default function VisualBuilder(){
   const deleteNode=useBuilderStore(s=>s.deleteNode)
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const moveNode=useBuilderStore(s=>s.moveNode)
+  const addClass=useBuilderStore(s=>s.addClass)
+  const setStyle=useBuilderStore(s=>s.setStyle)
   const createComponent=useBuilderStore(s=>s.createComponent)
   const undo=useBuilderStore(s=>s.undo)
   const redo=useBuilderStore(s=>s.redo)
@@ -145,6 +147,15 @@ export default function VisualBuilder(){
       if(msg.type==='select')selectNode(msg.id||null)
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
+      if(msg.type==='spacing-change'&&msg.id&&msg.property){
+        const page=useBuilderStore.getState().project.pages.find(p=>p.id===useBuilderStore.getState().project.activePageId)||useBuilderStore.getState().project.pages[0]
+        const node=findNode(page.root,msg.id)
+        if(node){
+          let className=node.classes.at(-1)
+          if(!className){className='el-'+msg.id.replace(/[^a-zA-Z0-9_-]/g,'-');addClass(node.id,className)}
+          setStyle(className,String(msg.property),String(msg.value))
+        }
+      }
       if(msg.type==='context'&&msg.id){
         const rect=iframeRef.current?.getBoundingClientRect()
         setContext({nodeId:msg.id,x:(rect?.left||0)+Number(msg.x||0),y:(rect?.top||0)+Number(msg.y||0)})
@@ -153,7 +164,7 @@ export default function VisualBuilder(){
     }
     window.addEventListener('message',handler)
     return()=>window.removeEventListener('message',handler)
-  },[selectNode,hoverNode,updateNode])
+  },[selectNode,hoverNode,updateNode,addClass,setStyle])
 
   useEffect(()=>{
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
