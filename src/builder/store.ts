@@ -107,7 +107,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     draft.versions=[version,...(draft.versions||[])].slice(0,20)
     set({
       project:draft,
-      history:[...state.history,previous].slice(-20),
+      history:[...state.history,previous],
       future:[],
       saveStatus:'dirty',
     })
@@ -347,11 +347,11 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     importProject:project=>set({project:clone(project),history:[],future:[],selectedNodeId:project.pages.find(p=>p.id===project.activePageId)?.root.id||null,saveStatus:'dirty'}),
     undo:()=>{
       const state=get();const previous=state.history.at(-1);if(!previous)return
-      set({project:clone(previous),history:state.history.slice(0,-1),future:[clone(state.project),...state.future].slice(0,20),saveStatus:'dirty'})
+      set({project:clone(previous),history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty'})
     },
     redo:()=>{
       const state=get();const next=state.future[0];if(!next)return
-      set({project:clone(next),history:[...state.history,clone(state.project)].slice(-20),future:state.future.slice(1),saveStatus:'dirty'})
+      set({project:clone(next),history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty'})
     },
   }
 })
