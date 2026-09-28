@@ -10,6 +10,16 @@ import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, Colle
 
 const APP_NAME = 'CoBest'
 
+const fontChoices = [
+  { label:'DM Sans', value:"'DM Sans', Arial, Helvetica, sans-serif" },
+  { label:'Manrope', value:"'Manrope', Arial, Helvetica, sans-serif" },
+  { label:'Playfair Display', value:"'Playfair Display', Georgia, serif" },
+  { label:'Georgia', value:'Georgia, Times New Roman, serif' },
+  { label:'Arial / Helvetica', value:'Arial, Helvetica, sans-serif' },
+  { label:'System UI', value:'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' },
+  { label:'Monospace', value:'ui-monospace, SFMono-Regular, Menlo, monospace' },
+]
+
 const styleChoices = [
   { name: 'Minimal', note: 'Whitespace, restraint, clean typography', className: 'style-minimal' },
   { name: 'Modern', note: 'Contemporary, structured, refined UI', className: 'style-modern' },
