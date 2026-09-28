@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import VisualBuilder from './builder/VisualBuilder'
 
 const APP_NAME = 'CoBest'
 
@@ -1254,7 +1255,7 @@ export default function App() {
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
-  if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} media={mediaAssets} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
+  if(page==='editor') content=<VisualBuilder/>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
