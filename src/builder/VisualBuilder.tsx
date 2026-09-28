@@ -257,7 +257,7 @@ export default function VisualBuilder(){
     ['mobilePortrait','Mobile P 478',Smartphone],
   ]
 
-  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><iframe ref={iframeRef} title="CoBest preview" srcDoc={documentHtml} className="vb-preview-frame" onLoad={()=>iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:false},'*')}/></div>
+  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={documentHtml} className="vb-preview-frame" onLoad={()=>iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:false},'*')}/></div>
 
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
     <div className="vb-shell">
@@ -293,7 +293,7 @@ export default function VisualBuilder(){
           <CanvasDropZone dragging={dragging}>
             <div className="vb-canvas-scaler" style={{width:Math.min(widths[breakpoint],1440),transform:`scale(${zoom/100})`,transformOrigin:'top center'}}>
               <div className="vb-canvas-wrap" style={{width:Math.min(widths[breakpoint],1440)}}>
-                <iframe ref={iframeRef} title="CoBest visual builder canvas" srcDoc={documentHtml} className="vb-canvas" style={{pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
+                <iframe ref={iframeRef} title="CoBest visual builder canvas" sandbox="allow-scripts allow-forms allow-popups" srcDoc={documentHtml} className="vb-canvas" style={{pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
                   iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
                   iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:true},'*')
                 }}/>
