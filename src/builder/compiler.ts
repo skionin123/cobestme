@@ -66,7 +66,7 @@ function compileInteractionCss(interactions:BuilderInteraction[]){
 
 function interactionAttrs(nodeId:string,interactions:BuilderInteraction[]){
   const ids=interactions.filter(x=>x.nodeId===nodeId).map(x=>x.id)
-  return ids.length?{'data-ix':ids.join(' ')}:{}
+  return ids.length?{'data-ix':ids.join(' '),'data-node-id':nodeId}:{}
 }
 
 function attrsToString(attrs:Record<string,string>){
