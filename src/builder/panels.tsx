@@ -20,12 +20,18 @@ function slugClass(value:string){
 }
 
 function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:string;label:string;note?:string;section?:boolean}){
+  const addNode=useBuilderStore(s=>s.addNode)
+  const project=useBuilderStore(s=>s.project)
   const {attributes,listeners,setNodeRef,transform,isDragging}=useDraggable({
     id:`palette:${section?'section':'element'}:${type}`,
     data:{kind:section?'new-section':'new-element',type},
   })
   const style={transform:CSS.Translate.toString(transform),opacity:isDragging?.45:1}
-  return <button ref={setNodeRef} style={style} {...listeners} {...attributes} className="flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
+  const add=()=>{
+    const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
+    addNode(page.root.id,section?createPrebuiltSection(type):createElement(type as any))
+  }
+  return <button ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={add} className="flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
     <strong className="text-[11px] font-semibold text-zinc-100">{labelText}</strong>
     {note&&<span className="mt-1 text-[9px] leading-4 text-zinc-500">{note}</span>}
   </button>
