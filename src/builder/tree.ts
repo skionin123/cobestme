@@ -92,6 +92,7 @@ export function replaceComponentInstances(project:BuilderProject,componentId:str
 
 function replaceComponentInNode(node:BuilderNode,componentId:string,master:BuilderNode):BuilderNode{
   if(node.componentId===componentId){
+    if(String(node.componentInstanceId||'').startsWith('master:'))return node
     const instanceId=node.componentInstanceId||uid('instance')
     const next=regenerateNodeIds(master,'component')
     return {...next,componentId,componentInstanceId:instanceId,name:node.name||master.name}
