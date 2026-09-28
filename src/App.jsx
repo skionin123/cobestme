@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, BarChart3, BriefcaseBusiness, Check, ChevronDown,
-  CircleHelp, Eye, FileText, Home, Image as ImageIcon, LayoutDashboard,
-  Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
-  Smartphone, Sparkles, Store, Tablet, Upload, Users, X
+  Box, CircleHelp, Code2, Copy, Eye, FileText, GripVertical, Home, Image as ImageIcon, Layers, LayoutDashboard,
+  Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
+  Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
@@ -19,6 +19,44 @@ const fontChoices = [
   { label:'System UI', value:'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' },
   { label:'Monospace', value:'ui-monospace, SFMono-Regular, Menlo, monospace' },
 ]
+
+const builderElementLibrary = [
+  {type:'heading',label:'Heading',group:'Basic',note:'Large display heading'},
+  {type:'text',label:'Text',group:'Basic',note:'Paragraph or rich copy'},
+  {type:'image',label:'Image',group:'Basic',note:'Responsive image block'},
+  {type:'cta',label:'Button / CTA',group:'Basic',note:'Call to action section'},
+  {type:'video',label:'Video',group:'Basic',note:'Responsive video embed'},
+  {type:'form',label:'Form',group:'Basic',note:'Lead or contact form'},
+  {type:'columns',label:'Columns',group:'Layout',note:'Flexible multi-column layout'},
+  {type:'grid',label:'Grid',group:'Layout',note:'Card or content grid'},
+  {type:'products',label:'Product Grid',group:'Commerce',note:'Live active products'},
+  {type:'testimonial',label:'Testimonial',group:'Components',note:'Customer quote'},
+  {type:'pricing',label:'Pricing',group:'Components',note:'Pricing cards'},
+  {type:'faq',label:'FAQ',group:'Components',note:'Expandable questions'},
+  {type:'spacer',label:'Spacer',group:'Layout',note:'Vertical breathing room'}
+]
+
+function createBuilderBlock(type='text',prefix='block'){
+  const id=`${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
+  const base={id,type,title:'New section',body:'Add your content here.',background:'#ffffff',text:'#171717',padding:56,margin:0,columns:1,columnTemplate:'1fr',gap:24,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'',buttonLabel:'Learn more',buttonLink:'#',productLimit:4,opacity:100,shadow:'none',position:'relative',align:'left',hideDesktop:false,hideTablet:false,hideMobile:false}
+  const presets={
+    heading:{title:'A clear, confident heading',body:'',fontSize:52},
+    text:{title:'Tell your story',body:'Use this section for a paragraph, introduction, service description, or any supporting copy.'},
+    image:{title:'Visual story',body:'Add context for this image.',padding:32},
+    cta:{title:'Ready to take the next step?',body:'Give visitors one clear action to take.',buttonLabel:'Get started'},
+    video:{title:'Watch the story',body:'Paste a YouTube, Vimeo, or hosted video URL.',imageUrl:''},
+    form:{title:'Start a conversation',body:'Collect the details you need from visitors.',buttonLabel:'Send'},
+    columns:{title:'Flexible columns',body:'Add content across multiple columns.',columns:2,columnTemplate:'1fr 1fr'},
+    grid:{title:'Content grid',body:'Card one, Card two, Card three',items:'Card one, Card two, Card three',columns:3,columnTemplate:'1fr 1fr 1fr'},
+    products:{title:'Featured products',body:'',columns:4,columnTemplate:'1fr 1fr 1fr 1fr'},
+    testimonial:{title:'What customers say',body:'“A thoughtful experience from start to finish.”'},
+    pricing:{title:'Choose the right plan',body:'Starter|Professional|Business',columns:3,columnTemplate:'1fr 1fr 1fr'},
+    faq:{title:'Frequently asked questions',body:'What is included?|How does it work?|Can I change this later?'},
+    spacer:{title:'Spacer',body:'',padding:64}
+  }
+  return {...base,...(presets[type]||{}),type}
+}
+
 
 const styleChoices = [
   { name: 'Minimal', note: 'Whitespace, restraint, clean typography', className: 'style-minimal' },
