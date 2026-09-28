@@ -130,7 +130,7 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     case 'form':{
       const n=base(type,'form','Form Block')
       n.attributes={action:'#',method:'post'}
-      n.children=[createElement('input'),createElement('textarea'),createElement('submit')]
+      n.children=[createElement('input'),createElement('textarea'),createElement('submit'),{...base('div','div','Success State','Thanks! Your submission was received.'),attributes:{'data-form-success':'true'}},{...base('div','div','Error State','Something went wrong. Please try again.'),attributes:{'data-form-error':'true'}}]
       return n
     }
     case 'input':{
@@ -173,11 +173,13 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     case 'footer':return createPrebuiltSection('footer')
     case 'tabs':{
       const n=base(type,'div','Tabs')
-      n.children=[base('button','button','Tab','Tab 1'),base('div','div','Tab Pane','Tab content')]
+      n.attributes={'data-tabs':'true'}
+      n.children=[{...base('button','button','Tab','Tab 1'),attributes:{'data-tab':'true'}},{...base('button','button','Tab','Tab 2'),attributes:{'data-tab':'true'}},{...base('div','div','Tab Pane','Tab one content'),attributes:{'data-pane':'true'}},{...base('div','div','Tab Pane','Tab two content'),attributes:{'data-pane':'true'}}]
       return n
     }
     case 'slider':{
       const n=base(type,'div','Slider')
+      n.attributes={'data-slider':'true'}
       n.children=[base('div','div','Slide','Slide 1'),base('div','div','Slide','Slide 2')]
       return n
     }
