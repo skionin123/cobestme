@@ -1,4 +1,4 @@
-import type { BuilderInteraction, BuilderNode, BuilderProject, BreakpointId, CmsCollection, CssProperties, NodeState } from './types'
+import type { BuilderInteraction, BuilderNode, BuilderProject, BreakpointId, CmsCollection, CmsItem, CssProperties, NodeState } from './types'
 
 const escapeHtml=(value='')=>String(value).replace(/[&<>"']/g,ch=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -80,6 +80,13 @@ function attrsToString(attrs:Record<string,string>){
     }).join('')
 }
 
+const safeSlug=(value='')=>String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'item'
+const cmsItemSlug=(collection:CmsCollection,item:CmsItem)=>{
+  const slugField=collection.fields.find(f=>f.slug==='slug')
+  const titleField=collection.fields.find(f=>f.slug==='title')||collection.fields[0]
+  return safeSlug((slugField&&item.values[slugField.id])||(titleField&&item.values[titleField.id])||item.id)
+}
+
 function collectionHtml(collection:CmsCollection|undefined,editorAttrs:string){
   if(!collection)return `<div${editorAttrs}>Connect a CMS collection.</div>`
   const cards=collection.items.map(item=>{
@@ -87,12 +94,30 @@ function collectionHtml(collection:CmsCollection|undefined,editorAttrs:string){
     const title=entries.find(x=>x.field.slug==='title')?.value||entries[0]?.value||'Untitled'
     const image=entries.find(x=>x.field.type==='image')?.value
     const description=entries.find(x=>x.field.type==='richText'||x.field.slug==='description')?.value
-    return `<article class="cms-card">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}">`:''}<h3>${escapeHtml(title)}</h3>${description?`<p>${escapeHtml(description)}</p>`:''}</article>`
+    const href=`${collection.slug}-${cmsItemSlug(collection,item)}.html`
+    return `<article class="cms-card"><a href="${escapeAttr(href)}">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}">`:''}<h3>${escapeHtml(title)}</h3>${description?`<p>${escapeHtml(description)}</p>`:''}</a></article>`
   }).join('')
   return `<section${editorAttrs}><div class="cms-grid">${cards||'<p>No CMS items yet.</p>'}</div></section>`
 }
 
-export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=false):string{
+type CmsRenderContext={collection:CmsCollection;item:CmsItem}
+
+function applyCmsBinding(node:BuilderNode,attrs:Record<string,string>,content:string,context?:CmsRenderContext){
+  if(!context)return {attrs,content}
+  const binding=node.attributes?.['data-cms-field']
+  if(!binding)return {attrs,content}
+  const field=context.collection.fields.find(f=>f.slug===binding||f.id===binding)
+  if(!field)return {attrs,content}
+  const value=context.item.values[field.id]||''
+  const nextAttrs={...attrs}
+  delete nextAttrs['data-cms-field']
+  if(node.type==='image')nextAttrs.src=value
+  else if(node.type==='link'||node.type==='button')nextAttrs.href=value
+  else content=value
+  return {attrs:nextAttrs,content}
+}
+
+export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=false,cmsContext?:CmsRenderContext):string{
   if(node.hidden)return ''
   const tag=/^[a-z][a-z0-9-]*$/i.test(node.tag)?node.tag:'div'
   const editorAttrs=editing?` data-builder-node="${escapeAttr(node.id)}" data-builder-name="${escapeAttr(node.name)}"`:''
@@ -103,19 +128,28 @@ export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=f
   if(node.type==='collectionList'){
     return collectionHtml(project.collections.find(c=>c.id===node.attributes.collectionId),editorAttrs)
   }
-  const attrs={...(node.attributes||{}),...interactionAttrs(node.id,project.interactions)}
+  const baseAttrs={...(node.attributes||{}),...interactionAttrs(node.id,project.interactions)}
+  const rawContent=node.content||''
+  const bound=applyCmsBinding(node,baseAttrs,rawContent,cmsContext)
+  const attrs=bound.attrs
   const className=(node.classes||[]).join(' ')
   const classAttr=className?` class="${escapeAttr(className)}"`:''
   const attrText=attrsToString(attrs)
-  const content=node.content?escapeHtml(node.content):''
-  const children=(node.children||[]).map(child=>renderNodeHtml(child,project,editing)).join('')
+  const content=bound.content?escapeHtml(bound.content):''
+  const children=(node.children||[]).map(child=>renderNodeHtml(child,project,editing,cmsContext)).join('')
   if(voidTags.has(tag.toLowerCase()))return `<${tag}${editorAttrs}${classAttr}${attrText}>`
   return `<${tag}${editorAttrs}${classAttr}${attrText}>${content}${children}</${tag}>`
 }
 
-export function renderPageBody(project:BuilderProject,pageId?:string,editing=false){
+export function renderPageBody(project:BuilderProject,pageId?:string,editing=false,cmsItemId?:string){
   const page=project.pages.find(x=>x.id===(pageId||project.activePageId))||project.pages[0]
-  return renderNodeHtml(page.root,project,editing)
+  let context:CmsRenderContext|undefined
+  if(page.isCollectionTemplate&&page.collectionId){
+    const collection=project.collections.find(c=>c.id===page.collectionId)
+    const item=collection?.items.find(i=>i.id===cmsItemId)||collection?.items[0]
+    if(collection&&item)context={collection,item}
+  }
+  return renderNodeHtml(page.root,project,editing,context)
 }
 
 export function compileInteractionRuntime(project:BuilderProject){
