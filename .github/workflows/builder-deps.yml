@@ -1,0 +1,34 @@
+name: Builder dependency sync
+
+on:
+  push:
+    branches: [qa/stabilization-batch]
+    paths:
+      - builder-deps.locktrigger
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/stabilization-batch
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install builder dependencies
+        run: |
+          npm install --save-exact @dnd-kit/core@6.3.1 @dnd-kit/sortable@10.0.0 @dnd-kit/utilities@3.2.2
+          npm install --save-dev --save-exact tailwindcss@4.3.3 @tailwindcss/vite@4.3.3
+      - name: Commit dependency lock
+        run: |
+          git config user.name "cobest-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Lock visual builder dependencies"
+          git push origin HEAD:qa/stabilization-batch
