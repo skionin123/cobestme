@@ -619,3 +619,125 @@ Confirm the redesigned theme library is usable and that clients can choose a the
 - Extra/unselected sections are forced in.
 - Selected theme/sections revert after refresh.
 - Any button is dead or page crashes.
+
+
+## QA stabilization batch — GitHub-first workflow
+
+### Working agreement
+- Collect QA findings and fixes in GitHub first.
+- Use branch `qa/stabilization-batch` for stabilization work.
+- Do **not** deploy each individual fix to Railway.
+- Do **not** merge to `main` until the current QA batch is reviewed.
+- Deploy to Railway only after the batch builds cleanly and the user explicitly wants a production retest.
+- Keep this register updated as bugs are found, fixed, and retested.
+
+### Current production baseline
+- Production commit: `0c9113df3d65d66ec54c4f40448d25128ca84b69`
+- Latest builder-foundation deployment was successful.
+- Production remains unchanged while this QA batch is being prepared.
+
+### Newly identified stabilization issues
+
+#### QA-STAB-001 — Editor save can overwrite workspace/store settings
+**Severity:** P0
+**Area:** Website editor / persistence
+
+The Website Editor save action sends `settings: {}`, while the workspace PUT endpoint writes the provided settings object and also applies defaults for omitted workspace-level fields.
+
+**Risk:** Saving website content can unintentionally reset store configuration such as SEO/policies and other workspace settings.
+
+**Status:** OPEN
+
+#### QA-STAB-002 — Published Home does not follow editor section order/theme recipe
+**Severity:** P0
+**Area:** Publishing / storefront parity
+
+The editor supports theme-specific recipes, custom sections, and `sectionOrder`, but the public Home renderer still outputs a fixed Hero → Featured → Story → custom-block sequence.
+
+**Risk:** Published site can differ materially from the editor preview.
+
+**Status:** OPEN
+
+#### QA-STAB-003 — Custom CSS is not truly scoped
+**Severity:** P1
+**Area:** Website editor / custom code
+
+Custom CSS is injected into a normal `<style>` element and can target the entire document, despite UI copy saying it is storefront-scoped.
+
+**Risk:** A merchant can accidentally break or hide editor/application UI with selectors such as `body`, `button`, etc.
+
+**Status:** OPEN
+
+#### QA-STAB-004 — Blank canvas can reintroduce Newsletter automatically
+**Severity:** P1
+**Area:** Blank theme / section builder
+
+Adding a custom Home block inserts the block before `newsletter`, even if the Blank theme currently has no Newsletter section.
+
+**Risk:** Blank sites stop being truly blank/custom.
+
+**Status:** OPEN
+
+#### QA-STAB-005 — Product Grid sections on non-Home pages receive no product data
+**Severity:** P1
+**Area:** Pages / public storefront
+
+Generic pages render `ContentBlock` without products/currency/cart callbacks.
+
+**Risk:** Product Grid blocks can appear empty on About, Services, and other custom pages.
+
+**Status:** OPEN
+
+#### QA-STAB-006 — Newsletter is globally forced on published pages
+**Severity:** P1
+**Area:** Public storefront
+
+Newsletter rendering is outside the page-specific content structure.
+
+**Risk:** Newsletter can appear even when the merchant did not choose it for that page/theme.
+
+**Status:** OPEN
+
+#### QA-STAB-007 — Payment-provider failure can leave a created order behind
+**Severity:** P1
+**Area:** Checkout / payments
+
+The order is created before Stripe/PayPal checkout-session creation. If provider creation fails, the customer sees an error although an order already exists.
+
+**Risk:** Retrying checkout can create duplicate pending orders.
+
+**Status:** OPEN
+
+#### QA-STAB-008 — Editor Save reports success even when cloud save fails
+**Severity:** P2
+**Area:** Persistence / UX
+
+Cloud save errors are swallowed and the UI still shows "Website changes saved."
+
+**Risk:** Merchant believes work is safely stored when cloud persistence failed.
+
+**Status:** OPEN
+
+#### QA-STAB-009 — Non-Home editor preview does not fully match global design settings
+**Severity:** P2
+**Area:** Pages / editor parity
+
+Subpage preview still uses older fixed styling and does not fully inherit the newer typography/custom design system.
+
+**Status:** OPEN
+
+#### QA-STAB-010 — Offered font weights exceed loaded font files
+**Severity:** P2
+**Area:** Typography
+
+The UI offers weights such as 800/900, while some configured Google Font imports do not provide those weights.
+
+**Status:** OPEN
+
+#### QA-STAB-011 — Automated test coverage is missing
+**Severity:** QA infrastructure
+**Area:** CI
+
+Current scripts validate build/start behavior but do not run unit, component, or end-to-end flows for authentication, builder persistence, products, checkout, publishing, and storefront parity.
+
+**Status:** OPEN
