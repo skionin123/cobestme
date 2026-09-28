@@ -209,10 +209,10 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       while(componentRoot&&!componentRoot.componentId){
         componentRoot=findParent(page.root,componentRoot.id)
       }
-      if(componentRoot?.componentId){
+      if(componentRoot?.componentId&&String(componentRoot.componentInstanceId||'').startsWith('master:')){
         const component=draft.components.find(c=>c.id===componentRoot!.componentId)
         if(component){
-          component.master={...clone(componentRoot),componentInstanceId:undefined}
+          component.master={...clone(componentRoot),componentInstanceId:'master:'+component.id}
           component.updatedAt=new Date().toISOString()
           Object.assign(draft,replaceComponentInstances(draft,component.id,component.master))
         }
@@ -290,12 +290,12 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     createComponent:(nodeId,name)=>{
       const state=get();const page=currentPage(state.project);const node=findNode(page.root,nodeId);if(!node)return
       const id=uid('component')
-      const master={...clone(node),componentId:id,componentInstanceId:uid('instance')}
+      const master={...clone(node),componentId:id,componentInstanceId:'master:'+id}
       const component:BuilderComponent={id,name:name||node.name,master:clone(master),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}
       commit('Create component',draft=>{
         draft.components.push(component)
         const p=currentPage(draft)
-        p.root=updateNode(p.root,nodeId,n=>({...n,componentId:id,componentInstanceId:master.componentInstanceId}))
+        p.root=updateNode(p.root,nodeId,n=>({...n,componentId:id,componentInstanceId:'master:'+id}))
       })
     },
     updateComponentMaster:(componentId,node)=>commit('Update component',draft=>{
