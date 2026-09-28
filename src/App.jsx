@@ -766,7 +766,12 @@ function NavigationManager({pages=[],editor,setEditor}) {
   </div>
 }
 
-function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
+function BuilderLibrary({onAdd}){
+  const groups=[...new Set(builderElementLibrary.map(x=>x.group))]
+  return <div className="builder-library">{groups.map(group=><section key={group}><span className="builder-library-label">{group}</span><div className="builder-element-grid">{builderElementLibrary.filter(x=>x.group===group).map(item=><button key={item.type} onClick={()=>onAdd(item.type)} title={item.note}><span className="builder-element-icon">{item.type==='heading'?<Type size={16}/>:item.type==='image'?<ImageIcon size={16}/>:item.type==='products'?<ShoppingBag size={16}/>:item.type==='spacer'?<Box size={16}/>:<Plus size={16}/>}</span><strong>{item.label}</strong><small>{item.note}</small></button>)}</div></section>)}</div>
+}
+
+function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPublish,onSettings,onManagePages,workspace}) {
   const currentPage=editor.currentPage||'Home'
   const [dragId,setDragId]=useState(null)
   const historyRef=useRef([])
