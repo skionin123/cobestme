@@ -38,6 +38,14 @@ const pageChoices = ['Home', 'Shop', 'About', 'Services', 'Collections', 'Portfo
 const featureChoices = ['Ecommerce', 'Shopping cart', 'Product search', 'Product filters', 'Newsletter', 'Contact forms', 'Reviews', 'Customer accounts', 'Booking', 'Gallery']
 const contentChoices = ['Logo', 'Brand guide', 'Website copy', 'Product photos', 'Lifestyle photos', 'Product descriptions', 'Testimonials', 'Team information', 'Contact information', 'Policies']
 const themePresets = {
+  Blank: {
+    name:'Blank', styleKey:'blank', category:'Blank canvas', fit:'Any business · Start from scratch',
+    description:'Start with a clean storefront shell and add only the sections you want.',
+    sectionGap:32, radius:0, buttonRadius:6,
+    fontFamily:'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', displayFont:'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    paper:'#f5f5f3', surface:'#ffffff', ink:'#171717', accent:'#171717', muted:'#deded9',
+    previewHeading:'Start with a blank canvas.', previewEyebrow:'YOUR WEBSITE'
+  },
   Aurelia: {
     name:'Aurelia', styleKey:'warm', category:'Warm minimal', fit:'Home · Lifestyle · Wellness',
     description:'Soft neutrals, balanced whitespace, and calm product storytelling.',
@@ -105,6 +113,7 @@ const themePresets = {
 }
 
 const themeRecipes = {
+  Blank: { sections:[], labels:{}, defaults:{} },
   Aurelia: {
     sections:['hero','featured','imageStory','quote','newsletter'],
     labels:{hero:'Split hero',featured:'Featured collection',imageStory:'Image + story',quote:'Brand quote',newsletter:'Newsletter'},
@@ -235,7 +244,21 @@ const defaultEditor = {
   newsletter: { heading: 'Stay in the loop.', body: 'New products, stories, and updates.', button: 'Join' },
   footer: { text: 'Built with CoBest', menu: ['Contact'] },
   sectionOrder: [...themeRecipes.Aurelia.sections],
-  sectionContent: { ...themeRecipes.Aurelia.defaults }
+  sectionContent: { ...themeRecipes.Aurelia.defaults },
+  customCss: '',
+  typography: {
+    bodyWeight: 400,
+    headingWeight: 600,
+    navWeight: 500,
+    buttonWeight: 600,
+    eyebrowWeight: 700,
+    h1Size: 62,
+    h2Size: 36,
+    h3Size: 24,
+    bodySize: 16,
+    lineHeight: 1.6,
+    letterSpacing: 0
+  }
 }
 
 function normalizeOnboarding(value = {}) {
@@ -261,6 +284,8 @@ function normalizeEditor(value = {}) {
   merged.currentPage = (value || {}).currentPage || 'Home'
   merged.sectionOrder = Array.isArray((value || {}).sectionOrder) ? (value || {}).sectionOrder : [...defaultEditor.sectionOrder]
   merged.sectionContent = { ...defaultEditor.sectionContent, ...((value || {}).sectionContent || {}) }
+  merged.typography = { ...defaultEditor.typography, ...((value || {}).typography || {}) }
+  merged.customCss = (value || {}).customCss || ''
   return merged
 }
 
