@@ -62,28 +62,9 @@ function pageFileName(slug:string){
   return slug.replace(/^\//,'').replace(/\/$/,'').replace(/[^a-zA-Z0-9/_-]/g,'-').replaceAll('/','-')+'.html'
 }
 
-function runtimeNodeIdHtml(html:string,project:BuilderProject){
-  const interactionNodes=new Set(project.interactions.map(x=>x.nodeId))
-  if(!interactionNodes.size)return html
-  const mark=(node:BuilderNode)=>{
-    if(interactionNodes.has(node.id)){
-      const needle=`data-ix="`
-      const marker=` data-node-id="${node.id}"`
-      const idx=html.indexOf(needle)
-      if(idx>=0){
-        const tagStart=html.lastIndexOf('<',idx)
-        if(tagStart>=0&&!html.slice(tagStart,idx).includes('data-node-id='))html=html.slice(0,idx)+marker+' '+html.slice(idx)
-      }
-    }
-    node.children.forEach(mark)
-  }
-  project.pages.forEach(p=>mark(p.root))
-  return html
-}
-
-function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsPath='site.js'){
+function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsPath='site.js',cmsItemId?:string){
   const page=project.pages.find(p=>p.id===pageId)||project.pages[0]
-  const body=renderPageBody(project,page.id,false)
+  const body=renderPageBody(project,page.id,false,cmsItemId)
   const title=page.seo.title||page.name
   const description=page.seo.description||''
   const og=page.seo.ogImage?`<meta property="og:image" content="${page.seo.ogImage}">`:''
@@ -167,7 +148,22 @@ export function exportFiles(project:BuilderProject){
   }
   files['styles.css']=rewriteAssets(compileProjectCss(project))
   files['site.js']=siteRuntime(project)
-  for(const page of project.pages)files[pageFileName(page.slug)]=rewriteAssets(shellHtml(project,page.id))
+  for(const page of project.pages){
+    if(page.isCollectionTemplate&&page.collectionId){
+      const collection=project.collections.find(c=>c.id===page.collectionId)
+      if(collection){
+        const slugField=collection.fields.find(f=>f.slug==='slug')
+        const titleField=collection.fields.find(f=>f.slug==='title')||collection.fields[0]
+        for(const item of collection.items){
+          const raw=(slugField&&item.values[slugField.id])||(titleField&&item.values[titleField.id])||item.id
+          const itemSlug=String(raw).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'item'
+          files[`${collection.slug}-${itemSlug}.html`]=rewriteAssets(shellHtml(project,page.id,'styles.css','site.js',item.id))
+        }
+        continue
+      }
+    }
+    files[pageFileName(page.slug)]=rewriteAssets(shellHtml(project,page.id))
+  }
   files['sitemap.xml']=sitemap(project)
   const exported:ExportedProject={schemaVersion:1,project,exportedAt:new Date().toISOString()}
   files['project.cobest.json']=JSON.stringify(exported,null,2)
