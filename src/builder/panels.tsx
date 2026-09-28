@@ -293,7 +293,7 @@ export function InteractionsPanel(){
   return <div className="h-full overflow-auto">
     <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Interactions</span><strong className="text-xs text-zinc-100">{items.length} on selected</strong></div><button className={panelButton} onClick={add} disabled={!nodeId}><Plus size={11}/></button></div>
     <div className="space-y-2 p-3">{items.map(item=><InteractionCard key={item.id} item={item} update={patch=>updateInteraction(item.id,patch)} remove={()=>deleteInteraction(item.id)}/>)}</div>
-    {!items.length&&<EmptyPanel text="Add a trigger and animation to the selected element."/ >}
+    {!items.length&&<EmptyPanel text="Add a trigger and animation to the selected element."/>}
   </div>
 }
 
