@@ -741,3 +741,35 @@ The UI offers weights such as 800/900, while some configured Google Font imports
 Current scripts validate build/start behavior but do not run unit, component, or end-to-end flows for authentication, builder persistence, products, checkout, publishing, and storefront parity.
 
 **Status:** OPEN
+
+
+## Visual Builder full implementation batch
+
+**Branch:** `qa/stabilization-batch`  
+**Draft PR:** #2 — Phase 1: TypeScript visual builder core  
+**Validated head:** `cb03a75b3c774288b388e2544726896462708add`  
+**CI run:** 150 — SUCCESS
+
+### Validation
+- npm ci — PASS
+- Vite production build — PASS
+- Server startup — PASS
+- Health endpoint — PASS
+- SPA fallback — PASS
+
+### Implemented builder scope
+- Phase 1: typed JSON model, Zustand, iframe canvas, select/hover, IndexedDB — COMPLETE
+- Phase 2: Add Elements, dnd-kit drag/drop, nested Navigator — COMPLETE
+- Phase 3: reusable classes, breakpoint/state CSS controls, visual box model — COMPLETE
+- Phase 4: settings, pages, assets, inline editing, shortcuts — COMPLETE
+- Phase 5: reusable components, interactions, preview, version history — COMPLETE
+- Phase 6: CMS collections, bindings, template pages — COMPLETE
+- Phase 7: clean HTML/CSS/JS ZIP export and project JSON import/export — COMPLETE
+
+### Deployment state
+- Railway deployment was NOT triggered.
+- Production remains on the existing deployed main branch.
+- The new visual builder remains isolated in GitHub until an explicit production push is requested.
+
+### Important migration boundary
+The new builder intentionally uses IndexedDB as its first persistence layer and publish simulation/export as its first publishing path. Existing Supabase/Railway storefront publishing has not yet been replaced by the new project JSON format. This is a migration task, not a Phase 1–7 builder feature gap.
