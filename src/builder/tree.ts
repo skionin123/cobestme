@@ -64,9 +64,13 @@ export function moveNode(root:BuilderNode,nodeId:string,newParentId:string,index
   let invalid=false
   walkNodes(moving,n=>{if(n.id===newParentId)invalid=true})
   if(invalid)return root
+  const oldParent=findParent(root,nodeId)
+  const oldIndex=oldParent?.children.findIndex(x=>x.id===nodeId)??-1
+  let targetIndex=index
+  if(oldParent?.id===newParentId&&targetIndex!=null&&oldIndex>=0&&oldIndex<targetIndex)targetIndex=Math.max(0,targetIndex-1)
   const removed=removeNode(root,nodeId)
   if(!removed.removed)return root
-  return insertNode(removed.root,newParentId,removed.removed,index)
+  return insertNode(removed.root,newParentId,removed.removed,targetIndex)
 }
 
 export function regenerateNodeIds(node:BuilderNode,prefix='node'):BuilderNode{
