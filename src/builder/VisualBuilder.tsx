@@ -271,6 +271,7 @@ export default function VisualBuilder(){
           <div className="vb-zoom"><button onClick={()=>setZoom(z=>Math.max(35,z-5))}><ZoomOut size={13}/></button><span>{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(125,z+5))}><ZoomIn size={13}/></button></div>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Save failed':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button onClick={()=>setVersionsOpen(x=>!x)} title="Version history"><FolderOpen size={15}/></button>
+          <button onClick={()=>{setRightTab('settings');selectNode(selectedNodeId||activePage.root.id)}} title="Settings"><Settings2 size={15}/></button>
           <button onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button onClick={manualSave}><Save size={15}/> Save</button>
