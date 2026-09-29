@@ -45,12 +45,14 @@ export default function PublicStore({slug:slugProp,host}) {
 
   useEffect(()=>{
     if(!store)return
-    const meta=store?.editor?.pageMeta?.[page]||{}
+    const visualProject=store?.visual_project||store?.editor?.visualBuilderProject
+    const visualPage=visualProject?.pages?.find(p=>!p.isCollectionTemplate&&(p.name===page||(page==='Home'&&(p.slug==='/'||p.id===visualProject.activePageId))))
+    const legacyMeta=store?.editor?.pageMeta?.[page]||{}
     const defaultTitle=store?.settings?.seoTitle||store?.onboarding?.businessName||'Store'
-    document.title=meta.seo_title||`${page==='Home'?'':page+' · '}${defaultTitle}`
+    document.title=visualPage?.seo?.title||legacyMeta.seo_title||`${page==='Home'?'':page+' · '}${defaultTitle}`
     let description=document.querySelector('meta[name="description"]')
     if(!description){description=document.createElement('meta');description.setAttribute('name','description');document.head.appendChild(description)}
-    description.setAttribute('content',meta.seo_description||store?.settings?.seoDescription||store?.onboarding?.businessDescription||'')
+    description.setAttribute('content',visualPage?.seo?.description||legacyMeta.seo_description||store?.settings?.seoDescription||store?.onboarding?.businessDescription||'')
   },[store,page])
 
   useEffect(()=>{
@@ -81,9 +83,14 @@ export default function PublicStore({slug:slugProp,host}) {
     const matchesCategory=category==='All'||p.category===category
     return matchesQ&&matchesCategory
   })
+  const visualProject=store?.visual_project||store?.editor?.visualBuilderProject||null
+  const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
+  const visualPageNames=visualPages.map(p=>p.name)
   const pageMeta=store?.editor?.pageMeta||{}
   const policyPages=[store?.settings?.privacyPolicy&&'Privacy',store?.settings?.termsPolicy&&'Terms',store?.settings?.refundPolicy&&'Refund Policy'].filter(Boolean)
-  const pages=Array.from(new Set(['Home',...(store?.pages||store?.onboarding?.pages||[]),'Shop',...policyPages])).filter(p=>p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
+  const sourcePages=visualProject?visualPageNames:(store?.pages||store?.onboarding?.pages||[])
+  const pages=Array.from(new Set(['Home',...sourcePages,'Shop',...policyPages])).filter(p=>visualProject||p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
+  const visualPage=visualProject?(visualPages.find(p=>p.name===page)||(page==='Home'?visualPages.find(p=>p.slug==='/'||p.id===visualProject.activePageId)||visualPages[0]:null)):null
   const headerMenu=Array.isArray(store?.editor?.header?.menu)&&store.editor.header.menu.length?store.editor.header.menu:pages.filter(p=>p!=='Home').slice(0,5)
   const footerMenu=Array.isArray(store?.editor?.footer?.menu)&&store.editor.footer.menu.length?store.editor.footer.menu:[]
   const currency=store?.settings?.currency||'PHP'
