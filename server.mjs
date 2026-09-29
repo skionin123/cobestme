@@ -697,18 +697,26 @@ async function handleApi(req, res, url) {
       if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
-      const slug = safeSlug(body.slug || body.onboarding?.businessName || user.email?.split('@')[0] || 'store')
+      let existing=null
+      if(siteId){
+        const current=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
+        if(current.ok)existing=Array.isArray(current.data)?current.data[0]||null:current.data
+      }
+      const mergedOnboarding={...(existing?.onboarding||{}),...(body.onboarding||{})}
+      const mergedEditor={...(existing?.editor||{}),...(body.editor||{})}
+      const mergedSettings={...(existing?.settings||{}),...(body.settings||{})}
+      const slug = safeSlug(body.slug ?? existing?.slug ?? mergedOnboarding?.businessName ?? user.email?.split('@')[0] ?? 'store')
       const payload = {
         user_id: ownerId,
-        onboarding: body.onboarding || {},
-        editor: body.editor || {},
-        settings: body.settings || {},
-        site_name: body.site_name || body.onboarding?.businessName || 'Untitled website',
+        onboarding: mergedOnboarding,
+        editor: mergedEditor,
+        settings: mergedSettings,
+        site_name: body.site_name ?? existing?.site_name ?? mergedOnboarding?.businessName ?? 'Untitled website',
         slug,
-        custom_domain: String(body.custom_domain || '').toLowerCase().trim(),
-        plan: body.plan || 'Free',
-        currency: body.currency || 'PHP',
-        timezone: body.timezone || 'Asia/Manila',
+        custom_domain: String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim(),
+        plan: body.plan ?? existing?.plan ?? 'Free',
+        currency: body.currency ?? existing?.currency ?? 'PHP',
+        timezone: body.timezone ?? existing?.timezone ?? 'Asia/Manila',
         updated_at: new Date().toISOString()
       }
       const result = siteId
