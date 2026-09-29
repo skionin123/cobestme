@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
+import { createPublishedDocument } from './builder/publicDocument'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
 const keyFor = slug => `cobest-public-cart-${slug||'store'}`
@@ -129,14 +130,14 @@ export default function PublicStore({slug:slugProp,host}) {
       <div className="public-shop-tools"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></label><label className="public-category"><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><ChevronDown size={15}/></label></div>
       <ProductGrid products={filtered} currency={currency} onAdd={add} onOpen={setSelectedProduct}/>
     </section>}
-    {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate}/>}
+    {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate} products={products} currency={currency} onAdd={add}/>} 
 
     <Newsletter slug={store.slug}/>
     <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links">{footerMenu.map(item=><button key={item} onClick={()=>navigate(item)}>{item}</button>)}{!footerMenu.includes('Contact')&&<button onClick={()=>navigate('Contact')}>Contact</button>}{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
 
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
     {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
-    {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order)=>{setCart([]);setCheckoutOpen(false);setNotice(`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),5000)}}/>}
+    {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order,warning='')=>{setCart([]);setCheckoutOpen(false);setNotice(warning||`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),8000)}}/>}
     {accountOpen&&<CustomerAccount slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
   </div>
 }
@@ -261,13 +262,13 @@ function Checkout({store,cart,currency,paymentOptions={},onClose,onComplete}) {
       const data=await publicAction('checkout',{slug:store.slug,buyer,shipping_address:address,discount_code:discount,payment_provider:provider==='manual'?'':provider,items:cart.map(x=>({product_id:x.id,quantity:x.quantity}))})
       setTotals(data.totals)
       if(data?.payment?.checkout_url){window.location.assign(data.payment.checkout_url);return}
-      onComplete(data.order)
+      onComplete(data.order,data.warning||data?.payment?.error||'')
     }catch(err){setError(err.message)}finally{setBusy(false)}
   }
   return <Modal title="Checkout" onClose={onClose}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<div className="form-grid two"><Field label="Name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field></div><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><Field label="Address"><input value={address.line1} onChange={e=>setAddress({...address,line1:e.target.value})}/></Field><div className="form-grid two"><Field label="City"><input value={address.city} onChange={e=>setAddress({...address,city:e.target.value})}/></Field><Field label="Region"><input value={address.region} onChange={e=>setAddress({...address,region:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Postal code"><input value={address.postal_code} onChange={e=>setAddress({...address,postal_code:e.target.value})}/></Field><Field label="Discount code"><input value={discount} onChange={e=>setDiscount(e.target.value.toUpperCase())}/></Field></div><Field label="Payment method"><select value={provider} onChange={e=>setProvider(e.target.value)}>{paymentOptions.stripe&&<option value="stripe">Card / Stripe</option>}{paymentOptions.paypal&&<option value="paypal">PayPal</option>}<option value="manual">Manual / pay later</option></select></Field><div className="checkout-note">{provider==='manual'?'Your order will be created with payment Pending.':`You will continue to ${provider==='stripe'?'secure card checkout':'PayPal'} to complete payment.`}</div>{totals&&<strong>{money(totals.total,currency)}</strong>}<div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy||!buyer.name||!buyer.email} onClick={submit}>{busy?'Creating order…':provider==='manual'?'Place order':'Continue to payment'}</button></div></div></Modal>
 }
 
-function GenericPage({store,name,data,features,onNavigate}) {
+function GenericPage({store,name,data,features,onNavigate,products=[],currency='PHP',onAdd}) {
   if(name==='Contact') return <ContactPage slug={store.slug} email={store?.settings?.contactEmail}/>
   if(name==='Privacy') return <PolicyPage title="Privacy policy" body={store?.settings?.privacyPolicy}/>
   if(name==='Terms') return <PolicyPage title="Terms" body={store?.settings?.termsPolicy}/>
@@ -276,7 +277,7 @@ function GenericPage({store,name,data,features,onNavigate}) {
   if(name==='Gallery') return <main className="public-generic-page"><small>GALLERY</small><h1>{data.title||'Gallery'}</h1><p>{data.body||'A selection from the business.'}</p><div className="public-gallery">{(store.media||[]).filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><img key={x.id} src={x.url} alt={x.name}/>)}</div></main>
   if(name==='Blog') return <main className="public-generic-page public-blog-page"><small>JOURNAL</small><h1>{data.title||'Blog'}</h1><p>{data.body||'Stories, updates, and ideas from the business.'}</p><div className="public-blog-grid">{(store.blog_posts||[]).map(post=><article key={post.id}>{post.featured_image&&<img src={post.featured_image} alt={post.title}/>}<div><span>{post.published_at?new Date(post.published_at).toLocaleDateString():''}</span><h2>{post.title}</h2><p>{post.excerpt}</p><details><summary>Read article</summary><div className="blog-content">{String(post.content||'').split('\n').map((x,i)=><p key={i}>{x}</p>)}</div></details></div></article>)}</div>{!(store.blog_posts||[]).length&&<p>No published posts yet.</p>}</main>
   if(name==='Collections') return <main className="public-generic-page"><small>COLLECTIONS</small><h1>{data.title||'Collections'}</h1><p>{data.body||'Browse curated groups of products.'}</p><div className="public-collection-grid">{(store.collections||[]).map(col=><article key={col.id}><h2>{col.name}</h2><p>{col.description}</p><span>{(col.product_ids||[]).length} products</span><button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop collection</button></article>)}</div></main>
-  return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
+  return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b} products={products} currency={currency} onAdd={onAdd}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
 }
 
 function defaultPageBody(name,store){
