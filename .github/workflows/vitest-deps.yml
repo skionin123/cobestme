@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm install --save-dev --save-exact vitest@3.2.4
+      - run: npm install --save-dev --save-exact vitest@3.2.7
       - name: Commit lockfile
         run: |
           git config user.name "cobest-ci"
