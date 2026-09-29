@@ -365,7 +365,7 @@ function Landing({ onStart, onLogin }) {
       <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
-        <div className="landing-nav-links"><a href="#website">Website</a><a href="#commerce">Commerce</a><a href="#approach">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start free</Button></div>
+        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start Building Free</Button></div>
       </nav>
 
       <main className="hero-wrap container" id="product">
@@ -373,7 +373,7 @@ function Landing({ onStart, onLogin }) {
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
           <h1>Build a store people trust. Run it from one place.</h1>
           <p>CoBest gives growing businesses one home for website design, products, orders, customers, content, and the business context behind every decision.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#approach">See how it works</a></div>
+          <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
           <div className="trust-row"><span><Check size={15}/> Guided onboarding</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Commerce workspace</span></div>
         </div>
         <div className="hero-product-shell">
@@ -394,7 +394,7 @@ function Landing({ onStart, onLogin }) {
         <span>One platform for the whole website business</span><div><b>Website</b><b>Products</b><b>Orders</b><b>Customers</b><b>Content</b><b>Analytics</b></div>
       </section>
 
-      <section className="landing-section container" id="commerce">
+      <section className="landing-section container" id="features">
         <p className="section-kicker">SELL AND MANAGE</p><h2>Everything you need behind the storefront.</h2>
         <div className="feature-grid four">
           <article><span>01</span><h3>Products</h3><p>Create products, organize categories, manage pricing and inventory, and surface the same catalog across the storefront.</p></article>
@@ -427,6 +427,35 @@ function Landing({ onStart, onLogin }) {
           <article><span>03</span><h3>Build</h3><p>Design the website with the project context still visible, instead of starting from a blank canvas with no business direction.</p></article>
           <article><span>04</span><h3>Run</h3><p>Move from launch into everyday website, product, order, customer, content, and performance management without changing systems.</p></article>
         </div>
+      </section>
+
+      <section className="landing-section container marketing-templates" id="templates">
+        <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
+        <div className="marketing-template-grid">
+          {[
+            ['Business','Northstar','Professional services'],
+            ['Portfolio','Frame','Creative portfolios'],
+            ['Agency','Signal','Studios and agencies'],
+            ['SaaS','Orbit','Product-led software'],
+            ['Ecommerce','Field Shop','Editorial commerce'],
+            ['Restaurant','Supper House','Food and hospitality'],
+            ['Personal','Profile One','Independent professionals'],
+            ['Blog','Margin Journal','Editorial publishing']
+          ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use template <ArrowRight size={13}/></button></article>)}
+        </div>
+      </section>
+
+      <section className="marketing-testimonials">
+        <div className="container"><p className="section-kicker">BUILT FOR REAL WORK</p><h2>Professional control without making every client learn code.</h2><div className="testimonial-grid">
+          <blockquote><p>“The canvas gives us design control, while the Navigator and reusable components keep larger sites organized.”</p><footer><strong>Independent designer</strong><span>Brand and ecommerce projects</span></footer></blockquote>
+          <blockquote><p>“Pages, products, CMS content, and publishing finally feel like parts of the same project instead of separate tools.”</p><footer><strong>Small agency</strong><span>Client website operations</span></footer></blockquote>
+          <blockquote><p>“Responsive overrides and clean export make it useful beyond a quick template builder.”</p><footer><strong>Frontend consultant</strong><span>Marketing and product sites</span></footer></blockquote>
+        </div></div>
+      </section>
+
+      <section className="landing-section container marketing-resources" id="resources">
+        <p className="section-kicker">RESOURCES</p><h2>Learn the system, not just the buttons.</h2>
+        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Understand the desktop-first cascade, overrides, and how to keep layouts stable across devices.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Build navbars, footers, cards, and sections once, then keep instances consistent across a project.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>Structure collections, bind template pages, and export readable HTML, CSS, JavaScript, and assets.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
       </section>
 
       <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-intro"><p className="section-kicker">PRICING</p><h2>Build first. Pay when the business is ready to go live.</h2><p>Start the website without a card. Upgrade when you need a custom domain and a live commerce workspace.</p></div><div className="pricing-grid"><article><span>BUILD</span><h3>Free</h3><strong>₱0 <small>/ month</small></strong><p>For preparing the website and organizing the business before launch.</p><ul><li><Check size={14}/> 1 website</li><li><Check size={14}/> Guided onboarding</li><li><Check size={14}/> Website brief</li><li><Check size={14}/> Visual website builder</li><li><Check size={14}/> CoBest storefront address</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article><article className="featured-plan"><span>LAUNCH</span><div className="plan-badge">Most popular</div><h3>Launch</h3><strong>₱990 <small>/ site / month</small></strong><p>For businesses ready to publish, sell, and manage their website every day.</p><ul><li><Check size={14}/> Everything in Free</li><li><Check size={14}/> Custom domain</li><li><Check size={14}/> Products and inventory</li><li><Check size={14}/> Orders and customers</li><li><Check size={14}/> Remove CoBest branding</li></ul><Button onClick={onStart}>Start free</Button></article><article><span>GROW</span><h3>Growth</h3><strong>₱2,490 <small>/ site / month</small></strong><p>For growing businesses that need more people, reporting, and support.</p><ul><li><Check size={14}/> Everything in Launch</li><li><Check size={14}/> Team access</li><li><Check size={14}/> Advanced analytics</li><li><Check size={14}/> Priority support</li><li><Check size={14}/> Additional publishing controls</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article></div><p className="pricing-note">Pricing shown in Philippine pesos. You can change these plan names, prices, and entitlements before billing is connected.</p></div></section><section className="landing-cta"><div className="container"><p className="section-kicker">START WITH THE BUSINESS</p><h2>Build the store around what the business actually needs.</h2><p>Set the direction, organize the website, and manage the storefront from one place.</p><div><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><Button variant="secondary" onClick={onLogin}>Log in</Button></div></div></section>
