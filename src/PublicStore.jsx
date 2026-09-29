@@ -188,12 +188,31 @@ function Home({store,products,currency,onShop,onAdd}) {
   const featured=editor.featured||{}
   const story=editor.story||{}
   const blocks=editor.blocks||[]
-  return <>
-    <section className={`public-hero align-${hero.align||'left'}`}><div><small>{hero.eyebrow||'WELCOME'}</small><h1>{hero.heading||store.onboarding?.businessName||'Welcome'}</h1><p>{hero.body||store.onboarding?.businessDescription}</p><button onClick={onShop}>{hero.button||'Shop now'}</button></div><div className="public-hero-art"/></section>
-    <section className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd}/></section>
-    <section className="public-story"><small>OUR STORY</small><h2>{story.title||store.onboarding?.businessName}</h2><p>{story.body||store.onboarding?.businessDescription}</p></section>
-    {blocks.map(block=><ContentBlock key={block.id} block={block} products={products} currency={currency} onAdd={onAdd}/>)}
-  </>
+  const blockMap=new Map(blocks.map(block=>[block.id,block]))
+  const order=Array.isArray(editor.sectionOrder)?editor.sectionOrder:['hero','featured','story','newsletter']
+  return <>{order.map(id=>{
+    if(id==='hero')return <section key={id} className={`public-hero align-${hero.align||'left'}`}><div><small>{hero.eyebrow||'WELCOME'}</small><h1>{hero.heading||store.onboarding?.businessName||'Welcome'}</h1><p>{hero.body||store.onboarding?.businessDescription}</p><button onClick={onShop}>{hero.button||'Shop now'}</button></div><div className="public-hero-art"/></section>
+    if(id==='featured')return <section key={id} className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd}/></section>
+    if(id==='story')return <section key={id} className="public-story"><small>OUR STORY</small><h2>{story.title||store.onboarding?.businessName}</h2><p>{story.body||store.onboarding?.businessDescription}</p></section>
+    if(id==='newsletter')return <Newsletter key={id} slug={store.slug}/>
+    const block=blockMap.get(id)
+    if(block)return <ContentBlock key={id} block={block} products={products} currency={currency} onAdd={onAdd}/>
+    const content=editor.sectionContent?.[id]
+    if(content)return <LegacyThemeSection key={id} id={id} content={content}/>
+    return null
+  })}</>
+}
+
+function LegacyThemeSection({id,content}) {
+  const items=String(content.body||'').split('|').map(x=>x.trim()).filter(Boolean)
+  return <section className={`public-theme-section public-theme-${id}`}>
+    <div className="public-theme-inner">
+      {content.eyebrow&&<small>{content.eyebrow}</small>}
+      {content.title&&<h2>{content.title}</h2>}
+      {items.length>1?<div className="public-theme-items">{items.map(item=><span key={item}>{item}</span>)}</div>:content.body&&<p>{content.body}</p>}
+      {content.button&&<button className="btn btn-primary">{content.button}</button>}
+    </div>
+  </section>
 }
 
 function ProductGrid({products,currency,onAdd,onOpen}) {
