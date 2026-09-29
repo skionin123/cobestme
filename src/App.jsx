@@ -5,7 +5,7 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
   Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
@@ -1228,6 +1228,34 @@ export default function App() {
     return created
   }
 
+  const persistVisualProject=async project=>{
+    setEditor(prev=>({...prev,visualBuilderProject:project}))
+    if(!isAuthenticated())return null
+    const saved=await saveWorkspace({editor:{visualBuilderProject:project}})
+    if(saved)setWorkspace(prev=>({...prev,...saved}))
+    return saved
+  }
+
+  const publishVisualProject=async project=>{
+    await persistVisualProject(project)
+    if(!isAuthenticated())return {ok:true,local:true}
+    const settings={...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}
+    const snapshot={
+      onboarding:safeOnboarding,
+      editor:{...safeEditor,visualBuilderProject:project},
+      visual_project:project,
+      products,
+      discounts,
+      collections,
+      blog_posts:blogPosts.filter(x=>x.status==='Published'),
+      reviews:reviews.filter(x=>x.status==='Approved'),
+      media:mediaAssets,
+      pages:project.pages.filter(p=>!p.isCollectionTemplate).map(p=>p.name),
+      settings
+    }
+    return publishStore({slug:workspace?.slug,custom_domain:workspace?.custom_domain,snapshot})
+  }
+
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
@@ -1255,7 +1283,7 @@ export default function App() {
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
-  if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder/></React.Suspense>
+  if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
