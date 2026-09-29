@@ -6,14 +6,14 @@ import {
 import {
   ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
   Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
-  Upload, X, ZoomIn, ZoomOut
+  Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
 import { loadProject, saveProject } from './persistence'
 import {
   AddPanel, AssetsPanel, CmsPanel, ComponentsPanel, InteractionsPanel, NavigatorPanel,
-  PagesPanel, SettingsPanel, StylePanel, createElement, createPrebuiltSection
+  PagesPanel, SettingsPanel, StylePanel, TemplatesPanel, createElement, createPrebuiltSection
 } from './panels'
 import { useBuilderStore } from './store'
 import { clone, findNode, findParent, regenerateNodeIds } from './tree'
@@ -24,7 +24,7 @@ import './visual-builder.css'
 const widths:Record<BreakpointId,number>={desktop:1440,tablet:991,mobileLandscape:767,mobilePortrait:478}
 const breakpointLabels:Record<BreakpointId,string>={desktop:'Desktop 1440',tablet:'Tablet 991',mobileLandscape:'Mobile landscape 767',mobilePortrait:'Mobile portrait 478'}
 
-type LeftTab='add'|'navigator'|'pages'|'assets'|'components'|'cms'
+type LeftTab='add'|'navigator'|'pages'|'templates'|'assets'|'components'|'cms'
 type RightTab='style'|'settings'|'interactions'
 
 function CanvasDropZone({children,dragging}:{children:React.ReactNode;dragging:boolean}){
@@ -80,6 +80,7 @@ function LeftPanel({tab}:{tab:LeftTab}){
   if(tab==='add')return <AddPanel/>
   if(tab==='navigator')return <NavigatorPanel/>
   if(tab==='pages')return <PagesPanel/>
+  if(tab==='templates')return <TemplatesPanel/>
   if(tab==='assets')return <AssetsPanel/>
   if(tab==='components')return <ComponentsPanel/>
   return <CmsPanel/>
@@ -333,7 +334,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <div className="vb-left-tabs">
             {([
               ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],
-              ['assets',ImageIcon,'Assets'],['components',Component,'Components'],['cms',Database,'CMS'],
+              ['templates',Sparkles,'Templates'],['assets',ImageIcon,'Assets'],['components',Component,'Components'],['cms',Database,'CMS'],
             ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} onClick={()=>setLeftTab(id)}><Icon size={15}/></button>)}
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
