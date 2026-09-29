@@ -17,7 +17,7 @@ import {
 } from './panels'
 import { useBuilderStore } from './store'
 import { clone, findNode, findParent, regenerateNodeIds } from './tree'
-import type { BreakpointId, BuilderNode } from './types'
+import type { BreakpointId, BuilderNode, BuilderProject } from './types'
 import './editor-tailwind.css'
 import './visual-builder.css'
 
@@ -91,7 +91,14 @@ function RightPanel({tab}:{tab:RightTab}){
   return <InteractionsPanel/>
 }
 
-export default function VisualBuilder(){
+type VisualBuilderProps={
+  projectKey?:string
+  initialProject?:BuilderProject|null
+  onCloudSave?:(project:BuilderProject)=>Promise<unknown>|unknown
+  onPublish?:(project:BuilderProject)=>Promise<any>|any
+}
+
+export default function VisualBuilder({projectKey='local-default',initialProject=null,onCloudSave,onPublish}:VisualBuilderProps){
   const iframeRef=useRef<HTMLIFrameElement>(null)
   const project=useBuilderStore(s=>s.project)
   const selectedNodeId=useBuilderStore(s=>s.selectedNodeId)
@@ -136,9 +143,28 @@ export default function VisualBuilder(){
 
   useEffect(()=>{
     let alive=true
-    loadProject(project.id).then(saved=>{if(alive&&saved)replaceProject(saved,false)}).catch(()=>{})
+    const hydrate=async()=>{
+      if(initialProject?.pages?.length){
+        const cloudProject={...clone(initialProject),id:projectKey||initialProject.id}
+        if(!alive)return
+        replaceProject(cloudProject,false)
+        try{await saveProject(cloudProject)}catch{}
+        return
+      }
+      try{
+        const saved=await loadProject(projectKey)
+        if(!alive)return
+        if(saved)replaceProject(saved,false)
+        else{
+          const seeded={...clone(useBuilderStore.getState().project),id:projectKey}
+          replaceProject(seeded,false)
+          await saveProject(seeded)
+        }
+      }catch{}
+    }
+    hydrate()
     return()=>{alive=false}
-  },[])
+  },[projectKey])
 
   useEffect(()=>{
     const handler=(event:MessageEvent)=>{
@@ -174,14 +200,19 @@ export default function VisualBuilder(){
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:!preview},'*')
   },[preview,documentHtml])
 
+  const persistProject=async(current:BuilderProject)=>{
+    await saveProject(current)
+    if(onCloudSave)await onCloudSave(current)
+  }
+
   useEffect(()=>{
     if(saveStatus!=='dirty')return
     const timer=window.setTimeout(async()=>{
       setSaveStatus('saving')
-      try{await saveProject(project);setSaveStatus('saved')}catch{setSaveStatus('error')}
-    },700)
+      try{await persistProject(project);setSaveStatus('saved')}catch{setSaveStatus('error')}
+    },1100)
     return()=>window.clearTimeout(timer)
-  },[project,saveStatus,setSaveStatus])
+  },[project,saveStatus,setSaveStatus,onCloudSave])
 
   useEffect(()=>{
     const handler=(event:KeyboardEvent)=>{
@@ -207,7 +238,15 @@ export default function VisualBuilder(){
 
   const manualSave=async()=>{
     setSaveStatus('saving')
-    try{await saveProject(project);setSaveStatus('saved')}catch{setSaveStatus('error')}
+    try{
+      await persistProject(project)
+      setSaveStatus('saved')
+      return true
+    }catch(error:any){
+      setSaveStatus('error')
+      alert(error?.message||'Project could not be saved.')
+      return false
+    }
   }
 
   const dropTarget=(overId:string)=>{
@@ -245,9 +284,19 @@ export default function VisualBuilder(){
     }
   }
 
-  const publish=()=>{
-    manualSave()
-    alert('Publish simulation complete. The current project is saved locally and ready for production publishing/export.')
+  const publish=async()=>{
+    const saved=await manualSave()
+    if(!saved)return
+    if(!onPublish){
+      alert('Project saved locally. Connect a publishing provider to publish this site.')
+      return
+    }
+    try{
+      const result=await onPublish(project)
+      alert(result?.store_url?`Published successfully: ${result.store_url}`:'Published successfully.')
+    }catch(error:any){
+      alert(error?.message||'Publishing failed. Your saved project was not lost.')
+    }
   }
 
   const breakpoints:[BreakpointId,string,React.ComponentType<{size?:number}>][]=[
