@@ -12,10 +12,10 @@ import { findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
 
-const control='w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-[11px] text-zinc-100 outline-none focus:border-indigo-500'
-const label='mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500'
-const panelButton='rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-2 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700'
-const panelSection='border-b border-zinc-800 p-3'
+const control='vb-control w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-[11px] text-zinc-100 outline-none focus:border-indigo-500'
+const label='vb-label mb-1 block text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500'
+const panelButton='vb-panel-button rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-2 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700'
+const panelSection='vb-panel-section border-b border-zinc-800 p-3'
 
 function slugClass(value:string){
   return slugify(value).replaceAll('-','_')
@@ -27,7 +27,7 @@ function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:st
     data:{kind:section?'new-section':'new-element',type},
   })
   const style={transform:CSS.Translate.toString(transform),opacity:isDragging?.45:1}
-  return <button ref={setNodeRef} style={style} {...listeners} {...attributes} className="flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
+  return <button ref={setNodeRef} style={style} {...listeners} {...attributes} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
     <strong className="text-[11px] font-semibold text-zinc-100">{labelText}</strong>
     {note&&<span className="mt-1 text-[9px] leading-4 text-zinc-500">{note}</span>}
   </button>
@@ -64,7 +64,6 @@ function DropLine({id}:{id:string}){
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
   const selectNode=useBuilderStore(s=>s.selectNode)
-  const project=useBuilderStore(s=>s.project)
   const [open,setOpen]=useState(true)
   const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id}})
   const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id}})
@@ -72,10 +71,10 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   return <div>
     <DropLine id={`before:${node.id}`}/>
     <div ref={dropRef} className={'relative '+(isOver?'bg-indigo-500/10':'')}>
-      <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
-        <button className="grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
-        <button {...listeners} {...attributes} className="cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
-        <button className="min-w-0 flex-1 truncate text-left" onClick={()=>selectNode(node.id)}><span className="mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span>{node.name}</button>
+      <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
+        <button className="vb-nav-toggle grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
+        <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
+        <button className="vb-nav-name min-w-0 flex-1 truncate text-left" onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
         {node.componentId&&<span title="Component" className="rounded bg-violet-500/15 px-1 text-[8px] text-violet-300">C</span>}
       </div>
     </div>
@@ -102,7 +101,7 @@ export function TemplatesPanel(){
 export function NavigatorPanel(){
   const project=useBuilderStore(s=>s.project)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
-  return <div className="h-full overflow-auto p-2"><NavigatorNode node={page.root}/></div>
+  return <div className="vb-navigator h-full overflow-auto p-2"><div className="vb-navigator-head"><span>Navigator</span><strong>{page.name}</strong></div><NavigatorNode node={page.root}/></div>
 }
 
 export function PagesPanel(){
@@ -225,6 +224,10 @@ function ValueUnitInput({className,property,labelText,defaultUnit='px'}:{classNa
   const match=String(source).match(/^(-?[\d.]+)(px|%|em|rem|vw|vh)?$/)
   const [value,setValue]=useState(match?.[1]||'')
   const [unit,setUnit]=useState(match?.[2]||defaultUnit)
+  React.useEffect(()=>{
+    setValue(match?.[1]||'')
+    setUnit(match?.[2]||defaultUnit)
+  },[source,defaultUnit])
   const apply=(v:string,u:string)=>setStyle(className,property,v===''?'':v+u)
   return <label className="block"><span className={label}>{labelText}</span><div className="flex gap-1"><input className={control} value={value} placeholder={match?.[1]||'auto'} onChange={e=>{setValue(e.target.value);apply(e.target.value,unit)}}/><select className="rounded-md border border-zinc-700 bg-zinc-900 px-1 text-[10px] text-zinc-300" value={unit} onChange={e=>{setUnit(e.target.value);apply(value,e.target.value)}}>{['px','%','em','rem','vw','vh'].map(x=><option key={x}>{x}</option>)}</select><button className="rounded-md border border-zinc-700 px-2 text-[9px] text-zinc-400" onClick={()=>{setValue('');setStyle(className,property,'auto')}}>auto</button></div></label>
 }
@@ -288,7 +291,7 @@ function TextStyleTokens(){
 }
 
 function StyleGroup({title,children}:{title:string;children:React.ReactNode}){
-  return <section className={panelSection}><span className={label}>{title}</span><div className="space-y-3">{children}</div></section>
+  return <section className={panelSection+" vb-style-group"}><span className={label}>{title}</span><div className="space-y-3">{children}</div></section>
 }
 
 export function SettingsPanel(){
@@ -370,7 +373,7 @@ export function CmsPanel(){
 }
 
 function EmptyPanel({text}:{text:string}){
-  return <div className="p-6 text-center text-[10px] leading-5 text-zinc-500">{text}</div>
+  return <div className="vb-empty-panel p-6 text-center text-[10px] leading-5 text-zinc-500"><div className="vb-empty-icon">✦</div><strong>Nothing selected</strong><p>{text}</p><span>Tip: choose an element on the canvas or in Navigator.</span></div>
 }
 
 export { createElement, createPrebuiltSection }
