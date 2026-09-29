@@ -200,15 +200,71 @@ Validation:
 - Health endpoint smoke test: passing.
 - SPA fallback smoke test: passing.
 
-## Deliberate boundary before production migration
-The new builder currently persists to IndexedDB and provides publish simulation + code export, as requested for the first implementation. It is not yet the source used by the existing CoBest Supabase/Railway public-store publishing pipeline.
+## CoBest platform integration
+**Status: IMPLEMENTED IN CODE — LIVE RETEST PENDING**
 
-Before production migration:
-1. Decide whether the new JSON project should replace or coexist with the existing legacy editor snapshot format.
-2. Add a Supabase implementation of `ProjectRepository`.
-3. Add server-side publishing of the compiled project/site snapshot.
-4. Migrate existing customer sites carefully.
-5. Run authenticated browser E2E QA before making the new builder the production publishing source.
+The visual builder now coexists safely with the legacy editor format:
+- IndexedDB remains the local/offline project backup.
+- Each local project is keyed by active CoBest workspace/site.
+- Authenticated autosave stores the visual project under the workspace editor payload.
+- Partial workspace saves use server-side merge semantics so existing settings are preserved.
+- Authenticated image assets use the existing CoBest/Supabase media upload endpoint.
+- Publish includes the visual project in the normal published-store snapshot.
+- Public visual pages render from the same project JSON/CSS compiler in an isolated iframe.
+- Existing CoBest Shop, Cart, Checkout, and Customer Account remain accessible alongside visual pages.
+- Existing legacy sites without a visual project continue to use the legacy storefront fallback.
+- Legacy Home fallback now honors the merchant's selected/reordered section structure.
+
+## Template library
+**Status: COMPLETE**
+- Business
+- Portfolio
+- Agency
+- SaaS
+- Ecommerce
+- Restaurant
+- Personal
+- Blog
+
+Templates are original CoBest starters, apply through the same project tree, and participate in undo/version history.
+
+## Marketing website
+**Status: COMPLETE IN CODE**
+- Product
+- Features
+- Templates
+- Resources
+- Pricing
+- Login / Start Building Free
+- Builder preview
+- Website/commerce capabilities
+- Template gallery
+- Testimonials
+- FAQ
+- Final CTA and footer
+
+## Quality gates
+The stabilization branch CI requires:
+1. `npm ci`
+2. no high/critical dependency audit findings
+3. Vitest unit tests
+4. production Vite build
+5. server startup
+6. health endpoint smoke test
+7. SPA fallback smoke test
+
+## Remaining step before production sign-off
+Deploy this exact tested branch only when explicitly requested, then run the authenticated/live browser checklist for:
+- cloud save/reload,
+- visual publish/public parity,
+- responsive editor behavior,
+- asset upload,
+- CMS,
+- components/interactions,
+- Shop/cart/account bridge,
+- inventory guard,
+- Stripe/PayPal configured-provider behavior,
+- mobile browser layout.
 
 ## Railway policy
 No Railway deployment is performed from this builder batch unless explicitly requested.
