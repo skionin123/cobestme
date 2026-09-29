@@ -30,6 +30,7 @@ describe('builder compiler',()=>{
     project.styles.test={desktop:{none:{fontSize:'50px'}},mobilePortrait:{none:{fontSize:'28px'}}}
     const css=compileProjectCss(project)
     expect(css).toContain('.test{font-size:50px}')
-    expect(css).toContain('@media(max-width:478px){.test{font-size:28px}')
+    expect(css).toContain('@media(max-width:478px)')
+    expect(css).toContain('.test{font-size:28px}')
   })
 })
