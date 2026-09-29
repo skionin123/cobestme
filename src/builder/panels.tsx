@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
+import { isAuthenticated, uploadMedia } from '../api.js'
 import {
   ChevronDown, ChevronRight, Copy, File, FolderPlus, GripVertical, Image as ImageIcon,
   Layers, Plus, Save, Trash2, Upload, X
@@ -140,9 +141,21 @@ export function AssetsPanel(){
     if(!files)return
     for(const file of Array.from(files)){
       if(!file.type.startsWith('image/'))continue
-      const url=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(r.error);r.readAsDataURL(file)})
-      const asset:BuilderAsset={id:uid('asset'),name:file.name,mimeType:file.type,url,alt:file.name.replace(/\.[^.]+$/,''),createdAt:new Date().toISOString()}
-      addAsset(asset)
+      try{
+        if(isAuthenticated()){
+          const uploaded=await uploadMedia(file)
+          if(uploaded?.url){
+            const asset:BuilderAsset={id:String(uploaded.id||uid('asset')),name:uploaded.name||file.name,mimeType:uploaded.mime_type||file.type,url:uploaded.url,alt:uploaded.name||file.name.replace(/\.[^.]+$/,''),createdAt:uploaded.created_at||new Date().toISOString()}
+            addAsset(asset)
+            continue
+          }
+        }
+        const url=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(r.error);r.readAsDataURL(file)})
+        const asset:BuilderAsset={id:uid('asset'),name:file.name,mimeType:file.type,url,alt:file.name.replace(/\.[^.]+$/,''),createdAt:new Date().toISOString()}
+        addAsset(asset)
+      }catch(error:any){
+        alert(error?.message||`Could not upload ${file.name}`)
+      }
     }
   }
   return <div className="h-full overflow-auto">
