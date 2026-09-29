@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, BarChart3, BriefcaseBusiness, Check, ChevronDown,
-  CircleHelp, Eye, FileText, Home, Image as ImageIcon, LayoutDashboard,
-  Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag,
-  Smartphone, Sparkles, Store, Tablet, Upload, Users, X
+  Box, CircleHelp, Code2, Copy, Eye, FileText, GripVertical, Home, Image as ImageIcon, Layers, LayoutDashboard,
+  Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
+  Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
 const APP_NAME = 'CoBest'
 
@@ -19,6 +20,44 @@ const fontChoices = [
   { label:'System UI', value:'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' },
   { label:'Monospace', value:'ui-monospace, SFMono-Regular, Menlo, monospace' },
 ]
+
+const builderElementLibrary = [
+  {type:'heading',label:'Heading',group:'Basic',note:'Large display heading'},
+  {type:'text',label:'Text',group:'Basic',note:'Paragraph or rich copy'},
+  {type:'image',label:'Image',group:'Basic',note:'Responsive image block'},
+  {type:'cta',label:'Button / CTA',group:'Basic',note:'Call to action section'},
+  {type:'video',label:'Video',group:'Basic',note:'Responsive video embed'},
+  {type:'form',label:'Form',group:'Basic',note:'Lead or contact form'},
+  {type:'columns',label:'Columns',group:'Layout',note:'Flexible multi-column layout'},
+  {type:'grid',label:'Grid',group:'Layout',note:'Card or content grid'},
+  {type:'products',label:'Product Grid',group:'Commerce',note:'Live active products'},
+  {type:'testimonial',label:'Testimonial',group:'Components',note:'Customer quote'},
+  {type:'pricing',label:'Pricing',group:'Components',note:'Pricing cards'},
+  {type:'faq',label:'FAQ',group:'Components',note:'Expandable questions'},
+  {type:'spacer',label:'Spacer',group:'Layout',note:'Vertical breathing room'}
+]
+
+function createBuilderBlock(type='text',prefix='block'){
+  const id=`${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`
+  const base={id,type,title:'New section',body:'Add your content here.',background:'#ffffff',text:'#171717',padding:56,margin:0,columns:1,columnTemplate:'1fr',gap:24,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'',buttonLabel:'Learn more',buttonLink:'#',productLimit:4,opacity:100,shadow:'none',position:'relative',align:'left',hideDesktop:false,hideTablet:false,hideMobile:false}
+  const presets={
+    heading:{title:'A clear, confident heading',body:'',fontSize:52},
+    text:{title:'Tell your story',body:'Use this section for a paragraph, introduction, service description, or any supporting copy.'},
+    image:{title:'Visual story',body:'Add context for this image.',padding:32},
+    cta:{title:'Ready to take the next step?',body:'Give visitors one clear action to take.',buttonLabel:'Get started'},
+    video:{title:'Watch the story',body:'Paste a YouTube, Vimeo, or hosted video URL.',imageUrl:''},
+    form:{title:'Start a conversation',body:'Collect the details you need from visitors.',buttonLabel:'Send'},
+    columns:{title:'Flexible columns',body:'Add content across multiple columns.',columns:2,columnTemplate:'1fr 1fr'},
+    grid:{title:'Content grid',body:'Card one, Card two, Card three',items:'Card one, Card two, Card three',columns:3,columnTemplate:'1fr 1fr 1fr'},
+    products:{title:'Featured products',body:'',columns:4,columnTemplate:'1fr 1fr 1fr 1fr'},
+    testimonial:{title:'What customers say',body:'“A thoughtful experience from start to finish.”'},
+    pricing:{title:'Choose the right plan',body:'Starter|Professional|Business',columns:3,columnTemplate:'1fr 1fr 1fr'},
+    faq:{title:'Frequently asked questions',body:'What is included?|How does it work?|Can I change this later?'},
+    spacer:{title:'Spacer',body:'',padding:64}
+  }
+  return {...base,...(presets[type]||{}),type}
+}
+
 
 const styleChoices = [
   { name: 'Minimal', note: 'Whitespace, restraint, clean typography', className: 'style-minimal' },
@@ -326,7 +365,7 @@ function Landing({ onStart, onLogin }) {
       <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
-        <div className="landing-nav-links"><a href="#website">Website</a><a href="#commerce">Commerce</a><a href="#approach">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start free</Button></div>
+        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start Building Free</Button></div>
       </nav>
 
       <main className="hero-wrap container" id="product">
@@ -334,7 +373,7 @@ function Landing({ onStart, onLogin }) {
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
           <h1>Build a store people trust. Run it from one place.</h1>
           <p>CoBest gives growing businesses one home for website design, products, orders, customers, content, and the business context behind every decision.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#approach">See how it works</a></div>
+          <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
           <div className="trust-row"><span><Check size={15}/> Guided onboarding</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Commerce workspace</span></div>
         </div>
         <div className="hero-product-shell">
@@ -355,7 +394,7 @@ function Landing({ onStart, onLogin }) {
         <span>One platform for the whole website business</span><div><b>Website</b><b>Products</b><b>Orders</b><b>Customers</b><b>Content</b><b>Analytics</b></div>
       </section>
 
-      <section className="landing-section container" id="commerce">
+      <section className="landing-section container" id="features">
         <p className="section-kicker">SELL AND MANAGE</p><h2>Everything you need behind the storefront.</h2>
         <div className="feature-grid four">
           <article><span>01</span><h3>Products</h3><p>Create products, organize categories, manage pricing and inventory, and surface the same catalog across the storefront.</p></article>
@@ -388,6 +427,35 @@ function Landing({ onStart, onLogin }) {
           <article><span>03</span><h3>Build</h3><p>Design the website with the project context still visible, instead of starting from a blank canvas with no business direction.</p></article>
           <article><span>04</span><h3>Run</h3><p>Move from launch into everyday website, product, order, customer, content, and performance management without changing systems.</p></article>
         </div>
+      </section>
+
+      <section className="landing-section container marketing-templates" id="templates">
+        <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
+        <div className="marketing-template-grid">
+          {[
+            ['Business','Northstar','Professional services'],
+            ['Portfolio','Frame','Creative portfolios'],
+            ['Agency','Signal','Studios and agencies'],
+            ['SaaS','Orbit','Product-led software'],
+            ['Ecommerce','Field Shop','Editorial commerce'],
+            ['Restaurant','Supper House','Food and hospitality'],
+            ['Personal','Profile One','Independent professionals'],
+            ['Blog','Margin Journal','Editorial publishing']
+          ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use template <ArrowRight size={13}/></button></article>)}
+        </div>
+      </section>
+
+      <section className="marketing-testimonials">
+        <div className="container"><p className="section-kicker">BUILT FOR REAL WORK</p><h2>Professional control without making every client learn code.</h2><div className="testimonial-grid">
+          <blockquote><p>“The canvas gives us design control, while the Navigator and reusable components keep larger sites organized.”</p><footer><strong>Independent designer</strong><span>Brand and ecommerce projects</span></footer></blockquote>
+          <blockquote><p>“Pages, products, CMS content, and publishing finally feel like parts of the same project instead of separate tools.”</p><footer><strong>Small agency</strong><span>Client website operations</span></footer></blockquote>
+          <blockquote><p>“Responsive overrides and clean export make it useful beyond a quick template builder.”</p><footer><strong>Frontend consultant</strong><span>Marketing and product sites</span></footer></blockquote>
+        </div></div>
+      </section>
+
+      <section className="landing-section container marketing-resources" id="resources">
+        <p className="section-kicker">RESOURCES</p><h2>Learn the system, not just the buttons.</h2>
+        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Understand the desktop-first cascade, overrides, and how to keep layouts stable across devices.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Build navbars, footers, cards, and sections once, then keep instances consistent across a project.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>Structure collections, bind template pages, and export readable HTML, CSS, JavaScript, and assets.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
       </section>
 
       <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-intro"><p className="section-kicker">PRICING</p><h2>Build first. Pay when the business is ready to go live.</h2><p>Start the website without a card. Upgrade when you need a custom domain and a live commerce workspace.</p></div><div className="pricing-grid"><article><span>BUILD</span><h3>Free</h3><strong>₱0 <small>/ month</small></strong><p>For preparing the website and organizing the business before launch.</p><ul><li><Check size={14}/> 1 website</li><li><Check size={14}/> Guided onboarding</li><li><Check size={14}/> Website brief</li><li><Check size={14}/> Visual website builder</li><li><Check size={14}/> CoBest storefront address</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article><article className="featured-plan"><span>LAUNCH</span><div className="plan-badge">Most popular</div><h3>Launch</h3><strong>₱990 <small>/ site / month</small></strong><p>For businesses ready to publish, sell, and manage their website every day.</p><ul><li><Check size={14}/> Everything in Free</li><li><Check size={14}/> Custom domain</li><li><Check size={14}/> Products and inventory</li><li><Check size={14}/> Orders and customers</li><li><Check size={14}/> Remove CoBest branding</li></ul><Button onClick={onStart}>Start free</Button></article><article><span>GROW</span><h3>Growth</h3><strong>₱2,490 <small>/ site / month</small></strong><p>For growing businesses that need more people, reporting, and support.</p><ul><li><Check size={14}/> Everything in Launch</li><li><Check size={14}/> Team access</li><li><Check size={14}/> Advanced analytics</li><li><Check size={14}/> Priority support</li><li><Check size={14}/> Additional publishing controls</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article></div><p className="pricing-note">Pricing shown in Philippine pesos. You can change these plan names, prices, and entitlements before billing is connected.</p></div></section><section className="landing-cta"><div className="container"><p className="section-kicker">START WITH THE BUSINESS</p><h2>Build the store around what the business actually needs.</h2><p>Set the direction, organize the website, and manage the storefront from one place.</p><div><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><Button variant="secondary" onClick={onLogin}>Log in</Button></div></div></section>
@@ -728,9 +796,17 @@ function NavigationManager({pages=[],editor,setEditor}) {
   </div>
 }
 
-function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
+function BuilderLibrary({onAdd}){
+  const groups=[...new Set(builderElementLibrary.map(x=>x.group))]
+  return <div className="builder-library">{groups.map(group=><section key={group}><span className="builder-library-label">{group}</span><div className="builder-element-grid">{builderElementLibrary.filter(x=>x.group===group).map(item=><button key={item.type} onClick={()=>onAdd(item.type)} title={item.note}><span className="builder-element-icon">{item.type==='heading'?<Type size={16}/>:item.type==='image'?<ImageIcon size={16}/>:item.type==='products'?<ShoppingBag size={16}/>:item.type==='spacer'?<Box size={16}/>:<Plus size={16}/>}</span><strong>{item.label}</strong><small>{item.note}</small></button>)}</div></section>)}</div>
+}
+
+function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPublish,onSettings,onManagePages,workspace}) {
   const currentPage=editor.currentPage||'Home'
   const [dragId,setDragId]=useState(null)
+  const [leftMode,setLeftMode]=useState('layers')
+  const [zoom,setZoom]=useState(100)
+  const [saveState,setSaveState]=useState('')
   const historyRef=useRef([])
   const futureRef=useRef([])
   const lastRef=useRef(JSON.stringify(editor))
@@ -746,10 +822,27 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
   },[editor])
   const undo=()=>{if(!historyRef.current.length)return;const previous=historyRef.current.pop();futureRef.current.push(JSON.parse(JSON.stringify(editor)));skipHistoryRef.current=true;setEditor(previous)}
   const redo=()=>{if(!futureRef.current.length)return;const next=futureRef.current.pop();historyRef.current.push(JSON.parse(JSON.stringify(editor)));skipHistoryRef.current=true;setEditor(next)}
-  const save=()=>{
+  const save=async()=>{
     try{localStorage.setItem('cobest-v4-editor',JSON.stringify(editor))}catch{}
-    if(isAuthenticated()) saveWorkspace({onboarding:data,editor,settings:{}}).catch(()=>{})
-    alert('Website changes saved.')
+    setSaveState('Saving…')
+    try{
+      if(isAuthenticated()) await saveWorkspace({
+        onboarding:data,
+        editor,
+        settings:{...(workspace?.settings||{})},
+        slug:workspace?.slug,
+        custom_domain:workspace?.custom_domain,
+        site_name:workspace?.site_name||data.businessName,
+        plan:workspace?.plan||'Free',
+        currency:workspace?.currency||'PHP',
+        timezone:workspace?.timezone||'Asia/Manila'
+      })
+      setSaveState('Saved')
+      setTimeout(()=>setSaveState(''),1600)
+    }catch(err){
+      setSaveState('Save failed')
+      alert(err.message||'Website changes could not be saved.')
+    }
   }
   const changePage=p=>setEditor(prev=>({...prev,currentPage:p,selected:p==='Home'?'hero':'page-intro',pageContent:{...(prev.pageContent||{}),[p]:prev.pageContent?.[p]||{title:p,body:'',blocks:[]}}}))
 
@@ -759,11 +852,32 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
     const selected=(pageData.blocks||[]).find(b=>b.id===editor.selected)
     const updatePage=(key,value)=>setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),[currentPage]:{...(prev.pageContent?.[currentPage]||pageData),[key]:value}}}))
     const updateMeta=(key,value)=>setEditor(prev=>({...prev,pageMeta:{...(prev.pageMeta||{}),[currentPage]:{...(prev.pageMeta?.[currentPage]||{}),[key]:value}}}))
-    const add=()=>{const id=`page-block-${Date.now()}`;const b={id,type:'text',title:'New section',body:'Add page content here.',background:'#ffffff',text:'#171717',padding:48,margin:0,columns:1,columnTemplate:'1fr',gap:20,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'',buttonLabel:'Learn more',buttonLink:'#',productLimit:4};updatePage('blocks',[...(pageData.blocks||[]),b]);setEditor(prev=>({...prev,selected:id}))}
+    const add=(type='text')=>{const b=createBuilderBlock(type,'page-block');updatePage('blocks',[...(pageData.blocks||[]),b]);setEditor(prev=>({...prev,selected:b.id}));setLeftMode('layers')}
     const updateBlock=(key,value)=>updatePage('blocks',(pageData.blocks||[]).map(b=>b.id===editor.selected?{...b,[key]:value}:b))
     const remove=()=>{updatePage('blocks',(pageData.blocks||[]).filter(b=>b.id!==editor.selected));setEditor(prev=>({...prev,selected:'page-intro'}))}
+    const duplicate=()=>{if(!selected)return;const copy={...selected,id:`page-block-${Date.now()}-copy`,title:(selected.title||'Section')+' copy'};const list=[...(pageData.blocks||[])];const i=list.findIndex(x=>x.id===selected.id);list.splice(i+1,0,copy);updatePage('blocks',list);setEditor(prev=>({...prev,selected:copy.id}))}
+    const toggleHidden=id=>updatePage('blocks',(pageData.blocks||[]).map(b=>b.id===id?{...b,hidden:!b.hidden}:b))
     const reorder=(from,to)=>{const list=[...(pageData.blocks||[])];const i=list.findIndex(x=>x.id===from),j=list.findIndex(x=>x.id===to);if(i<0||j<0||i===j)return;const [m]=list.splice(i,1);list.splice(j,0,m);updatePage('blocks',list)}
-    return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><select className="editor-page-select" value={currentPage} onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Preview</Button><Button onClick={save}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>{currentPage} sections</span><button onClick={add}><Plus size={16}/></button></div><button className={`section-item ${editor.selected==='page-intro'?'active':''}`} onClick={()=>setEditor({...editor,selected:'page-intro'})}><div className="section-thumb"><FileText size={14}/></div><strong>Page intro</strong></button>{(pageData.blocks||[]).map(b=><button draggable key={b.id} onDragStart={()=>setDragId(b.id)} onDragOver={e=>e.preventDefault()} onDrop={()=>{reorder(dragId,b.id);setDragId(null)}} className={`section-item ${editor.selected===b.id?'active':''}`} onClick={()=>setEditor({...editor,selected:b.id})}><span className="drag-dots">⠿</span><div className="section-thumb"><LayoutDashboard size={14}/></div><strong>{b.title||'Section'}</strong></button>)}<button className="add-section" onClick={add}><Plus size={15}/> Add section</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><div className="subpage-preview" style={{'--brand':data.primaryColor,'--paper':data.secondaryColor}}><header><strong>{editor.header?.logoText||data.businessName||'Your Store'}</strong></header><section className="subpage-hero"><small>{currentPage.toUpperCase()}</small><h1>{pageData.title||currentPage}</h1><p>{pageData.body||'Add page content using the settings panel.'}</p></section>{(pageData.blocks||[]).map(b=><EditorBlock key={b.id} block={b} products={products}/>)}</div></div></main><aside className="settings-panel"><div className="settings-head"><span>Page settings</span><strong>{editor.selected==='page-intro'?'Page intro':selected?.title||'Section'}</strong></div>{editor.selected==='page-intro'&&<div className="settings-form"><Field label="Page title"><input value={pageData.title||''} onChange={e=>updatePage('title',e.target.value)}/></Field><Field label="Intro/body"><textarea rows="6" value={pageData.body||''} onChange={e=>updatePage('body',e.target.value)}/></Field><label className="check-row"><input type="checkbox" checked={meta.visible!==false} onChange={e=>updateMeta('visible',e.target.checked)}/> Visible on published store</label><Field label="SEO title"><input value={meta.seo_title||''} onChange={e=>updateMeta('seo_title',e.target.value)}/></Field><Field label="SEO description"><textarea rows="4" value={meta.seo_description||''} onChange={e=>updateMeta('seo_description',e.target.value)}/></Field></div>}{selected&&<BlockSettings block={selected} update={updateBlock} remove={remove} media={media}/>}</aside></div></div>
+    return <div className="editor-screen builder-pro">
+      <div className="editor-top builder-toolbar">
+        <div className="builder-toolbar-group"><Logo/><span className="editor-divider"/><button className="builder-tool-button" onClick={onManagePages}><Layers size={15}/> Pages</button><select className="editor-page-select" value={currentPage} onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div>
+        <div className="builder-toolbar-center"><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} title={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="builder-zoom"><button onClick={()=>setZoom(z=>Math.max(50,z-10))}>−</button><span>{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(150,z+10))}>+</button></div></div>
+        <div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onSettings}><Settings size={15}/></Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Preview</Button>{saveState&&<span className={'builder-save-state '+(saveState==='Save failed'?'error':'')}>{saveState}</span>}<Button variant="secondary" onClick={save}>Save</Button><Button onClick={onPublish}>Publish</Button></div>
+      </div>
+      <div className="editor-body builder-workspace">
+        <aside className="section-panel builder-left-panel">
+          <div className="builder-panel-tabs"><button className={leftMode==='add'?'active':''} onClick={()=>setLeftMode('add')}><Plus size={15}/> Add</button><button className={leftMode==='layers'?'active':''} onClick={()=>setLeftMode('layers')}><Layers size={15}/> Layers</button></div>
+          {leftMode==='add'?<BuilderLibrary onAdd={add}/>:<div className="builder-layer-list">
+            <div className="panel-title"><span>{currentPage}</span><button onClick={onManagePages}><Settings size={14}/></button></div>
+            <button className={'section-item '+(editor.selected==='page-intro'?'active':'')} onClick={()=>setEditor({...editor,selected:'page-intro'})}><div className="section-thumb"><FileText size={14}/></div><strong>Page intro</strong></button>
+            {(pageData.blocks||[]).map(b=><div className={'builder-layer-row '+(editor.selected===b.id?'active':'')+(b.hidden?' hidden':'')} key={b.id} draggable onDragStart={()=>setDragId(b.id)} onDragOver={e=>e.preventDefault()} onDrop={()=>{reorder(dragId,b.id);setDragId(null)}}><button className="builder-layer-main" onClick={()=>setEditor({...editor,selected:b.id})}><GripVertical size={13}/><span className="section-thumb"><LayoutDashboard size={14}/></span><strong>{b.title||'Section'}</strong></button><button title={b.hidden?'Show':'Hide'} onClick={()=>toggleHidden(b.id)}><Eye size={13}/></button></div>)}
+            <button className="add-section" onClick={()=>setLeftMode('add')}><Plus size={15}/> Add element</button>
+          </div>}
+        </aside>
+        <main className="canvas-area builder-canvas-area"><div className={'store-canvas device-'+editor.device} style={{'--builder-zoom':zoom/100}}><div className="builder-canvas-zoom"><div className="subpage-preview" style={{'--brand':editor.theme?.ink||data.primaryColor,'--paper':editor.theme?.paper||data.secondaryColor,'--surface':editor.theme?.surface||'#fff','--display-font':editor.theme?.displayFont,fontFamily:editor.theme?.fontFamily}}><header onClick={()=>setEditor({...editor,selected:'page-intro'})}><strong>{editor.header?.logoText||data.businessName||'Your Store'}</strong></header><section className={'subpage-hero builder-selectable '+(editor.selected==='page-intro'?'builder-selected':'')} onClick={()=>setEditor({...editor,selected:'page-intro'})}><small>{currentPage.toUpperCase()}</small><h1>{pageData.title||currentPage}</h1><p>{pageData.body||'Add page content using the settings panel.'}</p></section>{(pageData.blocks||[]).map(b=><div key={b.id} className={'builder-section-wrap builder-selectable '+(editor.selected===b.id?'builder-selected':'')} onClick={e=>{e.stopPropagation();setEditor({...editor,selected:b.id})}}><EditorBlock block={b} products={products} device={editor.device}/></div>)}</div></div></div></main>
+        <aside className="settings-panel builder-right-panel"><div className="settings-head"><span>Inspector</span><strong>{editor.selected==='page-intro'?'Page intro':selected?.title||'Select an element'}</strong></div>{editor.selected==='page-intro'&&<div className="settings-form"><span className="overline">PAGE</span><Field label="Page title"><input value={pageData.title||''} onChange={e=>updatePage('title',e.target.value)}/></Field><Field label="Intro/body"><textarea rows="6" value={pageData.body||''} onChange={e=>updatePage('body',e.target.value)}/></Field><label className="check-row"><input type="checkbox" checked={meta.visible!==false} onChange={e=>updateMeta('visible',e.target.checked)}/> Visible on published store</label><Field label="SEO title"><input value={meta.seo_title||''} onChange={e=>updateMeta('seo_title',e.target.value)}/></Field><Field label="SEO description"><textarea rows="4" value={meta.seo_description||''} onChange={e=>updateMeta('seo_description',e.target.value)}/></Field></div>}{selected&&<BlockSettings block={selected} update={updateBlock} remove={remove} duplicate={duplicate} media={media}/>}</aside>
+      </div>
+    </div>
   }
 
   const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
@@ -777,7 +891,7 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview}) {
   const update=(section,key,value)=>setEditor(prev=>({...prev,[section]:{...prev[section],[key]:value}}))
   const selectedBlock=(editor.blocks||[]).find(b=>b.id===editor.selected)
   const updateBlock=(key,value)=>setEditor(prev=>({...prev,blocks:(prev.blocks||[]).map(b=>b.id===prev.selected?{...b,[key]:value}:b)}))
-  const addBlock=()=>{const id=`block-${Date.now()}`;const block={id,type:'text',title:'New content block',body:'Add your content here.',background:'#ffffff',text:'#171717',padding:48,margin:0,columns:1,columnTemplate:'1fr',gap:20,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'Item one, Item two, Item three',buttonLabel:'Learn more',buttonLink:'#',productLimit:4};setEditor(prev=>({...prev,blocks:[...(prev.blocks||[]),block],sectionOrder:[...(prev.sectionOrder||['hero','featured','story','newsletter']).filter(x=>x!=='newsletter'),id,'newsletter'],selected:id}))}
+  const addBlock=()=>{const id=`block-${Date.now()}`;const block={id,type:'text',title:'New content block',body:'Add your content here.',background:'#ffffff',text:'#171717',padding:48,margin:0,columns:1,columnTemplate:'1fr',gap:20,maxWidth:1180,fontSize:16,borderWidth:0,borderColor:'#dddddd',radius:0,imageUrl:'',items:'Item one, Item two, Item three',buttonLabel:'Learn more',buttonLink:'#',productLimit:4};setEditor(prev=>{const order=Array.isArray(prev.sectionOrder)?prev.sectionOrder:[];const hadNewsletter=order.includes('newsletter');const base=order.filter(x=>x!=='newsletter');return {...prev,blocks:[...(prev.blocks||[]),block],sectionOrder:hadNewsletter?[...base,id,'newsletter']:[...base,id],selected:id}})}
   const removeBlock=()=>{if(!selectedBlock)return;setEditor(prev=>({...prev,blocks:(prev.blocks||[]).filter(b=>b.id!==selectedBlock.id),sectionOrder:(prev.sectionOrder||[]).filter(x=>x!==selectedBlock.id),selected:'hero'}))}
   const reorder=(from,to)=>setEditor(prev=>{const order=[...(prev.sectionOrder||[])];const i=order.indexOf(from),j=order.indexOf(to);if(i<0||j<0||i===j)return prev;const [m]=order.splice(i,1);order.splice(j,0,m);return {...prev,sectionOrder:order}})
   return <div className="editor-screen"><div className="editor-top"><div><Logo/><span className="editor-divider"/><select className="editor-page-select" value="Home" onChange={e=>changePage(e.target.value)}>{pages.map(p=><option key={p}>{p}</option>)}</select></div><div className="device-toggle">{[['desktop',Monitor],['tablet',Tablet],['mobile',Smartphone]].map(([id,I])=><button key={id} className={editor.device===id?'active':''} onClick={()=>setEditor({...editor,device:id})}><I size={16}/></button>)}</div><div className="editor-actions"><Button variant="ghost" onClick={undo}>Undo</Button><Button variant="ghost" onClick={redo}>Redo</Button><Button variant="ghost" onClick={onPreview}><Eye size={15}/> Live preview</Button><Button onClick={save}>Save</Button></div></div><div className="editor-body"><aside className="section-panel"><div className="panel-title"><span>Home sections</span><button onClick={addBlock}><Plus size={16}/></button></div>{sections.map(([id,label],i)=>{const draggable=!['header','footer'].includes(id);return <button draggable={draggable} key={id} onDragStart={()=>draggable&&setDragId(id)} onDragOver={e=>draggable&&e.preventDefault()} onDrop={()=>{if(draggable){reorder(dragId,id);setDragId(null)}}} className={`section-item ${editor.selected===id?'active':''}`} onClick={()=>setEditor({...editor,selected:id})}>{draggable&&<span className="drag-dots">⠿</span>}<div className="section-thumb">{id.startsWith('block-')?<Plus size={14}/>:i<2?<ImageIcon size={14}/>:<LayoutDashboard size={14}/>}</div><strong>{label}</strong></button>})}<button className="add-section" onClick={addBlock}><Plus size={15}/> Add content block</button></aside><main className="canvas-area"><div className={`store-canvas device-${editor.device}`}><StorefrontMini data={data} products={products} editor={editor}/></div></main><aside className="settings-panel"><div className="settings-head"><span>Section settings</span><strong>{sections.find(s=>s[0]===editor.selected)?.[1]||'Section'}</strong></div>{editor.selected==='header'&&<div className="settings-form"><Field label="Store/logo text"><input value={editor.header?.logoText||''} onChange={e=>update('header','logoText',e.target.value)} placeholder={data.businessName||'Store name'}/></Field><Field label="Menu items (comma separated)"><input value={(editor.header?.menu||[]).join(', ')} onChange={e=>update('header','menu',e.target.value.split(',').map(x=>x.trim()).filter(Boolean))}/></Field></div>}{editor.selected==='hero'&&<div className="settings-form"><Field label="Eyebrow"><input value={editor.hero.eyebrow} onChange={e=>update('hero','eyebrow',e.target.value)}/></Field><Field label="Heading"><textarea rows="3" value={editor.hero.heading} onChange={e=>update('hero','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.hero.body} onChange={e=>update('hero','body',e.target.value)}/></Field><Field label="Button label"><input value={editor.hero.button} onChange={e=>update('hero','button',e.target.value)}/></Field><Field label="Alignment"><div className="segment"><button className={editor.hero.align==='left'?'active':''} onClick={()=>update('hero','align','left')}>Left</button><button className={editor.hero.align==='center'?'active':''} onClick={()=>update('hero','align','center')}>Center</button></div></Field></div>}{editor.selected==='featured'&&<div className="settings-form"><Field label="Section heading"><input value={editor.featured.title} onChange={e=>update('featured','title',e.target.value)}/></Field><Field label="Columns"><div className="segment">{[2,3,4].map(n=><button key={n} className={editor.featured.columns===n?'active':''} onClick={()=>update('featured','columns',n)}>{n}</button>)}</div></Field></div>}{editor.selected==='story'&&<div className="settings-form"><Field label="Heading"><input value={editor.story.title} onChange={e=>update('story','title',e.target.value)}/></Field><Field label="Body"><textarea rows="5" value={editor.story.body} onChange={e=>update('story','body',e.target.value)}/></Field></div>}{editor.selected==='newsletter'&&<div className="settings-form"><Field label="Heading"><input value={editor.newsletter?.heading||''} onChange={e=>update('newsletter','heading',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={editor.newsletter?.body||''} onChange={e=>update('newsletter','body',e.target.value)}/></Field><Field label="Button"><input value={editor.newsletter?.button||'Join'} onChange={e=>update('newsletter','button',e.target.value)}/></Field></div>}{editor.selected==='footer'&&<div className="settings-form"><Field label="Footer text"><input value={editor.footer?.text||''} onChange={e=>update('footer','text',e.target.value)}/></Field><p className="field-help">Footer links are managed in Online store → Navigation.</p></div>}{themeIds.has(editor.selected)&&!['hero','featured','story','newsletter'].includes(editor.selected)&&<ThemeSectionSettings id={editor.selected} editor={editor} setEditor={setEditor}/>} {selectedBlock&&<BlockSettings block={selectedBlock} update={updateBlock} remove={removeBlock} media={media}/>}<div className="settings-form precision-controls"><span className="overline">GLOBAL DESIGN</span><Field label="Body font"><select value={editor.theme?.fontFamily||fontChoices[0].value} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),fontFamily:e.target.value}}))}>{fontChoices.map(f=><option key={f.label} value={f.value}>{f.label}</option>)}</select></Field><Field label="Heading font"><select value={editor.theme?.displayFont||fontChoices[2].value} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),displayFont:e.target.value}}))}>{fontChoices.map(f=><option key={f.label} value={f.value}>{f.label}</option>)}</select></Field><div className="form-grid two"><Field label="Page background"><input type="color" value={editor.theme?.surface||'#ffffff'} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),surface:e.target.value}}))}/></Field><Field label="Section background"><input type="color" value={editor.theme?.paper||'#f5f5f3'} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),paper:e.target.value}}))}/></Field><Field label="Text color"><input type="color" value={editor.theme?.ink||'#171717'} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),ink:e.target.value}}))}/></Field><Field label="Accent color"><input type="color" value={editor.theme?.accent||'#171717'} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),accent:e.target.value}}))}/></Field></div><Field label="Heading weight"><select value={editor.typography?.headingWeight||600} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),headingWeight:Number(e.target.value)}}))}>{[300,400,500,600,700,800,900].map(n=><option key={n} value={n}>{n}</option>)}</select></Field><Field label="Body weight"><select value={editor.typography?.bodyWeight||400} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),bodyWeight:Number(e.target.value)}}))}>{[300,400,500,600,700].map(n=><option key={n} value={n}>{n}</option>)}</select></Field><Field label="Navigation weight"><select value={editor.typography?.navWeight||500} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),navWeight:Number(e.target.value)}}))}>{[300,400,500,600,700,800].map(n=><option key={n} value={n}>{n}</option>)}</select></Field><Field label="Button weight"><select value={editor.typography?.buttonWeight||600} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),buttonWeight:Number(e.target.value)}}))}>{[300,400,500,600,700,800].map(n=><option key={n} value={n}>{n}</option>)}</select></Field><Field label={`H1 size: ${editor.typography?.h1Size||62}px`}><input type="range" min="28" max="120" value={editor.typography?.h1Size||62} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),h1Size:Number(e.target.value)}}))}/></Field><Field label={`H2 size: ${editor.typography?.h2Size||36}px`}><input type="range" min="20" max="80" value={editor.typography?.h2Size||36} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),h2Size:Number(e.target.value)}}))}/></Field><Field label={`Body size: ${editor.typography?.bodySize||16}px`}><input type="range" min="12" max="24" value={editor.typography?.bodySize||16} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),bodySize:Number(e.target.value)}}))}/></Field><Field label={`Line height: ${editor.typography?.lineHeight||1.6}`}><input type="range" min="1" max="2.2" step="0.05" value={editor.typography?.lineHeight||1.6} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),lineHeight:Number(e.target.value)}}))}/></Field><Field label={`Letter spacing: ${editor.typography?.letterSpacing||0}px`}><input type="range" min="-3" max="8" step="0.25" value={editor.typography?.letterSpacing||0} onChange={e=>setEditor(prev=>({...prev,typography:{...(prev.typography||{}),letterSpacing:Number(e.target.value)}}))}/></Field><Field label={`Section gap: ${editor.theme?.sectionGap||32}px`}><input type="range" min="0" max="96" value={editor.theme?.sectionGap||32} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),sectionGap:Number(e.target.value)}}))}/></Field><Field label={`Card radius: ${editor.theme?.radius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.radius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),radius:Number(e.target.value)}}))}/></Field><Field label={`Button radius: ${editor.theme?.buttonRadius||0}px`}><input type="range" min="0" max="40" value={editor.theme?.buttonRadius||0} onChange={e=>setEditor(prev=>({...prev,theme:{...(prev.theme||{}),buttonRadius:Number(e.target.value)}}))}/></Field><Field label="Custom CSS"><textarea className="code-textarea" rows="10" spellCheck="false" value={editor.customCss||''} onChange={e=>setEditor(prev=>({...prev,customCss:e.target.value}))} placeholder={`.storefront .sf-hero h1 {\n  text-transform: uppercase;\n}`}/></Field><p className="field-help">Advanced: custom CSS is saved with the site and applied inside the storefront preview/published snapshot.</p></div><div className="project-context"><span>PROJECT CONTEXT</span><strong>{data.goals[0]||'Website goal'}</strong><p>{data.primaryAction}</p><div><b>Direction</b><em>{data.styles.join(' + ')}</em></div><div><b>Audience</b><em>{data.audience}</em></div></div></aside></div></div>
@@ -791,22 +905,80 @@ function ThemeSectionSettings({id,editor,setEditor}){
   return <div className="settings-form"><span className="overline">THEME SECTION</span>{'eyebrow' in base&&<Field label="Eyebrow"><input value={value.eyebrow||''} onChange={e=>update('eyebrow',e.target.value)}/></Field>}<Field label="Heading / statement"><textarea rows="3" value={value.title||''} onChange={e=>update('title',e.target.value)}/></Field>{'body' in base&&<Field label={['specGrid','craftStats','routineSteps','benefitStrip','categoryStrip','ingredientCards'].includes(id)?'Items (use | between items)':'Body'}><textarea rows="4" value={value.body||''} onChange={e=>update('body',e.target.value)}/></Field>}{'button' in base&&<Field label="Button label"><input value={value.button||''} onChange={e=>update('button',e.target.value)}/></Field>}<p className="field-help">This section is part of the {editor.theme?.name} theme recipe. You can reorder it from the section list.</p></div>
 }
 
-function BlockSettings({block,update,remove,media=[]}){
+function BlockSettings({block,update,remove,duplicate,media=[]}){
+  const [tab,setTab]=useState('content')
   const cols=Number(block.columns||1)
   const templates=cols===1?['1fr']:cols===2?['1fr 1fr','2fr 1fr','1fr 2fr']:cols===3?['1fr 1fr 1fr','2fr 1fr 1fr','1fr 2fr 1fr','1fr 1fr 2fr']:['1fr 1fr 1fr 1fr','2fr 1fr 1fr 1fr','1fr 1fr 1fr 2fr']
-  return <div className="settings-form"><Field label="Section type"><select value={block.type} onChange={e=>update('type',e.target.value)}><option value="text">Text</option><option value="image">Image</option><option value="products">Product grid</option><option value="cta">Call to action</option><option value="quote">Quote / testimonial</option><option value="list">Feature list</option><option value="menu">Link list</option><option value="spacer">Spacer</option></select></Field><Field label="Title"><input value={block.title||''} onChange={e=>update('title',e.target.value)}/></Field><Field label="Body"><textarea rows="4" value={block.body||''} onChange={e=>update('body',e.target.value)}/></Field>{block.type==='products'&&<Field label={`Products shown: ${block.productLimit||4}`}><input type="range" min="1" max="12" value={block.productLimit||4} onChange={e=>update('productLimit',Number(e.target.value))}/></Field>}{block.type==='cta'&&<div className="form-grid two"><Field label="Button label"><input value={block.buttonLabel||''} onChange={e=>update('buttonLabel',e.target.value)}/></Field><Field label="Button link"><input value={block.buttonLink||''} onChange={e=>update('buttonLink',e.target.value)} placeholder="/shop"/></Field></div>}{block.type==='image'&&<><Field label="Media library"><select value={block.imageUrl||''} onChange={e=>update('imageUrl',e.target.value)}><option value="">Choose an uploaded image</option>{media.filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><option key={x.id} value={x.url}>{x.name}</option>)}</select></Field><Field label="Or image URL"><input value={block.imageUrl||''} onChange={e=>update('imageUrl',e.target.value)} placeholder="https://..."/></Field></>}{['list','menu'].includes(block.type)&&<Field label="Items (comma separated)"><textarea rows="3" value={block.items||''} onChange={e=>update('items',e.target.value)}/></Field>}<Field label="Columns / sectors"><div className="segment">{[1,2,3,4].map(n=><button key={n} className={cols===n?'active':''} onClick={()=>{update('columns',n);update('columnTemplate',Array(n).fill('1fr').join(' '))}}>{n}</button>)}</div></Field><Field label="Sector widths"><select value={block.columnTemplate||Array(cols).fill('1fr').join(' ')} onChange={e=>update('columnTemplate',e.target.value)}>{templates.map(x=><option key={x} value={x}>{x.replaceAll('fr',' parts')}</option>)}</select></Field><div className="form-grid two"><Field label="Background"><input type="color" value={block.background||'#ffffff'} onChange={e=>update('background',e.target.value)}/></Field><Field label="Text"><input type="color" value={block.text||'#171717'} onChange={e=>update('text',e.target.value)}/></Field></div><div className="form-grid two"><Field label="Border color"><input type="color" value={block.borderColor||'#dddddd'} onChange={e=>update('borderColor',e.target.value)}/></Field><Field label={`Border: ${block.borderWidth||0}px`}><input type="range" min="0" max="12" value={block.borderWidth||0} onChange={e=>update('borderWidth',Number(e.target.value))}/></Field></div><Field label={`Padding: ${block.padding??48}px`}><input type="range" min="0" max="160" value={block.padding??48} onChange={e=>update('padding',Number(e.target.value))}/></Field><Field label={`Outside margin: ${block.margin||0}px`}><input type="range" min="0" max="96" value={block.margin||0} onChange={e=>update('margin',Number(e.target.value))}/></Field><Field label={`Column gap: ${block.gap??20}px`}><input type="range" min="0" max="80" value={block.gap??20} onChange={e=>update('gap',Number(e.target.value))}/></Field><Field label={`Max content width: ${block.maxWidth||1180}px`}><input type="range" min="480" max="1600" step="20" value={block.maxWidth||1180} onChange={e=>update('maxWidth',Number(e.target.value))}/></Field><Field label={`Body font: ${block.fontSize||16}px`}><input type="range" min="10" max="32" value={block.fontSize||16} onChange={e=>update('fontSize',Number(e.target.value))}/></Field><Field label={`Corner radius: ${block.radius||0}px`}><input type="range" min="0" max="60" value={block.radius||0} onChange={e=>update('radius',Number(e.target.value))}/></Field><Button variant="secondary" onClick={remove}>Remove section</Button></div>
+  const tabs=[['content','Content'],['layout','Layout'],['type','Typography'],['style','Style'],['effects','Effects'],['responsive','Responsive']]
+  return <div className="builder-inspector">
+    <div className="builder-inspector-tabs">{tabs.map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
+    <div className="settings-form builder-inspector-body">
+      {tab==='content'&&<>
+        <Field label="Element type"><select value={block.type} onChange={e=>update('type',e.target.value)}>{builderElementLibrary.map(x=><option value={x.type} key={x.type}>{x.label}</option>)}<option value="quote">Quote</option><option value="list">Feature list</option><option value="menu">Link list</option></select></Field>
+        {block.type!=='spacer'&&<Field label="Title"><input value={block.title||''} onChange={e=>update('title',e.target.value)}/></Field>}
+        {!['products','spacer','video','image'].includes(block.type)&&<Field label={['faq','pricing','grid'].includes(block.type)?'Items / content (use | between items)':'Body'}><textarea rows="5" value={block.body||''} onChange={e=>update('body',e.target.value)}/></Field>}
+        {['image','video'].includes(block.type)&&<><Field label={block.type==='video'?'Video URL':'Media library'}>{block.type==='image'?<select value={block.imageUrl||''} onChange={e=>update('imageUrl',e.target.value)}><option value="">Choose an uploaded image</option>{media.filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><option key={x.id} value={x.url}>{x.name}</option>)}</select>:<input value={block.imageUrl||''} onChange={e=>update('imageUrl',e.target.value)} placeholder="https://youtube.com/..."/>}</Field>{block.type==='image'&&<Field label="Or image URL"><input value={block.imageUrl||''} onChange={e=>update('imageUrl',e.target.value)} placeholder="https://..."/></Field>}</>}
+        {block.type==='products'&&<Field label={'Products shown: '+(block.productLimit||4)}><input type="range" min="1" max="12" value={block.productLimit||4} onChange={e=>update('productLimit',Number(e.target.value))}/></Field>}
+        {['cta','form'].includes(block.type)&&<div className="form-grid two"><Field label="Button label"><input value={block.buttonLabel||''} onChange={e=>update('buttonLabel',e.target.value)}/></Field><Field label={block.type==='cta'?'Button link':'Form action'}><input value={block.buttonLink||''} onChange={e=>update('buttonLink',e.target.value)} placeholder={block.type==='cta'?'/contact':'Email or endpoint'}/></Field></div>}
+      </>}
+      {tab==='layout'&&<>
+        <Field label="Display"><select value={block.display||'grid'} onChange={e=>update('display',e.target.value)}><option value="grid">Grid</option><option value="flex">Flex</option><option value="block">Block</option></select></Field>
+        <Field label="Columns"><div className="segment">{[1,2,3,4].map(n=><button key={n} className={cols===n?'active':''} onClick={()=>{update('columns',n);update('columnTemplate',Array(n).fill('1fr').join(' '))}}>{n}</button>)}</div></Field>
+        <Field label="Column widths"><select value={block.columnTemplate||Array(cols).fill('1fr').join(' ')} onChange={e=>update('columnTemplate',e.target.value)}>{templates.map(x=><option key={x} value={x}>{x.replaceAll('fr',' parts')}</option>)}</select></Field>
+        <Field label={'Max width: '+(block.maxWidth||1180)+'px'}><input type="range" min="320" max="1600" step="20" value={block.maxWidth||1180} onChange={e=>update('maxWidth',Number(e.target.value))}/></Field>
+        <Field label={'Gap: '+(block.gap??24)+'px'}><input type="range" min="0" max="96" value={block.gap??24} onChange={e=>update('gap',Number(e.target.value))}/></Field>
+        <Field label="Position"><select value={block.position||'relative'} onChange={e=>update('position',e.target.value)}><option value="relative">Relative</option><option value="static">Static</option><option value="sticky">Sticky</option></select></Field>
+      </>}
+      {tab==='type'&&<>
+        <Field label={'Font size: '+(block.fontSize||16)+'px'}><input type="range" min="10" max="88" value={block.fontSize||16} onChange={e=>update('fontSize',Number(e.target.value))}/></Field>
+        <Field label="Font weight"><select value={block.fontWeight||400} onChange={e=>update('fontWeight',Number(e.target.value))}>{[300,400,500,600,700].map(n=><option key={n}>{n}</option>)}</select></Field>
+        <Field label="Alignment"><div className="segment">{['left','center','right'].map(x=><button key={x} className={(block.align||'left')===x?'active':''} onClick={()=>update('align',x)}>{x}</button>)}</div></Field>
+        <Field label={'Line height: '+(block.lineHeight||1.6)}><input type="range" min="0.9" max="2.4" step="0.05" value={block.lineHeight||1.6} onChange={e=>update('lineHeight',Number(e.target.value))}/></Field>
+        <Field label={'Letter spacing: '+(block.letterSpacing||0)+'px'}><input type="range" min="-3" max="10" step="0.25" value={block.letterSpacing||0} onChange={e=>update('letterSpacing',Number(e.target.value))}/></Field>
+      </>}
+      {tab==='style'&&<>
+        <div className="form-grid two"><Field label="Background"><input type="color" value={block.background||'#ffffff'} onChange={e=>update('background',e.target.value)}/></Field><Field label="Text"><input type="color" value={block.text||'#171717'} onChange={e=>update('text',e.target.value)}/></Field></div>
+        <Field label={'Padding: '+(block.padding??56)+'px'}><input type="range" min="0" max="200" value={block.padding??56} onChange={e=>update('padding',Number(e.target.value))}/></Field>
+        <Field label={'Margin: '+(block.margin||0)+'px'}><input type="range" min="0" max="120" value={block.margin||0} onChange={e=>update('margin',Number(e.target.value))}/></Field>
+        <div className="form-grid two"><Field label="Border color"><input type="color" value={block.borderColor||'#dddddd'} onChange={e=>update('borderColor',e.target.value)}/></Field><Field label={'Border: '+(block.borderWidth||0)+'px'}><input type="range" min="0" max="12" value={block.borderWidth||0} onChange={e=>update('borderWidth',Number(e.target.value))}/></Field></div>
+        <Field label={'Radius: '+(block.radius||0)+'px'}><input type="range" min="0" max="80" value={block.radius||0} onChange={e=>update('radius',Number(e.target.value))}/></Field>
+      </>}
+      {tab==='effects'&&<>
+        <Field label={'Opacity: '+(block.opacity??100)+'%'}><input type="range" min="0" max="100" value={block.opacity??100} onChange={e=>update('opacity',Number(e.target.value))}/></Field>
+        <Field label="Shadow"><select value={block.shadow||'none'} onChange={e=>update('shadow',e.target.value)}><option value="none">None</option><option value="soft">Soft</option><option value="medium">Medium</option><option value="strong">Strong</option></select></Field>
+        <Field label="Hover effect"><select value={block.hoverEffect||'none'} onChange={e=>update('hoverEffect',e.target.value)}><option value="none">None</option><option value="lift">Lift</option><option value="fade">Fade</option><option value="scale">Scale</option></select></Field>
+        <Field label="Entrance animation"><select value={block.animation||'none'} onChange={e=>update('animation',e.target.value)}><option value="none">None</option><option value="fade-up">Fade up</option><option value="fade-in">Fade in</option><option value="slide-in">Slide in</option></select></Field>
+      </>}
+      {tab==='responsive'&&<>
+        <p className="field-help">Choose where this section appears. Preview each breakpoint from the top toolbar.</p>
+        <label className="check-row"><input type="checkbox" checked={!block.hideDesktop} onChange={e=>update('hideDesktop',!e.target.checked)}/> Show on desktop</label>
+        <label className="check-row"><input type="checkbox" checked={!block.hideTablet} onChange={e=>update('hideTablet',!e.target.checked)}/> Show on tablet</label>
+        <label className="check-row"><input type="checkbox" checked={!block.hideMobile} onChange={e=>update('hideMobile',!e.target.checked)}/> Show on mobile</label>
+      </>}
+    </div>
+    <div className="builder-inspector-actions">{duplicate&&<Button variant="secondary" onClick={duplicate}><Copy size={14}/> Duplicate</Button>}<Button variant="secondary" onClick={remove}><Trash2 size={14}/> Delete</Button></div>
+  </div>
 }
 
-function EditorBlock({block,products=[]}){
-  const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
+function EditorBlock({block,products=[],device='desktop'}){
+  if(!block||block.hidden)return null
+  if((device==='desktop'&&block.hideDesktop)||(device==='tablet'&&block.hideTablet)||(device==='mobile'&&block.hideMobile))return null
+  const items=String(block.items||block.body||'').split(/[|,]/).map(x=>x.trim()).filter(Boolean)
   const columns=Number(block.columns||1)
   const visibleProducts=(products||[]).filter(x=>x.status==='Active').slice(0,Number(block.productLimit||4))
-  const shellStyle={background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px`,margin:`${block.margin||0}px`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius??0}px`,fontSize:`${block.fontSize||16}px`}
-  if(block.type==='spacer') return <section className="sf-custom-block sf-block-spacer" style={{...shellStyle,minHeight:`${block.padding??48}px`}}/>
-  if(block.type==='products') return <section className="sf-custom-block sf-block-products" style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><div className="sf-custom-heading"><h2>{block.title||'Products'}</h2><span>{visibleProducts.length} items</span></div><div className="sf-custom-products" style={{gridTemplateColumns:`repeat(${Math.max(1,Math.min(4,columns))},minmax(0,1fr))`,gap:`${block.gap??20}px`}}>{visibleProducts.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price)}</p></article>)}</div>{!visibleProducts.length&&<p className="field-help">No active products yet. Activate products in Catalog to populate this section.</p>}</div></section>
-  if(block.type==='cta') return <section className="sf-custom-block sf-block-cta" style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><p>{block.body}</p><a href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
-  if(block.type==='quote') return <section className="sf-custom-block sf-block-quote" style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
-  return <section className="sf-custom-block" style={shellStyle}><div className="sf-custom-inner" style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns}, minmax(0, 1fr))`,gap:`${block.gap??20}px`,maxWidth:`${block.maxWidth||1180}px`}}>{Array.from({length:columns}).map((_,idx)=><div key={idx}>{block.type==='image'&&block.imageUrl?<img src={block.imageUrl} alt={block.title||'Content image'}/>:null}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(item=><li key={item}>{item}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
+  const shadowMap={none:'none',soft:'0 12px 30px rgba(0,0,0,.08)',medium:'0 18px 48px rgba(0,0,0,.14)',strong:'0 26px 70px rgba(0,0,0,.22)'}
+  const shellStyle={background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??56}px`,margin:`${block.margin||0}px`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius??0}px`,fontSize:`${block.fontSize||16}px`,fontWeight:block.fontWeight||400,lineHeight:block.lineHeight||1.6,letterSpacing:`${block.letterSpacing||0}px`,textAlign:block.align||'left',opacity:(block.opacity??100)/100,boxShadow:shadowMap[block.shadow||'none'],position:block.position||'relative'}
+  const cls=`sf-custom-block builder-effect-${block.hoverEffect||'none'} builder-animation-${block.animation||'none'}`
+  if(block.type==='spacer') return <section className={cls+' sf-block-spacer'} style={{...shellStyle,minHeight:`${block.padding??56}px`}}/>
+  if(block.type==='products') return <section className={cls+' sf-block-products'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><div className="sf-custom-heading"><h2>{block.title||'Products'}</h2><span>{visibleProducts.length} items</span></div><div className="sf-custom-products" style={{gridTemplateColumns:`repeat(${Math.max(1,Math.min(4,columns))},minmax(0,1fr))`,gap:`${block.gap??24}px`}}>{visibleProducts.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price)}</p></article>)}</div>{!visibleProducts.length&&<p className="field-help">No active products yet. Activate products in Catalog to populate this section.</p>}</div></section>
+  if(block.type==='cta') return <section className={cls+' sf-block-cta'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><p>{block.body}</p><a href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
+  if(block.type==='testimonial'||block.type==='quote') return <section className={cls+' sf-block-quote'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
+  if(block.type==='pricing') return <section className={cls+' sf-block-pricing'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><div className="builder-card-grid">{(items.length?items:['Starter','Professional','Business']).map((x,i)=><article key={x+i}><small>PLAN {i+1}</small><h3>{x}</h3><strong>{i===0?'Free':'Custom'}</strong><button>Choose plan</button></article>)}</div></div></section>
+  if(block.type==='faq') return <section className={cls+' sf-block-faq'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><div className="builder-faq-list">{(items.length?items:['What is included?','How does it work?']).map((x,i)=><details key={x+i}><summary>{x}</summary><p>Edit this answer in the section settings.</p></details>)}</div></div></section>
+  if(block.type==='form') return <section className={cls+' sf-block-form'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||800}px`}}><h2>{block.title}</h2><p>{block.body}</p><div className="builder-form-preview"><input placeholder="Name"/><input placeholder="Email"/><textarea placeholder="Message"/><button>{block.buttonLabel||'Send'}</button></div></div></section>
+  if(block.type==='video') return <section className={cls+' sf-block-video'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><div className="builder-video-placeholder"><span>▶</span><p>{block.imageUrl||'Add a video URL in the Content panel'}</p></div></div></section>
+  const isHeading=block.type==='heading'
+  return <section className={cls} style={shellStyle}><div className="sf-custom-inner" style={{display:block.type==='grid'||block.type==='columns'?'grid':block.display||'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns}, minmax(0, 1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`}}>{Array.from({length:Math.max(1,columns)}).map((_,idx)=><div key={idx}>{block.type==='image'&&block.imageUrl?<img src={block.imageUrl} alt={block.title||'Content image'}/>:null}{isHeading?<h1>{block.title}</h1>:<h2>{block.title}</h2>}{['text','columns'].includes(block.type)&&<p>{block.body}</p>}{['list','menu','grid'].includes(block.type)&&<ul>{items.map(item=><li key={item}>{item}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
 }
 
 function ThemeSection({id,editor}) {
@@ -836,7 +1008,7 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
     if(id==='newsletter') return <section key={id} className="sf-newsletter"><h2>{editor.newsletter?.heading||'Stay in the loop.'}</h2><p>{editor.newsletter?.body||'New products, stories, and updates.'}</p><div><span>Email address</span><button>{editor.newsletter?.button||'Join'}</button></div></section>
     const block=map.get(id);if(block)return <EditorBlock key={id} block={block} products={products}/>;return <ThemeSection key={id} id={id} editor={editor}/>
   }
-  return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",'--heading-weight':editor.typography?.headingWeight||600,'--body-weight':editor.typography?.bodyWeight||400,'--nav-weight':editor.typography?.navWeight||500,'--button-weight':editor.typography?.buttonWeight||600,'--eyebrow-weight':editor.typography?.eyebrowWeight||700,'--h1-size':`${editor.typography?.h1Size||62}px`,'--h2-size':`${editor.typography?.h2Size||36}px`,'--h3-size':`${editor.typography?.h3Size||24}px`,'--body-size':`${editor.typography?.bodySize||16}px`,'--body-line':editor.typography?.lineHeight||1.6,'--letter-spacing':`${editor.typography?.letterSpacing||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}>{editor.customCss?<style>{editor.customCss}</style>:null}<header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
+  return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",'--heading-weight':editor.typography?.headingWeight||600,'--body-weight':editor.typography?.bodyWeight||400,'--nav-weight':editor.typography?.navWeight||500,'--button-weight':editor.typography?.buttonWeight||600,'--eyebrow-weight':editor.typography?.eyebrowWeight||700,'--h1-size':`${editor.typography?.h1Size||62}px`,'--h2-size':`${editor.typography?.h2Size||36}px`,'--h3-size':`${editor.typography?.h3Size||24}px`,'--body-size':`${editor.typography?.bodySize||16}px`,'--body-line':editor.typography?.lineHeight||1.6,'--letter-spacing':`${editor.typography?.letterSpacing||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
 
 function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
@@ -1085,6 +1257,34 @@ export default function App() {
     return created
   }
 
+  const persistVisualProject=async project=>{
+    setEditor(prev=>({...prev,visualBuilderProject:project}))
+    if(!isAuthenticated())return null
+    const saved=await saveWorkspace({editor:{visualBuilderProject:project}})
+    if(saved)setWorkspace(prev=>({...prev,...saved}))
+    return saved
+  }
+
+  const publishVisualProject=async project=>{
+    await persistVisualProject(project)
+    if(!isAuthenticated())return {ok:true,local:true}
+    const settings={...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}
+    const snapshot={
+      onboarding:safeOnboarding,
+      editor:{...safeEditor,visualBuilderProject:project},
+      visual_project:project,
+      products,
+      discounts,
+      collections,
+      blog_posts:blogPosts.filter(x=>x.status==='Published'),
+      reviews:reviews.filter(x=>x.status==='Approved'),
+      media:mediaAssets,
+      pages:project.pages.filter(p=>!p.isCollectionTemplate).map(p=>p.name),
+      settings
+    }
+    return publishStore({slug:workspace?.slug,custom_domain:workspace?.custom_domain,snapshot})
+  }
+
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
@@ -1112,7 +1312,7 @@ export default function App() {
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
-  if(page==='editor') content=<Editor data={safeOnboarding} pages={safeOnboarding.pages} products={products} media={mediaAssets} editor={safeEditor} setEditor={setEditor} onPreview={()=>setPage('storefront')}/>
+  if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
