@@ -313,18 +313,18 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     <div className="vb-shell">
       <header className="vb-topbar">
         <div className="vb-project"><div className="vb-brand">C</div><div><small>COBEST DESIGNER</small><input value={project.name} onChange={e=>renameProject(e.target.value)} aria-label="Project name"/></div></div>
-        <select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select>
-        <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{labelText.split(' ')[0]}</span></button>)}</div>
+        <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
+        <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
-          <button disabled={!history.length} onClick={undo} title="Undo"><Undo2 size={16}/></button>
-          <button disabled={!future.length} onClick={redo} title="Redo"><Redo2 size={16}/></button>
+          <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo" aria-label="Undo"><Undo2 size={16}/></button>
+          <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo" aria-label="Redo"><Redo2 size={16}/></button>
           <div className="vb-zoom"><button onClick={()=>setZoom(z=>Math.max(35,z-5))}><ZoomOut size={13}/></button><span>{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(125,z+5))}><ZoomIn size={13}/></button></div>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Save failed':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
-          <button onClick={()=>setVersionsOpen(x=>!x)} title="Version history"><FolderOpen size={15}/></button>
-          <button onClick={()=>{setRightTab('settings');selectNode(selectedNodeId||activePage.root.id)}} title="Settings"><Settings2 size={15}/></button>
-          <button onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
+          <button className="vb-toolbar-icon" onClick={()=>setVersionsOpen(x=>!x)} title="Version history" aria-label="Version history"><FolderOpen size={15}/></button>
+          <button className="vb-toolbar-icon" onClick={()=>{setRightTab('settings');selectNode(selectedNodeId||activePage.root.id)}} title="Settings" aria-label="Settings"><Settings2 size={15}/></button>
+          <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
-          <button onClick={manualSave}><Save size={15}/> Save</button>
+          <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
           <button className="vb-publish" onClick={publish}>Publish</button>
         </div>
         {versionsOpen&&<VersionPopover onClose={()=>setVersionsOpen(false)}/>}
@@ -335,12 +335,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             {([
               ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],
               ['templates',Sparkles,'Templates'],['assets',ImageIcon,'Assets'],['components',Component,'Components'],['cms',Database,'CMS'],
-            ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} onClick={()=>setLeftTab(id)}><Icon size={15}/></button>)}
+            ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} data-label={labelText} aria-label={labelText} onClick={()=>setLeftTab(id)}><Icon size={16}/></button>)}
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
         </aside>
         <main className="vb-stage">
-          <div className="vb-stage-meta"><span>{breakpointLabels[breakpoint]}</span><strong>{activePage.slug}</strong></div>
+          <div className="vb-stage-meta"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong><em>{activePage.slug}</em></div>
           <CanvasDropZone dragging={dragging}>
             <div className="vb-canvas-scaler" style={{width:Math.min(widths[breakpoint],1440),transform:`scale(${zoom/100})`,transformOrigin:'top center'}}>
               <div className="vb-canvas-wrap" style={{width:Math.min(widths[breakpoint],1440)}}>
@@ -353,7 +353,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </CanvasDropZone>
         </main>
         <aside className="vb-right">
-          <div className="vb-right-tabs">{(['style','settings','interactions'] as RightTab[]).map(id=><button key={id} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{id}</button>)}</div>
+          <div className="vb-right-tabs">{(['style','settings','interactions'] as RightTab[]).map(id=><button key={id} title={id[0].toUpperCase()+id.slice(1)} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{id}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
