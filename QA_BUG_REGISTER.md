@@ -624,152 +624,119 @@ Confirm the redesigned theme library is usable and that clients can choose a the
 ## QA stabilization batch — GitHub-first workflow
 
 ### Working agreement
-- Collect QA findings and fixes in GitHub first.
-- Use branch `qa/stabilization-batch` for stabilization work.
-- Do **not** deploy each individual fix to Railway.
-- Do **not** merge to `main` until the current QA batch is reviewed.
-- Deploy to Railway only after the batch builds cleanly and the user explicitly wants a production retest.
-- Keep this register updated as bugs are found, fixed, and retested.
+- Development and QA fixes stay on `qa/stabilization-batch`.
+- Railway is not deployed until the user explicitly says to push it.
+- Code-level validation must pass tests, security audit, production build, server startup, health check, and SPA fallback.
+- Browser/live behavior is retested only after the exact tested branch is deployed.
 
-### Current production baseline
-- Production commit: `0c9113df3d65d66ec54c4f40448d25128ca84b69`
-- Latest builder-foundation deployment was successful.
-- Production remains unchanged while this QA batch is being prepared.
+### Production baseline
+- Production remains on the previously deployed `main` version.
+- This stabilization batch is not live yet.
 
-### Newly identified stabilization issues
+### Stabilization issues
 
-#### QA-STAB-001 — Editor save can overwrite workspace/store settings
-**Severity:** P0
-**Area:** Website editor / persistence
+#### QA-STAB-001 — Partial saves could reset workspace settings
+**Severity:** P0  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-The Website Editor save action sends `settings: {}`, while the workspace PUT endpoint writes the provided settings object and also applies defaults for omitted workspace-level fields.
+The workspace PUT endpoint now loads the current row and merges onboarding, editor, and settings objects. Unspecified slug, custom domain, plan, currency, timezone, and site name are preserved. The new visual builder saves only its project payload and no longer needs to resend empty/default workspace values.
 
-**Risk:** Saving website content can unintentionally reset store configuration such as SEO/policies and other workspace settings.
+#### QA-STAB-002 — Published site could differ from editor structure
+**Severity:** P0  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-**Status:** OPEN
+The new visual project is now included in normal CoBest publish snapshots and rendered from the same JSON project model through an isolated published iframe. Legacy sites without a visual project now render Home according to `sectionOrder`, including theme-specific/custom sections.
 
-#### QA-STAB-002 — Published Home does not follow editor section order/theme recipe
-**Severity:** P0
-**Area:** Publishing / storefront parity
+#### QA-STAB-003 — Custom CSS could affect CoBest editor chrome
+**Severity:** P1  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-The editor supports theme-specific recipes, custom sections, and `sectionOrder`, but the public Home renderer still outputs a fixed Hero → Featured → Story → custom-block sequence.
+The new designer runs the edited site in a sandboxed iframe. Site styles/custom HTML are isolated from the application UI. The legacy in-app storefront preview no longer injects legacy custom CSS into the CoBest document.
 
-**Risk:** Published site can differ materially from the editor preview.
+#### QA-STAB-004 — Blank canvas reintroduced Newsletter
+**Severity:** P1  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-**Status:** OPEN
+Adding a legacy block now preserves whether Newsletter was already part of the section order. A blank section order remains blank. The new visual builder has no forced Newsletter behavior.
 
-#### QA-STAB-003 — Custom CSS is not truly scoped
-**Severity:** P1
-**Area:** Website editor / custom code
+#### QA-STAB-005 — Product Grid blocks were empty on non-Home pages
+**Severity:** P1  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-Custom CSS is injected into a normal `<style>` element and can target the entire document, despite UI copy saying it is storefront-scoped.
+Legacy generic pages now pass products, currency, and add-to-cart callbacks to content blocks. New visual pages use the visual project renderer and keep Shop/Cart available through the commerce layer.
 
-**Risk:** A merchant can accidentally break or hide editor/application UI with selectors such as `body`, `button`, etc.
+#### QA-STAB-006 — Newsletter was forced onto every published page
+**Severity:** P1  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-**Status:** OPEN
+The unconditional global Newsletter render was removed. Legacy Newsletter appears only when present in the selected Home section order; visual projects control their own page trees.
 
-#### QA-STAB-004 — Blank canvas can reintroduce Newsletter automatically
-**Severity:** P1
-**Area:** Blank theme / section builder
+#### QA-STAB-007 — Payment-provider failure encouraged duplicate order retries
+**Severity:** P1  
+**Status:** FIXED IN CODE — LIVE PROVIDER RETEST PENDING
 
-Adding a custom Home block inserts the block before `newsletter`, even if the Blank theme currently has no Newsletter section.
+Checkout now:
+- rejects requested quantities above published inventory;
+- preserves an already-created pending order if Stripe/PayPal session creation fails;
+- returns that order plus a warning telling the customer not to place it again;
+- clears the cart and surfaces the order/warning instead of showing a generic retry error.
 
-**Risk:** Blank sites stop being truly blank/custom.
+A pending order is intentionally retained for merchant follow-up; duplicate-retry UX is removed.
 
-**Status:** OPEN
+#### QA-STAB-008 — Save could report success after cloud failure
+**Severity:** P2  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-#### QA-STAB-005 — Product Grid sections on non-Home pages receive no product data
-**Severity:** P1
-**Area:** Pages / public storefront
+The new designer awaits local and cloud persistence, exposes Saving/Saved/Save failed state, and alerts on manual-save failure. Autosave failures remain visible as Save failed.
 
-Generic pages render `ContentBlock` without products/currency/cart callbacks.
+#### QA-STAB-009 — Editor/public design parity on subpages
+**Severity:** P2  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-**Risk:** Product Grid blocks can appear empty on About, Services, and other custom pages.
+All visual-builder pages use the same JSON tree and CSS compiler for editor canvas, preview, publish, and export. Public visual pages render the same project model.
 
-**Status:** OPEN
+#### QA-STAB-010 — Typography controls exceeded loaded font weights
+**Severity:** P2  
+**Status:** FIXED IN CODE — LIVE RETEST PENDING
 
-#### QA-STAB-006 — Newsletter is globally forced on published pages
-**Severity:** P1
-**Area:** Public storefront
+Google Font imports were expanded to cover the offered supported weight ranges. The new designer loads its fonts inside the canvas/exported site rather than relying on editor chrome CSS.
 
-Newsletter rendering is outside the page-specific content structure.
+#### QA-STAB-011 — Automated application tests were missing
+**Severity:** QA infrastructure  
+**Status:** FIXED
 
-**Risk:** Newsletter can appear even when the merchant did not choose it for that page/theme.
+Vitest is integrated into CI. Tests cover tree insert/move/cycle protection/duplication, breakpoint CSS compilation, clean editor-vs-export HTML, ZIP generation, CMS template item export, and all requested template categories. CI also includes a high/critical dependency audit.
 
-**Status:** OPEN
+### Additional stabilization completed
+- Visual-builder project state is keyed per CoBest workspace/site, preventing two sites in one browser from sharing the same IndexedDB project.
+- Authenticated builder assets upload through the existing CoBest/Supabase media endpoint instead of embedding large base64 images into cloud workspace JSON.
+- Builder autosave persists to IndexedDB and the authenticated workspace.
+- Builder Publish saves the project and publishes it through the existing CoBest published-store endpoint.
+- Published visual pages retain access to CoBest Shop, Cart, Checkout, and Customer Account.
+- Public visual-page SEO title/description come from the visual project page data.
+- Visual navigation maps internal page URLs back to CoBest page navigation.
+- Template gallery added inside the new designer: Business, Portfolio, Agency, SaaS, Ecommerce, Restaurant, Personal, Blog.
+- Marketing site expanded with Product/Features/Templates/Resources/Pricing navigation, template gallery, testimonials, FAQ, and stronger CTAs.
+- Dependency security audit passed after upgrading Vitest to the patched release.
 
-#### QA-STAB-007 — Payment-provider failure can leave a created order behind
-**Severity:** P1
-**Area:** Checkout / payments
-
-The order is created before Stripe/PayPal checkout-session creation. If provider creation fails, the customer sees an error although an order already exists.
-
-**Risk:** Retrying checkout can create duplicate pending orders.
-
-**Status:** OPEN
-
-#### QA-STAB-008 — Editor Save reports success even when cloud save fails
-**Severity:** P2
-**Area:** Persistence / UX
-
-Cloud save errors are swallowed and the UI still shows "Website changes saved."
-
-**Risk:** Merchant believes work is safely stored when cloud persistence failed.
-
-**Status:** OPEN
-
-#### QA-STAB-009 — Non-Home editor preview does not fully match global design settings
-**Severity:** P2
-**Area:** Pages / editor parity
-
-Subpage preview still uses older fixed styling and does not fully inherit the newer typography/custom design system.
-
-**Status:** OPEN
-
-#### QA-STAB-010 — Offered font weights exceed loaded font files
-**Severity:** P2
-**Area:** Typography
-
-The UI offers weights such as 800/900, while some configured Google Font imports do not provide those weights.
-
-**Status:** OPEN
-
-#### QA-STAB-011 — Automated test coverage is missing
-**Severity:** QA infrastructure
-**Area:** CI
-
-Current scripts validate build/start behavior but do not run unit, component, or end-to-end flows for authentication, builder persistence, products, checkout, publishing, and storefront parity.
-
-**Status:** OPEN
-
-
-## Visual Builder full implementation batch
+## Visual Builder implementation batch
 
 **Branch:** `qa/stabilization-batch`  
-**Draft PR:** #2 — Phase 1: TypeScript visual builder core  
-**Validated head:** `cb03a75b3c774288b388e2544726896462708add`  
-**CI run:** 150 — SUCCESS
+**Draft PR:** #2  
+**Deployment:** NOT deployed to Railway
 
-### Validation
-- npm ci — PASS
-- Vite production build — PASS
-- Server startup — PASS
-- Health endpoint — PASS
-- SPA fallback — PASS
+### Implemented phases
+- Phase 1 — typed project model, Zustand, iframe canvas, selection/hover, IndexedDB: COMPLETE
+- Phase 2 — Add Elements, dnd-kit drag/drop, nested Navigator: COMPLETE
+- Phase 3 — classes, states, responsive visual CSS controls, spacing handles: COMPLETE
+- Phase 4 — settings, page management, assets, SEO, inline text, shortcuts: COMPLETE
+- Phase 5 — components, interactions, preview, last-20 version history: COMPLETE
+- Phase 6 — CMS collections, Collection List, item template pages: COMPLETE
+- Phase 7 — clean HTML/CSS/JS ZIP and project JSON export/import: COMPLETE
+- Template marketplace/gallery inside builder: COMPLETE
+- CoBest workspace save/publish bridge: COMPLETE IN CODE
+- Published visual-project renderer with commerce bridge: COMPLETE IN CODE
+- Automated builder test suite + dependency audit: COMPLETE
 
-### Implemented builder scope
-- Phase 1: typed JSON model, Zustand, iframe canvas, select/hover, IndexedDB — COMPLETE
-- Phase 2: Add Elements, dnd-kit drag/drop, nested Navigator — COMPLETE
-- Phase 3: reusable classes, breakpoint/state CSS controls, visual box model — COMPLETE
-- Phase 4: settings, pages, assets, inline editing, shortcuts — COMPLETE
-- Phase 5: reusable components, interactions, preview, version history — COMPLETE
-- Phase 6: CMS collections, bindings, template pages — COMPLETE
-- Phase 7: clean HTML/CSS/JS ZIP export and project JSON import/export — COMPLETE
-
-### Deployment state
-- Railway deployment was NOT triggered.
-- Production remains on the existing deployed main branch.
-- The new visual builder remains isolated in GitHub until an explicit production push is requested.
-
-### Important migration boundary
-The new builder intentionally uses IndexedDB as its first persistence layer and publish simulation/export as its first publishing path. Existing Supabase/Railway storefront publishing has not yet been replaced by the new project JSON format. This is a migration task, not a Phase 1–7 builder feature gap.
+### Required live retest after deployment
+The code batch is build/test validated in GitHub, but authenticated browser behavior and provider flows must be tested against the deployed environment before production QA is marked fully PASS.
