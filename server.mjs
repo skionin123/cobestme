@@ -303,10 +303,17 @@ function calculateCheckout(snapshot, body) {
   const catalog = Array.isArray(snapshot?.products) ? snapshot.products : []
   const requested = Array.isArray(body?.items) ? body.items : []
   const items = []
+  const inventoryIssues = []
   for (const row of requested) {
     const product = catalog.find(p => String(p.id) === String(row.product_id) && p.status === 'Active')
     if (!product) continue
-    const quantity = Math.max(1, Math.min(99, Number(row.quantity || 1)))
+    const requestedQuantity = Math.max(1, Math.min(99, Number(row.quantity || 1)))
+    const inventory = product.inventory == null ? null : Math.max(0, Number(product.inventory || 0))
+    if (inventory != null && requestedQuantity > inventory) {
+      inventoryIssues.push({ product_id: product.id, name: product.name, requested: requestedQuantity, available: inventory })
+      continue
+    }
+    const quantity = requestedQuantity
     const unitPrice = Number(product.price || 0)
     items.push({ product_id: product.id, name: product.name, quantity, unit_price: unitPrice, line_total: unitPrice * quantity })
   }
@@ -329,7 +336,7 @@ function calculateCheckout(snapshot, body) {
   const taxableBase = Math.max(0, subtotal - discountAmount)
   const taxAmount = taxableBase * Math.max(0, Number(settings.taxRate || 0)) / 100
   const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total }
+  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
 }
 
 async function handlePublicApi(req, res, url) {
@@ -439,6 +446,7 @@ async function handlePublicApi(req, res, url) {
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
+    if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
       p_slug: body.slug,
@@ -471,7 +479,12 @@ async function handlePublicApi(req, res, url) {
       }
       return sendJson(res, 200, { order, totals, payment: { status: 'Pending', provider: null, checkout_url: null } })
     }catch(error){
-      return sendJson(res,502,{error:error.message,order,totals})
+      return sendJson(res,200,{
+        order,
+        totals,
+        payment:{status:'Pending',provider:provider||null,checkout_url:null,error:error.message},
+        warning:'Your order was created, but online payment could not be started. Do not place the order again. Contact the store or use the order number for follow-up.'
+      })
     }
   }
 
