@@ -10,6 +10,24 @@ function Modal({title,onClose,children}) {
   return <div className="modal-backdrop public-modal"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div>
 }
 
+function VisualProjectFrame({project,page,onNavigate}) {
+  const srcDoc=useMemo(()=>createPublishedDocument(project,page.id),[project,page.id])
+  useEffect(()=>{
+    const handler=event=>{
+      const msg=event.data||{}
+      if(msg.source!=='cobest-public-visual'||msg.type!=='navigate')return
+      const href=String(msg.href||'')
+      if(href==='/shop'||href==='shop'){onNavigate('Shop');return}
+      const normalized=href.split('?')[0].split('#')[0].replace(/\.html$/,'')
+      const target=(project.pages||[]).find(p=>!p.isCollectionTemplate&&(p.slug===normalized||p.slug.replace(/\/$/,'')===normalized.replace(/\/$/,'')))
+      if(target)onNavigate(target.name)
+    }
+    window.addEventListener('message',handler)
+    return()=>window.removeEventListener('message',handler)
+  },[project,onNavigate])
+  return <iframe className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups" srcDoc={srcDoc}/>
+}
+
 export default function PublicStore({slug:slugProp,host}) {
   const [store,setStore]=useState(null)
   const [error,setError]=useState('')
@@ -120,6 +138,22 @@ export default function PublicStore({slug:slugProp,host}) {
 
   const pageData=store?.editor?.pageContent?.[page]||{}
   const features=store?.onboarding?.features||[]
+
+  if(visualProject&&visualPage&&page!=='Shop'&&!policyPages.includes(page)){
+    return <div className="visual-published-shell">
+      <VisualProjectFrame project={visualProject} page={visualPage} onNavigate={navigate}/>
+      {notice&&<div className="public-toast">{notice}</div>}
+      <div className="visual-commerce-dock">
+        <button onClick={()=>navigate('Shop')}><ShoppingBag size={16}/> Shop</button>
+        <button onClick={()=>setAccountOpen(true)}>Account</button>
+        <button onClick={()=>setCartOpen(true)}><ShoppingBag size={16}/> Cart {itemCount>0&&<b>{itemCount}</b>}</button>
+      </div>
+      {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
+      {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order,warning='')=>{setCart([]);setCheckoutOpen(false);setNotice(warning||`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),8000)}}/>}
+      {accountOpen&&<CustomerAccount slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
+    </div>
+  }
+
   return <div className="public-store-shell" style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{store.editor.customCss}</style>:null}
     <header className="public-store-header">
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
@@ -131,7 +165,7 @@ export default function PublicStore({slug:slugProp,host}) {
     </header>
     {notice&&<div className="public-toast">{notice}</div>}
 
-    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add}/>}
+    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add}/>} 
     {page==='Shop'&&<section className="public-shop-page">
       <div className="public-page-intro"><small>SHOP</small><h1>Products</h1><p>Browse what is currently available.</p></div>
       <div className="public-shop-tools"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></label><label className="public-category"><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><ChevronDown size={15}/></label></div>
@@ -139,7 +173,6 @@ export default function PublicStore({slug:slugProp,host}) {
     </section>}
     {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate} products={products} currency={currency} onAdd={add}/>} 
 
-    <Newsletter slug={store.slug}/>
     <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links">{footerMenu.map(item=><button key={item} onClick={()=>navigate(item)}>{item}</button>)}{!footerMenu.includes('Contact')&&<button onClick={()=>navigate('Contact')}>Contact</button>}{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
 
     {selectedProduct&&<ProductModal product={selectedProduct} reviews={(store.reviews||[]).filter(r=>String(r.product_id)===String(selectedProduct.id)&&r.status==='Approved')} currency={currency} slug={store.slug} onClose={()=>setSelectedProduct(null)} onAdd={()=>{add(selectedProduct);setSelectedProduct(null)}}/>}
