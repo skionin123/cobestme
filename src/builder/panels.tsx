@@ -6,6 +6,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { createElement, createPrebuiltSection, elementCatalog, sectionCatalog } from './elements'
+import { applyTemplate, builderTemplates } from './templates'
 import { findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
@@ -79,6 +80,21 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
     </div>
     {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
     <DropLine id={`after:${node.id}`}/>
+  </div>
+}
+
+export function TemplatesPanel(){
+  const project=useBuilderStore(s=>s.project)
+  const replaceProject=useBuilderStore(s=>s.replaceProject)
+  const [category,setCategory]=useState('All')
+  const categories=['All',...Array.from(new Set(builderTemplates.map(t=>t.category)))]
+  const visible=builderTemplates.filter(t=>category==='All'||t.category===category)
+  return <div className="h-full overflow-auto">
+    <div className={panelSection}><span className={label}>Templates</span><select className={control} value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></div>
+    <div className="space-y-2 p-3">{visible.map(template=><article key={template.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="h-24 p-3" style={{background:`linear-gradient(135deg,${template.accent}22,#111318)`}}><span className="rounded bg-black/30 px-2 py-1 text-[8px] font-semibold uppercase tracking-[.12em] text-white/70">{template.category}</span><div className="mt-5 h-2 w-3/4 rounded bg-white/80"/><div className="mt-2 h-1.5 w-1/2 rounded bg-white/30"/></div>
+      <div className="p-3"><strong className="block text-[11px] text-white">{template.name}</strong><p className="mt-1 text-[9px] leading-4 text-zinc-500">{template.description}</p><button className={panelButton+' mt-3 w-full'} onClick={()=>{if(confirm(`Apply ${template.name}? Your current project remains in version history and undo.`))replaceProject(applyTemplate(template,project),true,'Apply template')}}>Use template</button></div>
+    </article>)}</div>
   </div>
 }
 
