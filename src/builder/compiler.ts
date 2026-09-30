@@ -120,7 +120,7 @@ function applyCmsBinding(node:BuilderNode,attrs:Record<string,string>,content:st
 export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=false,cmsContext?:CmsRenderContext):string{
   if(node.hidden)return ''
   const tag=/^[a-z][a-z0-9-]*$/i.test(node.tag)?node.tag:'div'
-  const editorAttrs=editing?` data-builder-node="${escapeAttr(node.id)}" data-builder-name="${escapeAttr(node.name)}"`:''
+  const editorAttrs=editing?` data-builder-node="${escapeAttr(node.id)}" data-builder-name="${escapeAttr(node.name)}" data-builder-type="${escapeAttr(node.type)}"`:''
   if(node.type==='html'){
     const html=node.attributes?.['data-html']||node.content||''
     return editing?`<div${editorAttrs} class="html-embed-preview">${html}</div>`:html
