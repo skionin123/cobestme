@@ -87,10 +87,10 @@ const themePresets = {
   },
   Essential: {
     name:'Essential', styleKey:'essential', category:'Clean professional', fit:'Business · Portfolio · Services',
-    description:'A neutral, spacious foundation that keeps the content and your edits easy to see.',
-    sectionGap:32, radius:10, buttonRadius:8,
+    description:'A neutral, spacious system with strong hierarchy, readable type, and restrained visual detail.',
+    sectionGap:36, radius:12, buttonRadius:8,
     fontFamily:"'Inter', Arial, sans-serif", displayFont:"'Manrope', Arial, sans-serif",
-    paper:'#f6f7f9', surface:'#ffffff', ink:'#111827', accent:'#2563eb', muted:'#e5e7eb',
+    paper:'#f5f7fa', surface:'#ffffff', ink:'#111827', accent:'#2563eb', muted:'#e3e7ed',
     previewHeading:'Clear, credible, ready to grow.', previewEyebrow:'ESSENTIAL'
   },
   Aurelia: {
@@ -134,12 +134,12 @@ const themePresets = {
     previewHeading:'Good things, made easy.', previewEyebrow:'FRESH PICKS'
   },
   Editorial: {
-    name:'Editorial', styleKey:'editorial', category:'Magazine commerce', fit:'Publishing · Art · Fashion',
-    description:'Text-forward layouts, modular rules, and a curated magazine-like storefront.',
-    sectionGap:58, radius:0, buttonRadius:0,
-    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:'Georgia, Times New Roman, serif',
-    paper:'#f3efe5', surface:'#fbfaf5', ink:'#14213d', accent:'#c6533e', muted:'#d9d4c7',
-    previewHeading:'Stories worth browsing.', previewEyebrow:'ISSUE 04'
+    name:'Editorial', styleKey:'editorial', category:'Refined editorial', fit:'Brand · Ecommerce · Portfolio · Content',
+    description:'Warm neutrals, serif-led typography, hairline borders, and generous space for content to lead.',
+    sectionGap:48, radius:3, buttonRadius:999,
+    fontFamily:"'DM Sans', Arial, sans-serif", displayFont:"'Playfair Display', Georgia, serif",
+    paper:'#f2ede6', surface:'#fcfaf6', ink:'#211d19', accent:'#8d5c3f', muted:'#ddd5cb',
+    previewHeading:'A refined home for your brand.', previewEyebrow:'EDITORIAL'
   },
   Vanta: {
     name:'Vanta', styleKey:'vanta', category:'Dark luxury', fit:'Jewelry · Watches · Premium goods',
