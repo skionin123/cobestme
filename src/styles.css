@@ -1093,7 +1093,7 @@
 
 
 /* Marketing templates, testimonials, resources */
-.marketing-template-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:36px}
+.marketing-template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:36px auto 0;max-width:900px}
 .marketing-template-grid article{border:1px solid #e2e0d9;background:#fff;border-radius:16px;padding:10px;overflow:hidden}
 .marketing-template-grid>article>strong{display:block;font-size:13px;margin:12px 4px 3px}
 .marketing-template-grid>article>p{font-size:10px;color:#86857f;margin:0 4px 12px}
@@ -1104,3 +1104,100 @@
 .marketing-testimonials{background:#171717;color:#fff;padding:100px 0}.marketing-testimonials h2{font-family:'Manrope';font-size:43px;line-height:1.08;letter-spacing:-.05em;max-width:760px;margin:0 0 42px}.marketing-testimonials .section-kicker{color:#8f8f88}.testimonial-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.testimonial-grid blockquote{margin:0;border:1px solid #343432;background:#20201f;border-radius:16px;padding:24px;min-height:260px;display:flex;flex-direction:column}.testimonial-grid blockquote>p{font-family:'Manrope';font-size:20px;line-height:1.45;letter-spacing:-.025em;margin:0}.testimonial-grid blockquote footer{margin-top:auto;border-top:1px solid #393936;padding-top:17px}.testimonial-grid footer strong,.testimonial-grid footer span{display:block}.testimonial-grid footer strong{font-size:11px}.testimonial-grid footer span{font-size:9px;color:#8e8e88;margin-top:4px}.resource-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:35px}.resource-grid article{border:1px solid #e3e1da;background:#fff;border-radius:15px;padding:24px}.resource-grid article>span{font-size:9px;letter-spacing:.1em;color:#999891}.resource-grid h3{font-size:20px;letter-spacing:-.03em;margin:34px 0 10px}.resource-grid p{font-size:11px;line-height:1.65;color:#85847e;min-height:58px}
 @media(max-width:1000px){.marketing-template-grid{grid-template-columns:repeat(2,1fr)}.testimonial-grid,.resource-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.marketing-template-grid,.testimonial-grid,.resource-grid{grid-template-columns:1fr}.marketing-testimonials{padding:70px 0}.marketing-testimonials h2{font-size:34px}.testimonial-grid blockquote{min-height:220px}}
+
+
+/* Focused public theme system: Essential + Editorial */
+.public-store-shell.public-style-essential{
+  background:#fff;color:var(--brand);font-family:'Inter',Arial,sans-serif
+}
+.public-store-shell.public-style-essential .public-store-header{
+  height:72px;padding:0 clamp(20px,5vw,72px);background:rgba(255,255,255,.94);
+  border-bottom:1px solid var(--muted);backdrop-filter:blur(14px)
+}
+.public-store-shell.public-style-essential .public-store-brand{font-family:'Manrope',Arial,sans-serif;font-size:18px;letter-spacing:-.025em}
+.public-store-shell.public-style-essential .public-store-header nav{gap:clamp(18px,2.6vw,34px)}
+.public-store-shell.public-style-essential .public-store-header nav button,
+.public-store-shell.public-style-essential .public-store-actions button{
+  font-size:14px;font-weight:520
+}
+.public-store-shell.public-style-essential .public-hero{
+  min-height:68vh;padding:clamp(76px,9vw,128px) clamp(24px,6vw,88px);
+  background:linear-gradient(135deg,#fff 0%,var(--paper) 100%);gap:clamp(36px,7vw,96px)
+}
+.public-store-shell.public-style-essential .public-hero h1{
+  font-family:'Manrope',Arial,sans-serif;font-size:clamp(44px,7vw,88px);line-height:.98;
+  letter-spacing:-.055em;max-width:11ch
+}
+.public-store-shell.public-style-essential .public-hero p{font-size:clamp(17px,1.4vw,20px);max-width:60ch;color:#5c6674}
+.public-store-shell.public-style-essential .public-hero-art{border-radius:20px;background:linear-gradient(145deg,var(--paper),color-mix(in srgb,var(--accent) 16%,#fff));box-shadow:none}
+.public-store-shell.public-style-essential .public-section,
+.public-store-shell.public-style-essential .public-shop-page,
+.public-store-shell.public-style-essential .public-generic-page{max-width:1240px;padding:clamp(64px,8vw,104px) clamp(24px,5vw,72px)}
+.public-store-shell.public-style-essential .public-section-title h2,
+.public-store-shell.public-style-essential .public-page-intro h1,
+.public-store-shell.public-style-essential .public-generic-page h1,
+.public-store-shell.public-style-essential .public-story h2{
+  font-family:'Manrope',Arial,sans-serif;font-size:clamp(34px,4.5vw,58px);line-height:1.04;letter-spacing:-.045em
+}
+.public-store-shell.public-style-essential .public-product-image{border-radius:14px;background:var(--paper)}
+.public-store-shell.public-style-essential .public-product-card{gap:12px}
+.public-store-shell.public-style-essential .public-hero button,
+.public-store-shell.public-style-essential .public-add{border-radius:9px;padding:13px 19px}
+.public-store-shell.public-style-essential button:focus-visible,
+.public-store-shell.public-style-essential a:focus-visible{
+  outline:3px solid var(--accent);outline-offset:3px
+}
+
+.public-store-shell.public-style-editorial{
+  background:var(--surface);color:var(--brand);font-family:'DM Sans',Arial,sans-serif
+}
+.public-store-shell.public-style-editorial .public-store-header{
+  height:74px;padding:0 clamp(20px,5vw,72px);background:rgba(252,250,246,.95);
+  border-bottom:1px solid var(--muted);backdrop-filter:blur(14px)
+}
+.public-store-shell.public-style-editorial .public-store-brand{
+  font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:600;letter-spacing:-.02em
+}
+.public-store-shell.public-style-editorial .public-store-header nav button,
+.public-store-shell.public-style-editorial .public-store-actions button{font-size:13px;font-weight:520}
+.public-store-shell.public-style-editorial .public-hero{
+  min-height:70vh;padding:clamp(84px,10vw,144px) clamp(24px,7vw,96px);
+  background:linear-gradient(180deg,var(--surface) 0%,var(--paper) 100%);
+  border-bottom:1px solid var(--muted);gap:clamp(36px,7vw,96px)
+}
+.public-store-shell.public-style-editorial .public-hero h1{
+  font-family:'Playfair Display',Georgia,serif;font-size:clamp(48px,7.6vw,100px);font-weight:600;
+  line-height:.98;letter-spacing:-.045em;max-width:10.5ch
+}
+.public-store-shell.public-style-editorial .public-hero p{font-size:clamp(17px,1.35vw,19px);line-height:1.72;max-width:58ch;color:#6f665e}
+.public-store-shell.public-style-editorial .public-hero-art{
+  border-radius:2px;background:linear-gradient(145deg,var(--paper),color-mix(in srgb,var(--accent) 14%,#f8f2ea));
+  box-shadow:inset 0 0 0 1px var(--muted)
+}
+.public-store-shell.public-style-editorial .public-section,
+.public-store-shell.public-style-editorial .public-shop-page,
+.public-store-shell.public-style-editorial .public-generic-page{
+  max-width:1240px;padding:clamp(72px,9vw,118px) clamp(24px,6vw,88px)
+}
+.public-store-shell.public-style-editorial .public-section-title h2,
+.public-store-shell.public-style-editorial .public-page-intro h1,
+.public-store-shell.public-style-editorial .public-generic-page h1,
+.public-store-shell.public-style-editorial .public-story h2{
+  font-family:'Playfair Display',Georgia,serif;font-size:clamp(36px,4.8vw,64px);font-weight:600;
+  line-height:1.02;letter-spacing:-.035em
+}
+.public-store-shell.public-style-editorial .public-product-image{border-radius:2px;background:var(--paper)}
+.public-store-shell.public-style-editorial .public-products{gap:20px}
+.public-store-shell.public-style-editorial .public-hero button,
+.public-store-shell.public-style-editorial .public-add{border-radius:999px;padding:13px 21px}
+.public-store-shell.public-style-editorial .public-story{background:var(--paper);color:var(--brand)}
+.public-store-shell.public-style-editorial button:focus-visible,
+.public-store-shell.public-style-editorial a:focus-visible{
+  outline:3px solid var(--accent);outline-offset:3px
+}
+
+.theme-thumb-essential{border-radius:12px}
+.theme-thumb-essential .theme-thumb-hero{background:linear-gradient(135deg,#fff,var(--tp-paper))}
+.theme-thumb-essential .theme-thumb-art{background:linear-gradient(145deg,var(--tp-paper),color-mix(in srgb,var(--tp-accent) 18%,#fff))}
+.theme-thumb-essential .theme-thumb-art i,.theme-thumb-essential .theme-thumb-art b{border-radius:12px}
+.theme-thumb-essential .theme-thumb-section i{border-radius:6px}

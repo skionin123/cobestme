@@ -209,10 +209,10 @@ export function createPrebuiltSection(id:string):BuilderNode{
     const n=base('navbar','nav','Navbar')
     n.classes=['site-nav']
     n.children=[
-      {...base('link','a','Brand','Brand'),attributes:{href:'/'}},
+      {...base('link','a','Brand','Brand'),attributes:{href:'/'},classes:['brand-link']},
       {...base('div','div','Nav Links'),classes:['nav-links'],children:[
-        {...base('link','a','Nav Link','About'),attributes:{href:'/about'}},
-        {...base('link','a','Nav Link','Contact'),attributes:{href:'/contact'}},
+        {...base('link','a','Nav Link','About'),attributes:{href:'/about'},classes:['nav-link']},
+        {...base('link','a','Nav Link','Contact'),attributes:{href:'/contact'},classes:['nav-link']},
       ]},
       {...base('button','button','Mobile Menu Button','☰'),classes:['nav-menu-button']},
     ]
@@ -240,7 +240,7 @@ export function createPrebuiltSection(id:string):BuilderNode{
       {...base('grid','div','Features Grid'),classes:['feature-grid'],children:['Visual design','Responsive controls','Reusable components'].map((x,i)=>({
         ...base('div','article',`Feature ${i+1}`),
         classes:['card'],
-        children:[base('heading','h3','Feature Heading',x),base('paragraph','p','Feature Copy','Use precise visual controls while keeping the site structure clean.')],
+        children:[{...base('heading','h3','Feature Heading',x),classes:['card-title']},{...base('paragraph','p','Feature Copy','Use precise visual controls while keeping the site structure clean.'),classes:['card-copy']}],
       }))},
     ]
     return n
@@ -248,7 +248,7 @@ export function createPrebuiltSection(id:string):BuilderNode{
   if(id==='testimonials'){
     const n=base('section','section','Testimonials')
     n.classes=['section']
-    n.children=[base('heading','h2','Section Heading','Loved by teams who care about craft'),...['“Fast, flexible, and clear.”','“We finally control every breakpoint.”'].map((q,i)=>({...base('quote','blockquote',`Testimonial ${i+1}`,q),classes:['quote']}))]
+    n.children=[{...base('heading','h2','Section Heading','Loved by teams who care about craft'),classes:['section-title']},...['“Fast, flexible, and clear.”','“We finally control every breakpoint.”'].map((q,i)=>({...base('quote','blockquote',`Testimonial ${i+1}`,q),classes:['quote']}))]
     return n
   }
   if(id==='pricing'){
@@ -266,7 +266,7 @@ export function createPrebuiltSection(id:string):BuilderNode{
   if(id==='cta'){
     const n=base('section','section','CTA')
     n.classes=['cta']
-    n.children=[base('heading','h2','CTA Heading','Ready to build?'),base('paragraph','p','CTA Copy','Start with a strong structure and refine every detail visually.'),{...base('button','a','CTA Button','Get started'),attributes:{href:'#'}}]
+    n.children=[{...base('heading','h2','CTA Heading','Ready to build?'),classes:['section-title']},{...base('paragraph','p','CTA Copy','Start with a strong structure and refine every detail visually.'),classes:['cta-copy']},{...base('button','a','CTA Button','Get started'),attributes:{href:'#'},classes:['button']} ]
     return n
   }
   if(id==='contact'){
@@ -278,7 +278,7 @@ export function createPrebuiltSection(id:string):BuilderNode{
   if(id==='footer'){
     const n=base('footer','footer','Footer')
     n.classes=['site-footer']
-    n.children=[base('paragraph','p','Copyright','© 2026 Your company'),{...base('link','a','Footer Link','Privacy'),attributes:{href:'/privacy'}}]
+    n.children=[{...base('paragraph','p','Copyright','© 2026 Your company'),classes:['footer-copy']},{...base('link','a','Footer Link','Privacy'),attributes:{href:'/privacy'},classes:['footer-link']}]
     return n
   }
   return createElement('section')
