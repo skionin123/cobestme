@@ -23,13 +23,26 @@ import './visual-builder.css'
 
 const widths:Record<BreakpointId,number>={desktop:1440,tablet:991,mobileLandscape:767,mobilePortrait:478}
 const breakpointLabels:Record<BreakpointId,string>={desktop:'Desktop 1440',tablet:'Tablet 991',mobileLandscape:'Mobile landscape 767',mobilePortrait:'Mobile portrait 478'}
+const viewportHeights:Record<BreakpointId,number>={desktop:900,tablet:760,mobileLandscape:430,mobilePortrait:844}
 
 type LeftTab='add'|'navigator'|'pages'|'templates'|'assets'|'components'|'cms'
 type RightTab='style'|'settings'|'interactions'
 
 function CanvasDropZone({children,dragging}:{children:React.ReactNode;dragging:boolean}){
   const {setNodeRef,isOver}=useDroppable({id:'canvas-root',data:{kind:'canvas-root'}})
-  return <div ref={setNodeRef} className={'vb-canvas-drop '+(isOver?'is-over':'')} data-dragging={dragging?'true':'false'}>{children}{dragging&&<div className={'vb-canvas-drop-label '+(isOver?'active':'')}>Drop to add to page</div>}</div>
+  return <div ref={setNodeRef} className={'vb-canvas-drop '+(isOver?'is-over':'')} data-dragging={dragging?'true':'false'}>{children}{dragging&&<div className={'vb-canvas-drop-label '+(isOver?'active':'')}>Drop to page</div>}</div>
+}
+
+function resolveDropTarget(root:BuilderNode,overId:string){
+  if(overId==='canvas-root')return {parentId:root.id,index:root.children.length}
+  const [mode,nodeId]=overId.split(':')
+  const target=findNode(root,nodeId)
+  if(!target)return {parentId:root.id,index:root.children.length}
+  if(mode==='inside')return {parentId:nodeId,index:target.children.length}
+  const parent=findParent(root,nodeId)
+  if(!parent)return {parentId:root.id,index:root.children.length}
+  const targetIndex=parent.children.findIndex(x=>x.id===nodeId)
+  return {parentId:parent.id,index:mode==='after'?targetIndex+1:targetIndex}
 }
 
 function VersionPopover({onClose}:{onClose:()=>void}){
@@ -130,6 +143,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [rightTab,setRightTab]=useState<RightTab>('style')
   const [preview,setPreview]=useState(false)
   const [zoom,setZoom]=useState(80)
+  const [canvasHeight,setCanvasHeight]=useState(viewportHeights.desktop)
   const [dragLabel,setDragLabel]=useState('')
   const [dragging,setDragging]=useState(false)
   const [versionsOpen,setVersionsOpen]=useState(false)
@@ -140,7 +154,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const selectedNode=findNode(activePage.root,selectedNodeId)
-  const documentHtml=useMemo(()=>createCanvasDocument(project),[project])
+  const editorDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,true),[project,breakpoint])
+  const previewDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,false),[project,breakpoint])
+  const frameWidth=Math.min(widths[breakpoint],1440)
+  const scale=zoom/100
+
+  useEffect(()=>{
+    setCanvasHeight(viewportHeights[breakpoint])
+  },[breakpoint,activePage.id])
 
   useEffect(()=>{
     let alive=true
@@ -174,6 +195,26 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(msg.type==='select')selectNode(msg.id||null)
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
+      if(msg.type==='canvas-resize'&&Number(msg.height)){
+        const next=Math.max(viewportHeights[breakpoint],Math.min(24000,Math.ceil(Number(msg.height))))
+        setCanvasHeight(next)
+      }
+      if(msg.type==='canvas-drop'&&msg.payload&&msg.targetId&&msg.mode){
+        const store=useBuilderStore.getState()
+        const page=store.project.pages.find(p=>p.id===store.project.activePageId)||store.project.pages[0]
+        const payload=msg.payload
+        let overId=`${msg.mode}:${msg.targetId}`
+        if(payload.kind==='new-section'&&msg.targetId!==page.root.id){
+          let topId=String(msg.targetId)
+          let parent=findParent(page.root,topId)
+          while(parent&&parent.id!==page.root.id){topId=parent.id;parent=findParent(page.root,topId)}
+          overId=`${msg.mode==='before'?'before':'after'}:${topId}`
+        }
+        const target=resolveDropTarget(page.root,overId)
+        if(payload.kind==='new-element')store.addNode(target.parentId,createElement(payload.type),target.index)
+        else if(payload.kind==='new-section')store.addNode(target.parentId,createPrebuiltSection(payload.type),target.index)
+        else if(payload.kind==='node'&&payload.nodeId&&payload.nodeId!==target.parentId)store.moveNode(payload.nodeId,target.parentId,target.index)
+      }
       if(msg.type==='spacing-change'&&msg.id&&msg.property){
         const page=useBuilderStore.getState().project.pages.find(p=>p.id===useBuilderStore.getState().project.activePageId)||useBuilderStore.getState().project.pages[0]
         const node=findNode(page.root,msg.id)
@@ -191,15 +232,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
     window.addEventListener('message',handler)
     return()=>window.removeEventListener('message',handler)
-  },[selectNode,hoverNode,updateNode,addClass,setStyle])
+  },[selectNode,hoverNode,updateNode,addClass,setStyle,breakpoint])
 
   useEffect(()=>{
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
-  },[selectedNodeId,hoveredNodeId,documentHtml])
-
-  useEffect(()=>{
-    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:!preview},'*')
-  },[preview,documentHtml])
+  },[selectedNodeId,hoveredNodeId,editorDocumentHtml])
 
   const persistProject=async(current:BuilderProject)=>{
     await saveProject(current)
@@ -250,17 +287,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
-  const dropTarget=(overId:string)=>{
-    if(overId==='canvas-root')return {parentId:activePage.root.id,index:activePage.root.children.length}
-    const [mode,nodeId]=overId.split(':')
-    const target=findNode(activePage.root,nodeId)
-    if(!target)return {parentId:activePage.root.id,index:activePage.root.children.length}
-    if(mode==='inside')return {parentId:nodeId,index:target.children.length}
-    const parent=findParent(activePage.root,nodeId)
-    if(!parent)return {parentId:activePage.root.id,index:activePage.root.children.length}
-    const targetIndex=parent.children.findIndex(x=>x.id===nodeId)
-    return {parentId:parent.id,index:mode==='after'?targetIndex+1:targetIndex}
-  }
+  const dropTarget=(overId:string)=>resolveDropTarget(activePage.root,overId)
 
   const onDragStart=(event:DragStartEvent)=>{
     setDragging(true)
@@ -307,9 +334,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ['mobilePortrait','Mobile P 478',Smartphone],
   ]
 
-  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={documentHtml} className="vb-preview-frame" onLoad={()=>iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:false},'*')}/></div>
+  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
 
-  return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+  return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={()=>{setDragging(false);setDragLabel('')}}>
     <div className="vb-shell">
       <header className="vb-topbar">
         <div className="vb-project"><div className="vb-brand">C</div><div><small>COBEST DESIGNER</small><input value={project.name} onChange={e=>renameProject(e.target.value)} aria-label="Project name"/></div></div>
@@ -342,12 +369,13 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <main className="vb-stage">
           <div className="vb-stage-meta"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong><em>{activePage.slug}</em></div>
           <CanvasDropZone dragging={dragging}>
-            <div className="vb-canvas-scaler" style={{width:Math.min(widths[breakpoint],1440),transform:`scale(${zoom/100})`,transformOrigin:'top center'}}>
-              <div className="vb-canvas-wrap" style={{width:Math.min(widths[breakpoint],1440)}}>
-                <iframe ref={iframeRef} title="CoBest visual builder canvas" sandbox="allow-scripts allow-forms allow-popups" srcDoc={documentHtml} className="vb-canvas" style={{pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
-                  iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
-                  iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'mode',editing:true},'*')
-                }}/>
+            <div className="vb-canvas-scaler" style={{width:frameWidth*scale,height:canvasHeight*scale}}>
+              <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>
+                <div className="vb-canvas-wrap" style={{width:frameWidth,height:canvasHeight}}>
+                  <iframe ref={iframeRef} title="CoBest visual builder canvas" sandbox="allow-scripts allow-forms allow-popups" srcDoc={editorDocumentHtml} className="vb-canvas" style={{height:canvasHeight,pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
+                    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
+                  }}/>
+                </div>
               </div>
             </div>
           </CanvasDropZone>

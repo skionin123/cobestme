@@ -1,9 +1,13 @@
 import type { BuilderProject } from './types'
 import { compileInteractionRuntime, compileProjectCss, renderPageBody } from './compiler'
 
-export function createCanvasDocument(project:BuilderProject){
-  const css=compileProjectCss(project)
-  const body=renderPageBody(project,project.activePageId,true)
+export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'|'tablet'|'mobileLandscape'|'mobilePortrait'='desktop',editing=true){
+  const rawCss=compileProjectCss(project)
+  const virtualViewportHeight={desktop:900,tablet:760,mobileLandscape:430,mobilePortrait:844}[breakpoint]
+  const css=editing
+    ? rawCss.replace(/(-?[\d.]+)vh\b/g,(_,value)=>String((Number(value)*virtualViewportHeight)/100)+'px')
+    : rawCss
+  const body=renderPageBody(project,project.activePageId,editing)
   const interactionRuntime=compileInteractionRuntime(project)
   return `<!doctype html>
 <html>
@@ -15,13 +19,15 @@ export function createCanvasDocument(project:BuilderProject){
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 ${css}
-html.builder-editing [data-builder-node]{position:relative}
+html.builder-editing,html.builder-editing body{overflow:hidden}
 html.builder-editing [data-builder-node]:hover{outline:1px solid rgba(99,102,241,.72);outline-offset:2px}
 html.builder-editing [data-builder-node].builder-hovered{outline:1px solid #818cf8;outline-offset:2px}
 html.builder-editing [data-builder-node].builder-selected{outline:2px solid #6366f1!important;outline-offset:3px}
-html.builder-editing [data-builder-node].builder-selected::after{content:'';position:absolute;inset:-4px;pointer-events:none;border:1px solid rgba(99,102,241,.25)}
-.builder-node-label{position:fixed;z-index:2147483647;pointer-events:none;background:#4f46e5;color:#fff;font:600 11px/1.2 Arial,sans-serif;padding:5px 7px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.14)}
-html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-spacing-handle{display:none}
+.builder-node-label{position:fixed;z-index:2147483647;pointer-events:auto;cursor:grab;background:#4f46e5;color:#fff;font:600 11px/1.2 Arial,sans-serif;padding:6px 8px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.14);user-select:none}
+.builder-node-label:active{cursor:grabbing}
+.builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
+.builder-drop-marker.inside{background:rgba(99,102,241,.10);border:2px solid #6d5dfc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
 .builder-spacing-handle{position:fixed;z-index:2147483646;width:12px;height:12px;border-radius:3px;display:grid;place-items:center;color:#fff;font:700 7px/1 Arial,sans-serif;cursor:ns-resize;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .builder-spacing-handle[data-edge="left"],.builder-spacing-handle[data-edge="right"]{cursor:ew-resize}
 .builder-spacing-handle[data-kind="padding"]{background:#10b981}.builder-spacing-handle[data-kind="margin"]{background:#f59e0b}
@@ -34,7 +40,7 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 ${body}
 <script>
 (() => {
-  document.documentElement.classList.add('builder-editing')
+  document.documentElement.classList.toggle('builder-editing',${editing})
   let selected = null
   let hovered = null
   let label = null
@@ -58,8 +64,16 @@ ${body}
     const rect=el.getBoundingClientRect()
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.textContent=el.dataset.builderName||el.tagName.toLowerCase()
-    label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-160))+'px'
+    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
+    label.draggable=true
+    label.title='Drag to move this element'
+    label.ondragstart=event=>{
+      const payload=JSON.stringify({kind:'node',nodeId:el.dataset.builderNode})
+      event.dataTransfer.effectAllowed='move'
+      event.dataTransfer.setData('application/x-cobest-builder',payload)
+      event.dataTransfer.setData('text/plain','cobest:'+payload)
+    }
+    label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
     document.body.appendChild(label)
     const computed=getComputedStyle(el)
@@ -89,6 +103,7 @@ ${body}
         const up=()=>{
           window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)
           send('spacing-change',{id:el.dataset.builderNode,property:prop,value:finalValue+'px'})
+          requestAnimationFrame(reportSize)
         }
         window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true})
       }
@@ -96,6 +111,74 @@ ${body}
     }))
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
+  const reportSize=()=>{
+    if(!document.documentElement.classList.contains('builder-editing'))return
+    const height=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,120)
+    send('canvas-resize',{height})
+  }
+  let dropMarker=null
+  const removeDropMarker=()=>{if(dropMarker){dropMarker.remove();dropMarker=null}}
+  const dragPayload=event=>{
+    let raw=''
+    try{raw=event.dataTransfer?.getData('application/x-cobest-builder')||event.dataTransfer?.getData('text/plain')||''}catch{}
+    if(raw.startsWith('cobest:'))raw=raw.slice(7)
+    try{return raw?JSON.parse(raw):null}catch{return null}
+  }
+  const hasBuilderDrag=event=>{
+    const types=Array.from(event.dataTransfer?.types||[])
+    return types.includes('application/x-cobest-builder')||types.includes('text/plain')
+  }
+  const nestingTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
+  const dropIntent=event=>{
+    const el=event.target?.closest?.('[data-builder-node]')
+    if(!el)return null
+    const rect=el.getBoundingClientRect()
+    const y=(event.clientY-rect.top)/Math.max(rect.height,1)
+    const canNest=nestingTypes.has(el.dataset.builderType)
+    let mode='inside'
+    if(!canNest||y<.24)mode='before'
+    else if(y>.76)mode='after'
+    return {el,rect,mode}
+  }
+  const drawDropMarker=intent=>{
+    removeDropMarker()
+    if(!intent)return
+    const {rect,mode}=intent
+    dropMarker=document.createElement('div')
+    dropMarker.className='builder-drop-marker '+mode
+    if(mode==='inside'){
+      dropMarker.style.left=Math.max(0,rect.left)+'px'
+      dropMarker.style.top=Math.max(0,rect.top)+'px'
+      dropMarker.style.width=Math.max(12,rect.width)+'px'
+      dropMarker.style.height=Math.max(12,rect.height)+'px'
+    }else{
+      dropMarker.style.left=Math.max(0,rect.left)+'px'
+      dropMarker.style.top=(mode==='before'?rect.top:rect.bottom)-1+'px'
+      dropMarker.style.width=Math.max(20,rect.width)+'px'
+      dropMarker.style.height='3px'
+    }
+    document.body.appendChild(dropMarker)
+  }
+  document.addEventListener('dragover',event=>{
+    if(!document.documentElement.classList.contains('builder-editing')||!hasBuilderDrag(event))return
+    event.preventDefault()
+    if(event.dataTransfer)event.dataTransfer.dropEffect='copy'
+    drawDropMarker(dropIntent(event))
+  },true)
+  document.addEventListener('drop',event=>{
+    if(!document.documentElement.classList.contains('builder-editing')||!hasBuilderDrag(event))return
+    event.preventDefault();event.stopPropagation()
+    const payload=dragPayload(event)
+    const intent=dropIntent(event)
+    removeDropMarker()
+    if(payload&&intent)send('canvas-drop',{payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
+  },true)
+  document.addEventListener('dragleave',event=>{if(!event.relatedTarget)removeDropMarker()},true)
+  if(document.documentElement.classList.contains('builder-editing')){
+    requestAnimationFrame(reportSize)
+    document.fonts?.ready?.then(reportSize).catch?.(()=>{})
+    new ResizeObserver(()=>requestAnimationFrame(reportSize)).observe(document.body)
+  }
   document.addEventListener('mousemove', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
     const el=event.target.closest?.('[data-builder-node]')
@@ -126,6 +209,7 @@ ${body}
     const finish=()=>{
       el.contentEditable='false'
       send('text-change',{id:el.dataset.builderNode,content:el.textContent||''})
+      requestAnimationFrame(reportSize)
       el.removeEventListener('blur',finish)
     }
     el.addEventListener('blur',finish)
@@ -151,7 +235,7 @@ ${body}
     if(msg.type==='mode'){
       document.documentElement.classList.toggle('builder-editing',msg.editing!==false)
       if(msg.editing===false){clearClass(selected,'builder-selected');clearClass(hovered,'builder-hovered');removeLabel();clearHandles()}
-      else {apply(selected,'builder-selected');apply(hovered,'builder-hovered');drawLabel(selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null)}
+      else {apply(selected,'builder-selected');apply(hovered,'builder-hovered');drawLabel(selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null);requestAnimationFrame(reportSize)}
     }
   })
   document.querySelectorAll('.nav-menu-button').forEach(button=>button.addEventListener('click',event=>{
