@@ -202,8 +202,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(msg.type==='canvas-drop'&&msg.payload&&msg.targetId&&msg.mode){
         const store=useBuilderStore.getState()
         const page=store.project.pages.find(p=>p.id===store.project.activePageId)||store.project.pages[0]
-        const target=resolveDropTarget(page.root,`${msg.mode}:${msg.targetId}`)
         const payload=msg.payload
+        let overId=`${msg.mode}:${msg.targetId}`
+        if(payload.kind==='new-section'&&msg.targetId!==page.root.id){
+          let topId=String(msg.targetId)
+          let parent=findParent(page.root,topId)
+          while(parent&&parent.id!==page.root.id){topId=parent.id;parent=findParent(page.root,topId)}
+          overId=`${msg.mode==='before'?'before':'after'}:${topId}`
+        }
+        const target=resolveDropTarget(page.root,overId)
         if(payload.kind==='new-element')store.addNode(target.parentId,createElement(payload.type),target.index)
         else if(payload.kind==='new-section')store.addNode(target.parentId,createPrebuiltSection(payload.type),target.index)
         else if(payload.kind==='node'&&payload.nodeId&&payload.nodeId!==target.parentId)store.moveNode(payload.nodeId,target.parentId,target.index)
@@ -327,7 +334,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ['mobilePortrait','Mobile P 478',Smartphone],
   ]
 
-  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame"/></div>
+  if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
 
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
     <div className="vb-shell">
