@@ -21,15 +21,31 @@ function slugClass(value:string){
   return slugify(value).replaceAll('-','_')
 }
 
+const canvasContainerTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
+
 function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:string;label:string;note?:string;section?:boolean}){
-  const {attributes,listeners,setNodeRef,transform,isDragging}=useDraggable({
-    id:`palette:${section?'section':'element'}:${type}`,
-    data:{kind:section?'new-section':'new-element',type},
-  })
-  const style={transform:CSS.Translate.toString(transform),opacity:isDragging?.45:1}
-  return <button ref={setNodeRef} style={style} {...listeners} {...attributes} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
+  const project=useBuilderStore(s=>s.project)
+  const selected=useBuilderStore(s=>s.selectedNodeId)
+  const addNode=useBuilderStore(s=>s.addNode)
+  const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
+  const selectedNode=findNode(page.root,selected)
+  const clickAdd=()=>{
+    const node=section?createPrebuiltSection(type):createElement(type as any)
+    if(section){addNode(page.root.id,node);return}
+    const parent=selectedNode&&canvasContainerTypes.has(selectedNode.type)
+      ? selectedNode
+      : selectedNode?findParent(page.root,selectedNode.id):null
+    addNode(parent?.id||page.root.id,node)
+  }
+  const dragStart=(event:React.DragEvent<HTMLButtonElement>)=>{
+    const payload=JSON.stringify({kind:section?'new-section':'new-element',type})
+    event.dataTransfer.effectAllowed='copy'
+    event.dataTransfer.setData('application/x-cobest-builder',payload)
+    event.dataTransfer.setData('text/plain','cobest:'+payload)
+  }
+  return <button draggable onDragStart={dragStart} onClick={clickAdd} title={`Click to add ${labelText}, or drag it onto the page`} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
     <strong className="text-[11px] font-semibold text-zinc-100">{labelText}</strong>
-    {note&&<span className="mt-1 text-[9px] leading-4 text-zinc-500">{note}</span>}
+    <span className="mt-1 text-[8px] font-medium text-zinc-600">{note||'Click to add · drag to place'}</span>
   </button>
 }
 
@@ -51,7 +67,7 @@ export function AddPanel(){
         if(!items.length)return null
         return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="grid grid-cols-2 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500">Drag an item to the canvas to append it, or drop it onto a Navigator layer to nest it.</p>
+      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Wix-style adding</strong>Click an item to add it to the selected section, or drag it directly onto the exact place on the page. Navigator drag-and-drop still works for precise layer nesting.</p>
     </div>
   </div>
 }
