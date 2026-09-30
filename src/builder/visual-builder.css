@@ -250,7 +250,8 @@
   display:flex;align-items:center;gap:5px;border:1px solid #3a404a;background:#22262d;color:#fff;
   border-radius:7px;padding:7px 10px;font-size:9px
 }
-.vb-preview-frame{border:0;flex:1;width:100%;background:#fff}
+.vb-preview-stage{min-height:0;flex:1;overflow:auto;padding:24px;display:flex;align-items:flex-start;justify-content:center;background:#0b0d10;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.055) 1px,transparent 0);background-size:20px 20px}
+.vb-preview-frame{border:0;flex:0 0 auto;background:#fff;box-shadow:0 0 0 1px #444a55,0 24px 80px rgba(0,0,0,.42)}
 
 @media(max-width:1500px){
   .vb-workspace{grid-template-columns:286px minmax(0,1fr) 322px}
