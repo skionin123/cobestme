@@ -1093,7 +1093,7 @@
 
 
 /* Marketing templates, testimonials, resources */
-.marketing-template-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:36px}
+.marketing-template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:36px auto 0;max-width:900px}
 .marketing-template-grid article{border:1px solid #e2e0d9;background:#fff;border-radius:16px;padding:10px;overflow:hidden}
 .marketing-template-grid>article>strong{display:block;font-size:13px;margin:12px 4px 3px}
 .marketing-template-grid>article>p{font-size:10px;color:#86857f;margin:0 4px 12px}
