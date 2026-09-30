@@ -1,9 +1,9 @@
 import { createDefaultProject } from './defaultProject'
 import { createPrebuiltSection } from './elements'
 import { clone, uid } from './tree'
-import type { BuilderProject } from './types'
+import type { BuilderProject, CssProperties } from './types'
 
-export type TemplateCategory='Business'|'Portfolio'|'Agency'|'SaaS'|'Ecommerce'|'Restaurant'|'Personal'|'Blog'
+export type TemplateCategory='Essential'|'Editorial'
 
 export interface BuilderTemplate {
   id:string
@@ -14,19 +14,43 @@ export interface BuilderTemplate {
   build:()=>BuilderProject
 }
 
-function templateProject(name:string,category:TemplateCategory,accent:string,sections:string[],headline:string,copy:string){
+function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
+  if(variant==='Editorial'){
+    project.globals.colors={ink:'#201c18',surface:'#fbf8f3',muted:'#f0ebe3',accent:'#8a5b3d',subtle:'#6e655d',line:'#ddd4c8'}
+    project.globals.textStyles.body={fontFamily:'DM Sans, Arial, sans-serif',fontSize:'16px',lineHeight:'1.7',fontWeight:'400'}
+    project.globals.textStyles.display={fontFamily:'Playfair Display, Georgia, serif',fontWeight:'600',letterSpacing:'-0.035em',lineHeight:'1.02'}
+    project.globals.textStyles.heading={fontFamily:'Playfair Display, Georgia, serif',fontWeight:'600',letterSpacing:'-0.025em',lineHeight:'1.1'}
+    project.styles['page-shell'].desktop.none={...project.styles['page-shell'].desktop.none,fontFamily:'DM Sans, Arial, sans-serif'}
+    project.styles.hero.desktop.none={...project.styles.hero.desktop.none,minHeight:'68vh',padding:'94px 7vw',background:'linear-gradient(180deg,#fbf8f3 0%,#f4eee6 100%)'}
+    project.styles.display.desktop.none={...project.styles.display.desktop.none,fontSize:'74px',fontWeight:'600',lineHeight:'1.01',letterSpacing:'-0.045em',maxWidth:'900px'}
+    project.styles.section.desktop.none={...project.styles.section.desktop.none,padding:'82px 7vw'}
+    project.styles.card.desktop.none={...project.styles.card.desktop.none,borderRadius:'4px',boxShadow:'none'}
+    project.styles.button.desktop.none={...project.styles.button.desktop.none,borderRadius:'999px',padding:'13px 20px'}
+  } else {
+    project.globals.colors={ink:'#111827',surface:'#ffffff',muted:'#f6f7f9',accent:'#2563eb',subtle:'#5f6875',line:'#e5e7eb'}
+    project.globals.textStyles.body={fontFamily:'Inter, Arial, sans-serif',fontSize:'16px',lineHeight:'1.65',fontWeight:'400'}
+    project.globals.textStyles.display={fontFamily:'Manrope, Arial, sans-serif',fontWeight:'700',letterSpacing:'-0.045em',lineHeight:'1'}
+    project.globals.textStyles.heading={fontFamily:'Manrope, Arial, sans-serif',fontWeight:'650',letterSpacing:'-0.03em',lineHeight:'1.08'}
+    project.styles['page-shell'].desktop.none={...project.styles['page-shell'].desktop.none,fontFamily:'Inter, Arial, sans-serif'}
+    project.styles.hero.desktop.none={...project.styles.hero.desktop.none,minHeight:'64vh',padding:'88px 6vw',background:'linear-gradient(135deg,#ffffff 0%,#f5f7fb 100%)'}
+    project.styles.display.desktop.none={...project.styles.display.desktop.none,fontSize:'68px',fontWeight:'720',lineHeight:'0.98',letterSpacing:'-0.05em',maxWidth:'900px'}
+    project.styles.section.desktop.none={...project.styles.section.desktop.none,padding:'72px 6vw'}
+    project.styles.card.desktop.none={...project.styles.card.desktop.none,borderRadius:'12px',boxShadow:'0 10px 28px rgba(17,24,39,.05)'}
+    project.styles.button.desktop.none={...project.styles.button.desktop.none,borderRadius:'8px'}
+  }
+}
+
+function templateProject(variant:TemplateCategory,sections:string[],headline:string,copy:string){
   const project=createDefaultProject()
-  project.name=name
-  project.globals.colors.accent=accent
-  project.globals.colors.ink=category==='Restaurant'?'#261c16':'#121316'
+  project.name=variant
+  setBaseStyles(project,variant)
   const home=project.pages[0]
   home.root.children=[
     createPrebuiltSection('navbar'),
     createPrebuiltSection('hero'),
     ...sections.map(createPrebuiltSection),
     createPrebuiltSection('footer')
-  ]
-  home.root.children=home.root.children.map(node=>clone(node))
+  ].map(node=>clone(node))
   const hero=home.root.children.find(n=>n.name==='Hero')
   const heading=hero?.children?.[0]?.children?.find(n=>n.type==='heading')
   const paragraph=hero?.children?.[0]?.children?.find(n=>n.type==='paragraph')
@@ -38,14 +62,22 @@ function templateProject(name:string,category:TemplateCategory,accent:string,sec
 }
 
 export const builderTemplates:BuilderTemplate[]=[
-  {id:'business',name:'Northstar Business',category:'Business',accent:'#2563eb',description:'Professional services with credibility, features, FAQ, and contact.',build:()=>templateProject('Northstar Business','Business','#2563eb',['features','testimonials','faq','contact'],'Build trust before the first conversation.','A polished business website with a clear story, proof, and conversion path.')},
-  {id:'portfolio',name:'Frame Portfolio',category:'Portfolio',accent:'#7c3aed',description:'A minimal creative portfolio with strong typography and project storytelling.',build:()=>templateProject('Frame Portfolio','Portfolio','#7c3aed',['features','testimonials','cta'],'Selected work, deliberately presented.','A quiet canvas for designers, photographers, architects, and independent creatives.')},
-  {id:'agency',name:'Signal Agency',category:'Agency',accent:'#ea580c',description:'Bold agency landing structure with services, proof, pricing, and CTA.',build:()=>templateProject('Signal Agency','Agency','#ea580c',['features','testimonials','pricing','cta'],'Strategy, design, and execution without the handoffs.','A confident agency structure for turning expertise into qualified conversations.')},
-  {id:'saas',name:'Orbit SaaS',category:'SaaS',accent:'#4f46e5',description:'Product-led SaaS page with features, pricing, FAQ, and conversion sections.',build:()=>templateProject('Orbit SaaS','SaaS','#4f46e5',['features','pricing','testimonials','faq','cta'],'One product. A clearer way to work.','Explain the product quickly, demonstrate value, and move visitors toward a trial.')},
-  {id:'ecommerce',name:'Field Shop',category:'Ecommerce',accent:'#166534',description:'Editorial commerce landing page that pairs naturally with CoBest Shop.',build:()=>templateProject('Field Shop','Ecommerce','#166534',['features','testimonials','cta'],'Considered goods for everyday life.','Use the visual site for brand storytelling and CoBest Shop for live products and checkout.')},
-  {id:'restaurant',name:'Supper House',category:'Restaurant',accent:'#b45309',description:'Warm restaurant website with story, highlights, FAQ, and contact.',build:()=>templateProject('Supper House','Restaurant','#b45309',['features','testimonials','faq','contact'],'A neighborhood table worth returning to.','Share the atmosphere, signature dishes, practical details, and how to visit.')},
-  {id:'personal',name:'Profile One',category:'Personal',accent:'#db2777',description:'Clean personal site for consultants, creators, and independent professionals.',build:()=>templateProject('Profile One','Personal','#db2777',['features','testimonials','contact'],'Your work, point of view, and next chapter.','A flexible personal site for presenting expertise without feeling like a résumé template.')},
-  {id:'blog',name:'Margin Journal',category:'Blog',accent:'#0f766e',description:'Editorial home for articles, ideas, and an expandable CMS collection.',build:()=>templateProject('Margin Journal','Blog','#0f766e',['features','cta'],'Ideas deserve a home of their own.','Start with an editorial structure, then connect a Blog Posts collection in the CMS panel.')}
+  {
+    id:'essential',
+    name:'Essential',
+    category:'Essential',
+    accent:'#2563eb',
+    description:'A clean, neutral foundation with only the sections most sites need. Best when you want every edit to be obvious.',
+    build:()=>templateProject('Essential',['features'],'Clear, credible, ready to grow.','A simple professional starting point with generous space, strong hierarchy, and very little visual noise.')
+  },
+  {
+    id:'editorial',
+    name:'Editorial',
+    category:'Editorial',
+    accent:'#8a5b3d',
+    description:'A refined typography-led foundation for brands, ecommerce, portfolios, and content without becoming visually busy.',
+    build:()=>templateProject('Editorial',['testimonials','cta'],'A refined home for your brand.','A restrained editorial starting point with warmer typography, clear rhythm, and room for your content to lead.')
+  }
 ]
 
 export function applyTemplate(template:BuilderTemplate,current:BuilderProject){
