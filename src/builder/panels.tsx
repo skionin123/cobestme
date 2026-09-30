@@ -86,14 +86,19 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
 export function TemplatesPanel(){
   const project=useBuilderStore(s=>s.project)
   const replaceProject=useBuilderStore(s=>s.replaceProject)
-  const [category,setCategory]=useState('All')
-  const categories=['All',...Array.from(new Set(builderTemplates.map(t=>t.category)))]
-  const visible=builderTemplates.filter(t=>category==='All'||t.category===category)
   return <div className="h-full overflow-auto">
-    <div className={panelSection}><span className={label}>Templates</span><select className={control} value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></div>
-    <div className="space-y-2 p-3">{visible.map(template=><article key={template.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-      <div className="h-24 p-3" style={{background:`linear-gradient(135deg,${template.accent}22,#111318)`}}><span className="rounded bg-black/30 px-2 py-1 text-[8px] font-semibold uppercase tracking-[.12em] text-white/70">{template.category}</span><div className="mt-5 h-2 w-3/4 rounded bg-white/80"/><div className="mt-2 h-1.5 w-1/2 rounded bg-white/30"/></div>
-      <div className="p-3"><strong className="block text-[11px] text-white">{template.name}</strong><p className="mt-1 text-[9px] leading-4 text-zinc-500">{template.description}</p><button className={panelButton+' mt-3 w-full'} onClick={()=>{if(confirm(`Apply ${template.name}? Your current project remains in version history and undo.`))replaceProject(applyTemplate(template,project),true,'Apply template')}}>Use template</button></div>
+    <div className={panelSection}>
+      <span className={label}>Starting theme</span>
+      <strong className="block text-[12px] text-zinc-100">Choose one of two directions.</strong>
+      <p className="mt-1 text-[9px] leading-4 text-zinc-500">Both are intentionally simple. Pick a base, then make the real design decisions directly on the canvas.</p>
+    </div>
+    <div className="space-y-3 p-3">{builderTemplates.map(template=><article key={template.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="h-28 p-3" style={{background:`linear-gradient(135deg,${template.accent}20,#13161b)`}}>
+        <span className="rounded bg-black/25 px-2 py-1 text-[8px] font-semibold uppercase tracking-[.12em] text-white/70">{template.name}</span>
+        <div className="mt-5 h-2 w-3/4 rounded bg-white/85"/><div className="mt-2 h-1.5 w-1/2 rounded bg-white/30"/>
+        <div className="mt-4 grid grid-cols-3 gap-1.5"><i className="h-6 rounded bg-white/10"/><i className="h-6 rounded bg-white/10"/><i className="h-6 rounded bg-white/10"/></div>
+      </div>
+      <div className="p-3"><strong className="block text-[11px] text-white">{template.name}</strong><p className="mt-1 text-[9px] leading-4 text-zinc-500">{template.description}</p><button className={panelButton+' mt-3 w-full'} onClick={()=>{if(confirm(`Apply ${template.name}? Your current project remains in version history and undo.`))replaceProject(applyTemplate(template,project),true,'Apply theme')}}>Use {template.name}</button></div>
     </article>)}</div>
   </div>
 }
