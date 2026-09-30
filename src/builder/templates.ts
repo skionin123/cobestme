@@ -17,13 +17,9 @@ export interface BuilderTemplate {
 function decorateProject(project:BuilderProject,variant:TemplateCategory){
   const page=project.pages[0]
   walkNodes(page.root,node=>{
-    if(node.name==='Brand') node.classes=[...(node.classes||[]),'brand-link']
-    if(node.name==='Nav Link') node.classes=[...(node.classes||[]),'nav-link']
-    if(node.name==='Hero Container') node.classes=[...(node.classes||[]),'hero-inner']
+    if(node.name==='Hero Container'&&!node.classes.includes('hero-inner')) node.classes=[...(node.classes||[]),'hero-inner']
     if(node.name==='Features') node.classes=[...(node.classes||[]),variant==='Editorial'?'editorial-section':'soft-section']
     if(node.name==='Testimonials') node.classes=[...(node.classes||[]),'editorial-section']
-    if(node.type==='quote') node.classes=[...(node.classes||[]),'quote']
-    if(node.name==='Footer') node.classes=[...(node.classes||[]),'site-footer']
   })
 }
 
@@ -38,11 +34,9 @@ function setSharedStyles(project:BuilderProject){
     ...project.styles['site-nav'].desktop.none,
     padding:'18px clamp(24px,5vw,72px)',
     borderBottom:'1px solid var(--line)',
-    background:'color-mix(in srgb,var(--surface) 94%,transparent)',
-    backdropFilter:'blur(14px)',
-    position:'sticky',
-    top:'0',
-    zIndex:'20'
+    background:'var(--surface)',
+    position:'relative',
+    zIndex:'2'
   }
   project.styles['site-nav'].mobileLandscape={none:{padding:'14px 20px'}}
   project.styles['nav-links'].desktop.none={display:'flex',alignItems:'center',gap:'clamp(18px,2.5vw,34px)'}
@@ -83,6 +77,15 @@ function setSharedStyles(project:BuilderProject){
   project.styles['feature-grid'].mobilePortrait={none:{gridTemplateColumns:'1fr'}}
   project.styles.paragraph.desktop.none={fontSize:'16px',lineHeight:'1.7',color:'var(--subtle)',maxWidth:'68ch'}
   project.styles.heading.desktop.none={fontSize:'clamp(28px,3vw,42px)',lineHeight:'1.08',letterSpacing:'-0.03em',margin:'0 0 14px'}
+  project.styles['card-title']={desktop:{none:{fontSize:'clamp(18px,2vw,23px)',lineHeight:'1.15',letterSpacing:'-0.025em',margin:'0 0 10px',fontWeight:'680'}}}
+  project.styles['card-copy']={desktop:{none:{fontSize:'15px',lineHeight:'1.68',color:'var(--subtle)',margin:'0',maxWidth:'36ch'}}}
+  project.styles['cta-copy']={desktop:{none:{fontSize:'clamp(16px,1.5vw,19px)',lineHeight:'1.65',maxWidth:'58ch',margin:'12px 0 0',opacity:'.8'}}}
+  project.styles['footer-copy']={desktop:{none:{margin:'0',fontSize:'13px',lineHeight:'1.5'}}}
+  project.styles['footer-link']={desktop:{
+    none:{fontSize:'13px',textDecoration:'none',color:'var(--subtle)',fontWeight:'600'},
+    hover:{color:'var(--ink)'},
+    focused:{outline:'2px solid var(--accent)',outlineOffset:'4px',borderRadius:'4px',color:'var(--ink)'}
+  }}
   project.styles['site-footer'].desktop.none={
     display:'flex',justifyContent:'space-between',alignItems:'center',gap:'24px',
     padding:'32px clamp(24px,5vw,72px)',borderTop:'1px solid var(--line)',fontSize:'13px',color:'var(--subtle)'
