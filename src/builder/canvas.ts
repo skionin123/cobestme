@@ -5,7 +5,7 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
   const rawCss=compileProjectCss(project)
   const virtualViewportHeight={desktop:900,tablet:760,mobileLandscape:430,mobilePortrait:844}[breakpoint]
   const css=editing
-    ? rawCss.replace(/(-?[\\d.]+)vh\\b/g,(_,value)=>String((Number(value)*virtualViewportHeight)/100)+'px')
+    ? rawCss.replace(/(-?[\d.]+)vh\b/g,(_,value)=>String((Number(value)*virtualViewportHeight)/100)+'px')
     : rawCss
   const body=renderPageBody(project,project.activePageId,editing)
   const interactionRuntime=compileInteractionRuntime(project)
