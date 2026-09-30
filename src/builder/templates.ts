@@ -1,7 +1,7 @@
 import { createDefaultProject } from './defaultProject'
 import { createPrebuiltSection } from './elements'
 import { clone, uid } from './tree'
-import type { BuilderProject, CssProperties } from './types'
+import type { BuilderProject } from './types'
 
 export type TemplateCategory='Essential'|'Editorial'
 
