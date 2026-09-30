@@ -85,6 +85,14 @@ const themePresets = {
     paper:'#f5f5f3', surface:'#ffffff', ink:'#171717', accent:'#171717', muted:'#deded9',
     previewHeading:'Start with a blank canvas.', previewEyebrow:'YOUR WEBSITE'
   },
+  Essential: {
+    name:'Essential', styleKey:'essential', category:'Clean professional', fit:'Business · Portfolio · Services',
+    description:'A neutral, spacious foundation that keeps the content and your edits easy to see.',
+    sectionGap:32, radius:10, buttonRadius:8,
+    fontFamily:"'Inter', Arial, sans-serif", displayFont:"'Manrope', Arial, sans-serif",
+    paper:'#f6f7f9', surface:'#ffffff', ink:'#111827', accent:'#2563eb', muted:'#e5e7eb',
+    previewHeading:'Clear, credible, ready to grow.', previewEyebrow:'ESSENTIAL'
+  },
   Aurelia: {
     name:'Aurelia', styleKey:'warm', category:'Warm minimal', fit:'Home · Lifestyle · Wellness',
     description:'Soft neutrals, balanced whitespace, and calm product storytelling.',
@@ -151,8 +159,15 @@ const themePresets = {
   }
 }
 
+const selectableThemeNames = ['Essential','Editorial']
+
 const themeRecipes = {
   Blank: { sections:[], labels:{}, defaults:{} },
+  Essential: {
+    sections:['hero','featured','story','newsletter'],
+    labels:{hero:'Hero',featured:'Featured products',story:'Brand story',newsletter:'Newsletter'},
+    defaults:{}
+  },
   Aurelia: {
     sections:['hero','featured','imageStory','quote','newsletter'],
     labels:{hero:'Split hero',featured:'Featured collection',imageStory:'Image + story',quote:'Brand quote',newsletter:'Newsletter'},
@@ -197,14 +212,9 @@ const themeRecipes = {
     }
   },
   Editorial: {
-    sections:['masthead','issueIntro','storyGrid','featured','journalTeasers','newsletter'],
-    labels:{masthead:'Magazine masthead',issueIntro:'Issue opener',storyGrid:'Editorial story grid',featured:'Objects in this issue',journalTeasers:'Latest stories',newsletter:'Reader list'},
-    defaults:{
-      masthead:{eyebrow:'COBEST EDITION',title:'THE OBJECTS ISSUE',body:'VOL. 04  /  SEPTEMBER 2026'},
-      issueIntro:{eyebrow:'EDITOR’S NOTE',title:'A slower way to discover what is worth keeping.',body:'Lead with an editorial introduction before products appear.'},
-      storyGrid:{eyebrow:'FEATURES',title:'Three stories. One point of view.',body:'A modular magazine grid for interviews, essays, or collection stories.'},
-      journalTeasers:{eyebrow:'LATEST',title:'More from the journal',body:'Secondary stories continue the editorial rhythm.'}
-    }
+    sections:['hero','story','featured','newsletter'],
+    labels:{hero:'Editorial hero',story:'Brand story',featured:'Featured work or products',newsletter:'Newsletter'},
+    defaults:{}
   },
   Vanta: {
     sections:['hero','signatureCollection','craftStats','featured','vipBanner'],
@@ -274,7 +284,7 @@ const defaultEditor = {
   },
   featured: { title: 'Featured products', columns: 3 },
   story: { title: 'Tell your story', body: 'Use this section to explain what your business believes in and why customers should choose you.' },
-  theme: { ...themePresets.Aurelia },
+  theme: { ...themePresets.Essential },
   blocks: [],
   currentPage: 'Home',
   pageContent: {},
@@ -282,8 +292,8 @@ const defaultEditor = {
   header: { logoText: '', menu: ['Shop','About','Contact'] },
   newsletter: { heading: 'Stay in the loop.', body: 'New products, stories, and updates.', button: 'Join' },
   footer: { text: 'Built with CoBest', menu: ['Contact'] },
-  sectionOrder: [...themeRecipes.Aurelia.sections],
-  sectionContent: { ...themeRecipes.Aurelia.defaults },
+  sectionOrder: [...themeRecipes.Essential.sections],
+  sectionContent: { ...themeRecipes.Essential.defaults },
   customCss: '',
   typography: {
     bodyWeight: 400,
@@ -433,15 +443,9 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
-            ['Business','Northstar','Professional services'],
-            ['Portfolio','Frame','Creative portfolios'],
-            ['Agency','Signal','Studios and agencies'],
-            ['SaaS','Orbit','Product-led software'],
-            ['Ecommerce','Field Shop','Editorial commerce'],
-            ['Restaurant','Supper House','Food and hospitality'],
-            ['Personal','Profile One','Independent professionals'],
-            ['Blog','Margin Journal','Editorial publishing']
-          ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use template <ArrowRight size={13}/></button></article>)}
+            ['Essential','Essential','Clean, neutral, professional'],
+            ['Editorial','Editorial','Refined, typography-led, focused']
+          ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use theme <ArrowRight size={13}/></button></article>)}
         </div>
       </section>
 
@@ -659,7 +663,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
   const pageMeta=editor.pageMeta||{}
-  const applyTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Aurelia)}}))
+  const applyTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Essential)}}))
   const openPage=(p)=>{
     setEditor(prev=>({...prev,currentPage:p,pageContent:{...(prev.pageContent||{}),[p]:prev.pageContent?.[p]||{title:p,body:'',blocks:[]}}}))
     setPage('editor')
@@ -683,7 +687,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
     ;[list[i],list[j]]=[list[j],list[i]];setPages?.(list)
   }
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
-    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{editor.theme?.name||'Aurelia'}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Theme preset</strong><div><select className="toolbar-select" value={editor.theme?.name||'Aurelia'} onChange={e=>applyTheme(e.target.value)}>{Object.keys(themePresets).map(x=><option key={x}>{x}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
+    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Choose one of two</strong><div><select className="toolbar-select" value={selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'} onChange={e=>applyTheme(e.target.value)}>{selectableThemeNames.map(x=><option key={x}>{x}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
     <div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div>
     <div className="page-list">{(pages||[]).map((p,i)=>{const visible=pageMeta[p]?.visible!==false;return <div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><button className={`status ${visible?'active':'draft'}`} onClick={()=>toggleVisible(p)}>{visible?'Visible':'Hidden'}</button><small>{i===0?'Homepage':'Page'}</small><div className="row-actions"><button title="Move up" disabled={i===0} onClick={()=>move(p,-1)}>↑</button><button title="Move down" disabled={i===(pages||[]).length-1} onClick={()=>move(p,1)}>↓</button><button title="Edit page" onClick={()=>openPage(p)}><Pencil size={16}/></button>{p!=='Home'&&<button title="Delete page" onClick={()=>removePage(p)}><X size={16}/></button>}</div></div>})}</div>
     {adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add & edit page</Button></div></div></Modal>}
@@ -691,8 +695,8 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
 }
 
 function ThemePreview({theme,large=false}) {
-  const t=theme||themePresets.Aurelia
-  const recipe=themeRecipes[t.name]||themeRecipes.Aurelia
+  const t=theme||themePresets.Essential
+  const recipe=themeRecipes[t.name]||themeRecipes.Essential
   const sections=recipe.sections.slice(0,3)
   return <div className={`theme-thumb theme-thumb-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
     <div className="theme-thumb-browser">
@@ -705,13 +709,13 @@ function ThemePreview({theme,large=false}) {
   </div>
 }
 function ThemeLibrary({editor,setEditor,setPage}) {
-  const current=editor.theme?.name||'Aurelia'
-  const currentTheme=themePresets[current]||{...themePresets.Aurelia,...editor.theme}
+  const current=selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'
+  const currentTheme={...(themePresets[current]||themePresets.Essential),...(selectableThemeNames.includes(editor.theme?.name)?editor.theme:{})}
   const [pickerTheme,setPickerTheme]=useState(null)
   const [pickedSections,setPickedSections]=useState([])
 
   const openPicker=name=>{
-    const recipe=themeRecipes[name]||themeRecipes.Aurelia
+    const recipe=themeRecipes[name]||themeRecipes.Essential
     const existing=name===current?(editor.sectionOrder||[]).filter(id=>recipe.sections.includes(id)):[]
     const recommended=existing.length?existing:recipe.sections.slice(0,Math.min(4,recipe.sections.length))
     setPickedSections(recommended)
@@ -724,12 +728,12 @@ function ThemeLibrary({editor,setEditor,setPage}) {
 
   const applyTheme=()=>{
     if(!pickerTheme)return
-    if(pickerTheme!=='Blank'&&!pickedSections.length)return
-    const recipe=themeRecipes[pickerTheme]||themeRecipes.Aurelia
+    if(!pickedSections.length)return
+    const recipe=themeRecipes[pickerTheme]||themeRecipes.Essential
     const ordered=recipe.sections.filter(id=>pickedSections.includes(id))
     setEditor(prev=>({
       ...prev,
-      theme:{...(themePresets[pickerTheme]||themePresets.Aurelia)},
+      theme:{...(themePresets[pickerTheme]||themePresets.Essential)},
       sectionOrder:ordered,
       sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},
       selected:ordered[0]||'header'
@@ -737,10 +741,10 @@ function ThemeLibrary({editor,setEditor,setPage}) {
     setPickerTheme(null)
   }
 
-  const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Aurelia):null
+  const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Essential):null
 
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose a design direction, then choose only the sections your client actually needs. Themes are starting systems, not locked page templates.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Two professional starting points only. Choose one, then focus on editing the actual page instead of browsing endless themes.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
 
     <section className="panel current-theme-panel compact-current-theme">
       <div className="current-theme-layout">
@@ -755,12 +759,12 @@ function ThemeLibrary({editor,setEditor,setPage}) {
       </div>
     </section>
 
-    <div className="page-section-head"><div><span>CoBest themes</span><h2>Choose a design direction</h2><p className="field-help">Each theme has different section types. Clients can pick which sections to include before applying it.</p></div></div>
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Keep the choice simple</h2><p className="field-help">Essential is neutral and versatile. Editorial is warmer and typography-led. Both stay intentionally uncluttered.</p></div></div>
 
-    <div className="theme-library-grid">{Object.entries(themePresets).map(([name,t])=><article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
+    <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];return <article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
       <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
-    </article>)}</div>
+    </article>})}</div>
 
     {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
       <div className="theme-section-picker">
@@ -774,7 +778,7 @@ function ThemeLibrary({editor,setEditor,setPage}) {
             <div><small>SECTION {String(i+1).padStart(2,'0')}</small><strong>{label}</strong><p>{desc}</p></div>
           </button>
         })}</div>
-        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={pickerTheme!=='Blank'&&!pickedSections.length}>{pickerTheme==='Blank'?'Apply blank canvas':`Apply ${pickerTheme} with ${pickedSections.length} sections`}</Button></div>
+        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>{`Apply ${pickerTheme} with ${pickedSections.length} sections`}</Button></div>
       </div>
     </Modal>}
   </div>
@@ -880,7 +884,7 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPu
     </div>
   }
 
-  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Essential
   const themeLabels=Object.entries(recipe.labels||{})
   const themeIds=new Set(recipe.sections||[])
   const fixed=[['header','Header'],['hero','Hero'],['featured','Featured products'],['story','Brand story'],['newsletter','Newsletter'],['footer','Footer'],...themeLabels]
@@ -898,7 +902,7 @@ function Editor({data,pages=[],products,media=[],editor,setEditor,onPreview,onPu
 }
 
 function ThemeSectionSettings({id,editor,setEditor}){
-  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Essential
   const base=recipe.defaults?.[id]||{}
   const value={...base,...(editor.sectionContent?.[id]||{})}
   const update=(key,val)=>setEditor(prev=>({...prev,sectionContent:{...(prev.sectionContent||{}),[id]:{...(prev.sectionContent?.[id]||base),[key]:val}}}))
@@ -982,7 +986,7 @@ function EditorBlock({block,products=[],device='desktop'}){
 }
 
 function ThemeSection({id,editor}) {
-  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Aurelia
+  const recipe=themeRecipes[editor.theme?.name]||themeRecipes.Essential
   const d={...(recipe.defaults?.[id]||{}),...(editor.sectionContent?.[id]||{})}
   const parts=String(d.body||'').split('|').map(x=>x.trim()).filter(Boolean)
   if(id==='marquee'||id==='promoBar') return <section className={`theme-section ts-${id}`}><div className="ts-marquee">{Array(3).fill(d.title||'NEW COLLECTION').map((x,i)=><span key={i}>{x}</span>)}</div></section>
