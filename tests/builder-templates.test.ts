@@ -20,6 +20,16 @@ describe('builder templates',()=>{
     }
   })
 
+  it('uses fluid professional CSS and visible focus states',()=>{
+    const [essential,editorial]=builderTemplates.map(t=>t.build())
+    expect(essential.styles.display.desktop.none.fontSize).toContain('clamp(')
+    expect(editorial.styles.display.desktop.none.fontSize).toContain('clamp(')
+    expect(essential.styles.button.desktop.focused?.outline).toContain('var(--accent)')
+    expect(editorial.styles.button.desktop.focused?.outline).toContain('var(--accent)')
+    expect(essential.styles['feature-grid'].mobilePortrait?.none?.gridTemplateColumns).toBe('1fr')
+    expect(editorial.styles.quote.desktop.none.fontFamily).toContain('Playfair Display')
+  })
+
   it('applies a theme without changing the current project id or assets',()=>{
     const current=createDefaultProject()
     current.id='site-123'
