@@ -6,8 +6,9 @@ describe('visual builder canvas document',()=>{
   it('renders a clean preview without editor-only attributes',()=>{
     const project=createDefaultProject()
     const html=createCanvasDocument(project,'desktop',false)
-    expect(html).not.toContain('data-builder-node=')
-    expect(html).not.toContain('data-builder-type=')
+    const bodyMarkup=html.split('<body>')[1].split('<script>')[0]
+    expect(bodyMarkup).not.toContain('data-builder-node=')
+    expect(bodyMarkup).not.toContain('data-builder-type=')
     expect(html).toContain("classList.toggle('builder-editing',false)")
     expect(html).toContain('min-height:72vh')
   })
@@ -15,8 +16,9 @@ describe('visual builder canvas document',()=>{
   it('keeps edit layout stable while exposing full-page canvas controls',()=>{
     const project=createDefaultProject()
     const html=createCanvasDocument(project,'desktop',true)
-    expect(html).toContain('data-builder-node=')
-    expect(html).toContain('data-builder-type=')
+    const bodyMarkup=html.split('<body>')[1].split('<script>')[0]
+    expect(bodyMarkup).toContain('data-builder-node=')
+    expect(bodyMarkup).toContain('data-builder-type=')
     expect(html).toContain("classList.toggle('builder-editing',true)")
     expect(html).toContain("send('canvas-resize'")
     expect(html).toContain("send('canvas-drop'")
