@@ -740,3 +740,56 @@ Vitest is integrated into CI. Tests cover tree insert/move/cycle protection/dupl
 
 ### Required live retest after deployment
 The code batch is build/test validated in GitHub, but authenticated browser behavior and provider flows must be tested against the deployed environment before production QA is marked fully PASS.
+
+
+## Functional production audit — 2026-10-07
+
+Audit standard: trace the real MVP end to end, fix root causes, and only mark verified behavior as passing.
+
+### AUDIT-001 — P1 — Viewer could mutate privileged workspace state
+- **Areas:** publishing, unpublishing, media upload.
+- **Problem:** Viewer is documented as read-only, but these authenticated mutation routes did not enforce the Viewer restriction server-side.
+- **Root cause:** role checks existed on generic CRUD but were missing on standalone mutation routes.
+- **Fix:** added server-side 403 guards for Viewer on publish, unpublish, and media upload.
+- **Regression:** `tests/server-authorization.test.ts`.
+
+### AUDIT-002 — P1 — Billing portal authorization inconsistent
+- **Area:** subscription billing.
+- **Problem:** billing checkout required Owner/Admin but billing portal did not.
+- **Root cause:** missing role guard on the portal route.
+- **Fix:** billing portal now requires Owner or Admin.
+- **Regression:** `tests/server-authorization.test.ts`.
+
+### AUDIT-003 — P1 — Checkout totals could become invalid from malformed numeric data
+- **Areas:** public checkout, inventory, discounts, tax, shipping.
+- **Problem:** malformed quantity or legacy numeric values could produce non-finite totals.
+- **Root cause:** unchecked `Number(...)` values flowed through checkout arithmetic.
+- **Fix:** extracted and hardened `calculateCheckout`; quantities, stock, prices, discounts, shipping, and tax are now validated/bounded.
+- **Regression:** `tests/server-commerce.test.ts` covers malformed quantities, inventory limits, discount caps/expiry/usage, shipping, and tax.
+
+### AUDIT-004 — P1 — Logout only cleared browser storage
+- **Area:** authentication.
+- **Problem:** signing out removed local tokens but did not revoke the Supabase session server-side.
+- **Root cause:** no authenticated logout API route.
+- **Fix:** added `POST /api/auth/logout`, revokes with Supabase, then client clears local auth/site tokens even if the network call fails.
+- **Regression:** `tests/server-authorization.test.ts`.
+
+### AUDIT-005 — P2 — Dead Campaign action leaked into Discounts UI
+- **Area:** Discounts.
+- **Problem:** discount rows contained a copied `sendCampaign` action that is not part of discounts and is undefined in that component.
+- **Root cause:** accidental cross-feature UI code.
+- **Fix:** removed the invalid action; retained Edit/Delete.
+- **Regression:** source-level assertion in `tests/server-authorization.test.ts`.
+
+### AUDIT-006 — P2 — Public form and cart edge cases
+- **Areas:** cart, newsletter, contact, booking, review, order lookup, checkout.
+- **Problems:** cart could exceed displayed stock before checkout; newsletter errors were unhandled; contact/booking allowed repeat submits; public endpoints accepted weak email/date/rating input.
+- **Fixes:** stock-aware cart increments, form busy/error states, future-booking validation, server-side email validation, review rating 1–5 validation, checkout buyer email validation.
+- **Status:** implementation complete; branch CI required before merge.
+
+### AUDIT-007 — Build security gate
+- **Area:** development/test dependencies.
+- **Problem:** CI detected high/critical advisories in Vitest 3.2.7 dependency graph and source-map-js 1.2.1.
+- **Fix:** refreshed lockfile with Vitest 4.1.11 / @vitest/mocker 4.1.11 and source-map-js 1.2.2; vulnerable tinypool is no longer installed.
+- **Verification:** dependency refresh runner passed `npm audit --audit-level=high`, unit tests, and production build. Normal PR CI must still pass on the final clean head.
+
