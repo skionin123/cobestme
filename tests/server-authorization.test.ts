@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const server=readFileSync(new URL('../server.mjs',import.meta.url),'utf8')
+const api=readFileSync(new URL('../src/api.js',import.meta.url),'utf8')
+const admin=readFileSync(new URL('../src/AdminAdvanced.jsx',import.meta.url),'utf8')
 
 function routeBlock(start:string,end:string){
   const s=server.indexOf(start)
@@ -22,6 +24,21 @@ describe('server authorization guards',()=>{
   it('prevents Viewer media uploads',()=>{
     const media=routeBlock("if (url.pathname === '/api/media/upload'","const campaignSend")
     expect(media).toContain("if(role==='Viewer')return sendJson(res,403")
+  })
+
+  it('revokes the remote auth session during logout and still clears local tokens',()=>{
+    expect(server).toContain("url.pathname === '/api/auth/logout'")
+    expect(server).toContain("supabaseFetch('/auth/v1/logout'")
+    expect(api).toContain("await fetch('/api/auth/logout'")
+    expect(api).toContain('localStorage.removeItem(REFRESH_KEY)')
+  })
+
+  it('does not expose the stray campaign send action in Discounts',()=>{
+    const start=admin.indexOf('export function DiscountsManager')
+    const end=admin.indexOf('export function CampaignsManager',start)
+    const block=admin.slice(start,end)
+    expect(block).not.toContain('sendCampaign(')
+    expect(block).not.toContain('Send now')
   })
 
   it('limits billing management to Owner or Admin',()=>{
