@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { calculateCheckout } from './server-commerce.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -341,46 +342,6 @@ async function getPublishedStoreByDomain(host) {
   })
   const row = result.ok && Array.isArray(result.data) ? result.data[0] || null : null
   return row?.slug ? getPublishedStore(row.slug) : null
-}
-
-function calculateCheckout(snapshot, body) {
-  const catalog = Array.isArray(snapshot?.products) ? snapshot.products : []
-  const requested = Array.isArray(body?.items) ? body.items : []
-  const items = []
-  const inventoryIssues = []
-  for (const row of requested) {
-    const product = catalog.find(p => String(p.id) === String(row.product_id) && p.status === 'Active')
-    if (!product) continue
-    const requestedQuantity = Math.max(1, Math.min(99, Number(row.quantity || 1)))
-    const inventory = product.inventory == null ? null : Math.max(0, Number(product.inventory || 0))
-    if (inventory != null && requestedQuantity > inventory) {
-      inventoryIssues.push({ product_id: product.id, name: product.name, requested: requestedQuantity, available: inventory })
-      continue
-    }
-    const quantity = requestedQuantity
-    const unitPrice = Number(product.price || 0)
-    items.push({ product_id: product.id, name: product.name, quantity, unit_price: unitPrice, line_total: unitPrice * quantity })
-  }
-  const subtotal = items.reduce((sum,x)=>sum+x.line_total,0)
-  let discountAmount = 0
-  let discountCode = ''
-  const requestedCode = String(body?.discount_code || '').trim().toUpperCase()
-  if (requestedCode) {
-    const discounts = Array.isArray(snapshot?.discounts) ? snapshot.discounts : []
-    const d = discounts.find(x => x.active && String(x.code).toUpperCase() === requestedCode)
-    const notExpired = !d?.expires_at || new Date(d.expires_at).getTime() > Date.now()
-    const underLimit = !d?.usage_limit || Number(d.used_count || 0) < Number(d.usage_limit)
-    if (d && notExpired && underLimit && subtotal >= Number(d.min_spend || 0)) {
-      discountCode = requestedCode
-      discountAmount = d.kind === 'fixed' ? Math.min(subtotal, Number(d.value || 0)) : subtotal * Math.min(100, Math.max(0, Number(d.value || 0))) / 100
-    }
-  }
-  const settings = snapshot?.settings || {}
-  const shippingAmount = subtotal > 0 ? Math.max(0, Number(settings.shippingFlat || 0)) : 0
-  const taxableBase = Math.max(0, subtotal - discountAmount)
-  const taxAmount = taxableBase * Math.max(0, Number(settings.taxRate || 0)) / 100
-  const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
 }
 
 async function handlePublicApi(req, res, url) {
