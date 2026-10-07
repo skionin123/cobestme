@@ -420,6 +420,10 @@ async function handlePublicApi(req, res, url) {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     if(!isValidEmail(body.buyer.email))return sendJson(res,400,{error:'Enter a valid checkout email address.'})
     if(!Array.isArray(body.items)||!body.items.length||body.items.length>100)return sendJson(res,400,{error:'Cart must contain between 1 and 100 line items.'})
+    const paymentProvider=String(body.payment_provider||'').toLowerCase()
+    if(paymentProvider&&!['stripe','paypal'].includes(paymentProvider))return sendJson(res,400,{error:'Unsupported payment provider.'})
+    if(paymentProvider==='stripe'&&!stripeSecret)return sendJson(res,503,{error:'Card payments are not available right now.'})
+    if(paymentProvider==='paypal'&&!(paypalClientId&&paypalClientSecret))return sendJson(res,503,{error:'PayPal is not available right now.'})
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
@@ -445,7 +449,7 @@ async function handlePublicApi(req, res, url) {
     if(resendApiKey&&body.buyer?.email){
       sendEmail(body.buyer.email,`Order ${order.order_number} received`,`<p>Hi ${escapeHtml(body.buyer.name)},</p><p>We received order <strong>${escapeHtml(order.order_number)}</strong>.</p><p>Total: <strong>${escapeHtml(String(totals.total))} ${escapeHtml(String(store?.settings?.currency||'PHP'))}</strong></p><p>Payment status: Pending.</p>`).catch(()=>{})
     }
-    const provider=String(body.payment_provider||'').toLowerCase()
+    const provider=paymentProvider
     try{
       if(provider==='stripe'&&stripeSecret){
         const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
