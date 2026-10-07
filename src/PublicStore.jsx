@@ -1,31 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
-import { createPublishedDocument } from './builder/publicDocument'
+import VisualProjectFrame from './builder/VisualProjectFrame'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
 const keyFor = slug => `cobest-public-cart-${slug||'store'}`
 
 function Modal({title,onClose,children}) {
   return <div className="modal-backdrop public-modal"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div>
-}
-
-function VisualProjectFrame({project,page,onNavigate}) {
-  const srcDoc=useMemo(()=>createPublishedDocument(project,page.id),[project,page.id])
-  useEffect(()=>{
-    const handler=event=>{
-      const msg=event.data||{}
-      if(msg.source!=='cobest-public-visual'||msg.type!=='navigate')return
-      const href=String(msg.href||'')
-      if(href==='/shop'||href==='shop'){onNavigate('Shop');return}
-      const normalized=href.split('?')[0].split('#')[0].replace(/\.html$/,'')
-      const target=(project.pages||[]).find(p=>!p.isCollectionTemplate&&(p.slug===normalized||p.slug.replace(/\/$/,'')===normalized.replace(/\/$/,'')))
-      if(target)onNavigate(target.name)
-    }
-    window.addEventListener('message',handler)
-    return()=>window.removeEventListener('message',handler)
-  },[project,onNavigate])
-  return <iframe className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups" srcDoc={srcDoc}/>
 }
 
 export default function PublicStore({slug:slugProp,host}) {
