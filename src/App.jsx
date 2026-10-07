@@ -5,7 +5,7 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
   Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getMe, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
@@ -1132,6 +1132,8 @@ export default function App() {
   const [events,setEvents] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
+  const [cloudError,setCloudError] = useState('')
+  const [accessRole,setAccessRole] = useState('')
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
 
@@ -1171,41 +1173,64 @@ export default function App() {
   useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
-    Promise.all([
-      listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
-      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
-      listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
-      listResource('product_reviews'),listResource('store_events')
-    ]).then(([siteList,workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
-      if(!active) return
-      if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
-      setWorkspace(workspaceData)
-      if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
-      if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
-      if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
-      if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
-      if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
-      if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
-      if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
-      if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
-      if(Array.isArray(cloudCollections)) setCollections(cloudCollections)
-      if(Array.isArray(cloudBlogPosts)) setBlogPosts(cloudBlogPosts)
-      if(Array.isArray(cloudCatalogTerms)) setCatalogTerms(cloudCatalogTerms)
-      if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
-      if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
-      if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
-      if(Array.isArray(cloudReviews)) setReviews(cloudReviews)
-      if(Array.isArray(cloudEvents)) setEvents(cloudEvents)
-      setCloudReady(true)
-    }).catch(()=>setCloudReady(true))
+    const hydrate=async()=>{
+      setCloudReady(false)
+      setCloudError('')
+      try{
+        const identity=await getMe()
+        if(!active)return
+        setAccessRole(identity?.role||'Owner')
+        const results=await Promise.allSettled([
+          listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
+          listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
+          listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
+          listResource('product_reviews'),listResource('store_events')
+        ])
+        if(!active)return
+        const authFailure=results.find(result=>result.status==='rejected'&&result.reason?.status===401)
+        if(authFailure)throw authFailure.reason
+        const value=index=>results[index]?.status==='fulfilled'?results[index].value:null
+        const siteList=value(0),workspaceData=value(1)
+        if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
+        if(results[1].status==='rejected'){
+          setCloudError('Your workspace could not be loaded, so autosave has been paused to protect cloud data. Refresh or sign in again before editing.')
+          return
+        }
+        setWorkspace(workspaceData)
+        if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
+        if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
+        const setters=[
+          setProducts,setCustomers,setOrders,setMediaAssets,setDiscounts,setCampaigns,setCollections,setBlogPosts,setCatalogTerms,
+          setSubscribers,setContacts,setBookings,setReviews,setEvents
+        ]
+        setters.forEach((setter,index)=>{const data=value(index+2);if(Array.isArray(data))setter(data)})
+        const failed=results.filter((result,index)=>index!==1&&result.status==='rejected').length
+        if(failed)setCloudError(`${failed} workspace data request${failed===1?'':'s'} could not be loaded. Loaded data is preserved; unavailable areas may need a refresh.`)
+        setCloudReady(true)
+      }catch(err){
+        if(!active)return
+        if(err?.status===401){
+          logout()
+          setAccessRole('')
+          setCloudReady(false)
+          setCloudError('Your session expired. Please log in again.')
+          setMode('login')
+          setPage('dashboard')
+        }else{
+          setCloudReady(false)
+          setCloudError(err?.message||'CoBest could not load the cloud workspace. Autosave is paused to protect your data.')
+        }
+      }
+    }
+    hydrate()
     return ()=>{active=false}
   },[mode])
 
   useEffect(()=>{
-    if(!cloudReady || !isAuthenticated()) return
+    if(!cloudReady || !isAuthenticated() || accessRole==='Viewer') return
     const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
-  },[onboarding,editor,page,cloudReady])
+  },[onboarding,editor,page,cloudReady,accessRole])
 
   const complete = () => {
     const featurePages=[]
