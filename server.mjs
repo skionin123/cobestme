@@ -365,21 +365,30 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/booking' && req.method === 'POST') {
     if (!body?.slug || !body?.name || !body?.email || !body?.start_at) return sendJson(res, 400, { error: 'Store, name, email, and time are required.' })
-    const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const bookingTime=normalizeFutureDate(body.start_at)
+    if(!bookingTime.ok)return sendJson(res,400,{error:bookingTime.error})
+    const result = await rpc('book_store', { p_slug: body.slug, p_name: String(body.name).trim().slice(0,160), p_email: String(body.email).trim().toLowerCase(), p_phone: String(body.phone || '').slice(0,80), p_start_at: bookingTime.value, p_notes: String(body.notes || '').slice(0,5000) })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(body.start_at)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
-      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(body.start_at)}</strong> has been received.</p>`).catch(()=>{})
+      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(bookingTime.value)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
+      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(bookingTime.value)}</strong> has been received.</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/review' && req.method === 'POST') {
-    if (!body?.slug || !body?.product_id || !body?.name || !body?.rating) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    if (!body?.slug || !body?.product_id || !body?.name || body?.rating==null) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    const rating=normalizeReviewRating(body.rating)
+    if(!rating.ok)return sendJson(res,400,{error:rating.error})
+    if(body.email&&!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    if(String(body.body||'').length>5000)return sendJson(res,400,{error:'Review is too long.'})
+    const productId=Number(body.product_id)
+    if(!Number.isInteger(productId)||productId<1)return sendJson(res,400,{error:'Invalid product.'})
     const result = await rpc('review_store_product', {
-      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: Number(body.rating), p_body: body.body || ''
+      p_slug: body.slug, p_product_id: productId, p_name: String(body.name).trim().slice(0,160),
+      p_email: String(body.email || '').trim().toLowerCase(), p_rating: rating.value, p_body: String(body.body || '').slice(0,5000)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
