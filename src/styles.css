@@ -1201,3 +1201,5 @@
 .theme-thumb-essential .theme-thumb-art{background:linear-gradient(145deg,var(--tp-paper),color-mix(in srgb,var(--tp-accent) 18%,#fff))}
 .theme-thumb-essential .theme-thumb-art i,.theme-thumb-essential .theme-thumb-art b{border-radius:12px}
 .theme-thumb-essential .theme-thumb-section i{border-radius:6px}
+
+.app-sync-warning{margin:14px 20px 0;position:relative;z-index:2}

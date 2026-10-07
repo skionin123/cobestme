@@ -122,15 +122,25 @@ export default function PublicStore({slug:slugProp,host}) {
     if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:name}}).catch(()=>{})
   }
   const add=p=>{
+    const stock=p.inventory==null?null:Math.max(0,Math.floor(Number(p.inventory)||0))
+    if(stock===0){setNotice(`${p.name} is out of stock.`);setTimeout(()=>setNotice(''),2600);return}
+    let added=false
     setCart(prev=>{
       const hit=prev.find(x=>String(x.id)===String(p.id))
+      if(hit&&stock!=null&&hit.quantity>=stock)return prev
+      added=true
       return hit?prev.map(x=>String(x.id)===String(p.id)?{...x,quantity:x.quantity+1}:x):[...prev,{...p,quantity:1}]
     })
-    setNotice(`${p.name} added to cart.`)
-    setTimeout(()=>setNotice(''),2200)
-    if(store?.slug) publicAction('event',{slug:store.slug,event_type:'add_to_cart',path:window.location.pathname,metadata:{product_id:p.id}}).catch(()=>{})
+    setNotice(added?`${p.name} added to cart.`:stock!=null?`Only ${stock} ${p.name} available.`:`${p.name} added to cart.`)
+    setTimeout(()=>setNotice(''),2600)
+    if(added&&store?.slug) publicAction('event',{slug:store.slug,event_type:'add_to_cart',path:window.location.pathname,metadata:{product_id:p.id}}).catch(()=>{})
   }
-  const qty=(id,delta)=>setCart(prev=>prev.map(x=>String(x.id)===String(id)?{...x,quantity:Math.max(1,x.quantity+delta)}:x))
+  const qty=(id,delta)=>setCart(prev=>prev.map(x=>{
+    if(String(x.id)!==String(id))return x
+    const stock=x.inventory==null?null:Math.max(0,Math.floor(Number(x.inventory)||0))
+    const next=Math.max(1,x.quantity+delta)
+    return {...x,quantity:stock==null?next:Math.min(Math.max(1,stock),next)}
+  }))
   const remove=id=>setCart(prev=>prev.filter(x=>String(x.id)!==String(id)))
 
   if(loading) return <div className="public-store-loading">Loading store…</div>
@@ -361,8 +371,17 @@ function ContentBlock({block,products=[],currency='PHP',onAdd}) {
 function Newsletter({slug}) {
   const [email,setEmail]=useState('')
   const [done,setDone]=useState(false)
-  const submit=async e=>{e.preventDefault();if(!email)return;await publicAction('subscribe',{slug,email});setDone(true);setEmail('')}
-  return <section className="public-newsletter"><h2>Stay in the loop.</h2><p>New products, stories, and updates.</p>{done?<span><Check size={16}/> You're subscribed.</span>:<form onSubmit={submit}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email address" required/><button>Join</button></form>}</section>
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const submit=async e=>{
+    e.preventDefault()
+    if(!email||busy)return
+    setBusy(true);setError('')
+    try{await publicAction('subscribe',{slug,email});setDone(true);setEmail('')}
+    catch(err){setError(err.message)}
+    finally{setBusy(false)}
+  }
+  return <section className="public-newsletter"><h2>Stay in the loop.</h2><p>New products, stories, and updates.</p>{error&&<div className="auth-message auth-error">{error}</div>}{done?<span><Check size={16}/> You're subscribed.</span>:<form onSubmit={submit}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email address" required/><button disabled={busy}>{busy?'Joining…':'Join'}</button></form>}</section>
 }
 
 function PolicyPage({title,body}) {
@@ -370,15 +389,15 @@ function PolicyPage({title,body}) {
 }
 
 function ContactPage({slug,email}) {
-  const [form,setForm]=useState({name:'',email:'',message:''});const [done,setDone]=useState(false);const [error,setError]=useState('')
-  const submit=async e=>{e.preventDefault();setError('');try{await publicAction('contact',{slug,...form});setDone(true)}catch(err){setError(err.message)}}
-  return <main className="public-generic-page"><small>CONTACT</small><h1>Get in touch.</h1>{email&&<p className="public-contact-email">{email}</p>}{done?<p>Thanks — your message has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Message"><textarea rows="6" value={form.message} onChange={e=>setForm({...form,message:e.target.value})} required/></Field><button className="btn btn-primary">Send message</button></form>}</main>
+  const [form,setForm]=useState({name:'',email:'',message:''});const [done,setDone]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+  const submit=async e=>{e.preventDefault();if(busy)return;setBusy(true);setError('');try{await publicAction('contact',{slug,...form});setDone(true)}catch(err){setError(err.message)}finally{setBusy(false)}}
+  return <main className="public-generic-page"><small>CONTACT</small><h1>Get in touch.</h1>{email&&<p className="public-contact-email">{email}</p>}{done?<p>Thanks — your message has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Message"><textarea rows="6" value={form.message} onChange={e=>setForm({...form,message:e.target.value})} required/></Field><button className="btn btn-primary" disabled={busy}>{busy?'Sending…':'Send message'}</button></form>}</main>
 }
 
 function BookingPage({slug}) {
-  const [form,setForm]=useState({name:'',email:'',phone:'',start_at:'',notes:''});const [done,setDone]=useState(false);const [error,setError]=useState('')
-  const submit=async e=>{e.preventDefault();setError('');try{await publicAction('booking',{slug,...form,start_at:new Date(form.start_at).toISOString()});setDone(true)}catch(err){setError(err.message)}}
-  return <main className="public-generic-page"><small>BOOKING</small><h1>Book a time.</h1>{done?<p>Your booking request has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Phone"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field><Field label="Date & time"><input type="datetime-local" value={form.start_at} onChange={e=>setForm({...form,start_at:e.target.value})} required/></Field><Field label="Notes"><textarea rows="4" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></Field><button className="btn btn-primary">Request booking</button></form>}</main>
+  const [form,setForm]=useState({name:'',email:'',phone:'',start_at:'',notes:''});const [done,setDone]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+  const submit=async e=>{e.preventDefault();if(busy)return;setBusy(true);setError('');try{const when=new Date(form.start_at);if(!form.start_at||Number.isNaN(when.getTime()))throw new Error('Choose a valid booking date and time.');await publicAction('booking',{slug,...form,start_at:when.toISOString()});setDone(true)}catch(err){setError(err.message)}finally{setBusy(false)}}
+  return <main className="public-generic-page"><small>BOOKING</small><h1>Book a time.</h1>{done?<p>Your booking request has been received.</p>:<form className="public-form" onSubmit={submit}>{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Name"><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/></Field><Field label="Email"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} required/></Field><Field label="Phone"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field><Field label="Date & time"><input type="datetime-local" value={form.start_at} onChange={e=>setForm({...form,start_at:e.target.value})} required/></Field><Field label="Notes"><textarea rows="4" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></Field><button className="btn btn-primary" disabled={busy}>{busy?'Sending…':'Request booking'}</button></form>}</main>
 }
 
 function ReviewForm({slug,product,onDone}) {

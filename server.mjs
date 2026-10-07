@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { calculateCheckout } from './server-commerce.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -286,6 +287,55 @@ function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
 
+function isValidEmail(value='') {
+  const email=String(value).trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254
+}
+
+function validateResourceMutation(table, body, method='POST') {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Invalid payload.' }
+  const next = { ...body }
+  if (table === 'products') {
+    if (method === 'POST' && !String(next.name || '').trim()) return { error: 'Product name is required.' }
+    for (const key of ['price','compare_at_price','inventory']) {
+      if (next[key] == null || next[key] === '') continue
+      const value = Number(next[key])
+      if (!Number.isFinite(value) || value < 0) return { error: `${key.replaceAll('_',' ')} must be zero or greater.` }
+      if (key === 'inventory' && !Number.isInteger(value)) return { error: 'Inventory must be a whole number.' }
+      next[key] = value
+    }
+    if (next.status != null && !['Draft','Active','Archived'].includes(next.status)) return { error: 'Invalid product status.' }
+  }
+  if (table === 'discounts') {
+    if (method === 'POST' && !String(next.code || '').trim()) return { error: 'Discount code is required.' }
+    if (next.kind != null && !['percent','fixed'].includes(next.kind)) return { error: 'Invalid discount type.' }
+    if (next.value != null && next.value !== '') {
+      const value = Number(next.value)
+      if (!Number.isFinite(value) || value <= 0) return { error: 'Discount value must be greater than zero.' }
+      if ((next.kind || body.kind) === 'percent' && value > 100) return { error: 'Percent discount cannot exceed 100%.' }
+      next.value = value
+    }
+    if (next.min_spend != null && next.min_spend !== '') {
+      const value = Number(next.min_spend)
+      if (!Number.isFinite(value) || value < 0) return { error: 'Minimum spend must be zero or greater.' }
+      next.min_spend = value
+    }
+    if (next.usage_limit !== undefined && next.usage_limit !== null && next.usage_limit !== '') {
+      const value = Number(next.usage_limit)
+      if (!Number.isInteger(value) || value < 1) return { error: 'Usage limit must be a positive whole number.' }
+      next.usage_limit = value
+    }
+  }
+  if (table === 'orders' && method === 'PATCH') {
+    const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
+    for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
+    if (next.payment_status != null && !['Pending','Paid','Refunded','Failed'].includes(next.payment_status)) return { error: 'Invalid payment status.' }
+    if (next.fulfillment_status != null && !['Unfulfilled','Processing','Fulfilled','Cancelled'].includes(next.fulfillment_status)) return { error: 'Invalid fulfillment status.' }
+    if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
+  }
+  return { body: next }
+}
+
 async function getPublishedStore(slug) {
   const result = await rpc('public_store_payload', { p_slug: slug })
   return result.ok ? result.data || null : null
@@ -297,46 +347,6 @@ async function getPublishedStoreByDomain(host) {
   })
   const row = result.ok && Array.isArray(result.data) ? result.data[0] || null : null
   return row?.slug ? getPublishedStore(row.slug) : null
-}
-
-function calculateCheckout(snapshot, body) {
-  const catalog = Array.isArray(snapshot?.products) ? snapshot.products : []
-  const requested = Array.isArray(body?.items) ? body.items : []
-  const items = []
-  const inventoryIssues = []
-  for (const row of requested) {
-    const product = catalog.find(p => String(p.id) === String(row.product_id) && p.status === 'Active')
-    if (!product) continue
-    const requestedQuantity = Math.max(1, Math.min(99, Number(row.quantity || 1)))
-    const inventory = product.inventory == null ? null : Math.max(0, Number(product.inventory || 0))
-    if (inventory != null && requestedQuantity > inventory) {
-      inventoryIssues.push({ product_id: product.id, name: product.name, requested: requestedQuantity, available: inventory })
-      continue
-    }
-    const quantity = requestedQuantity
-    const unitPrice = Number(product.price || 0)
-    items.push({ product_id: product.id, name: product.name, quantity, unit_price: unitPrice, line_total: unitPrice * quantity })
-  }
-  const subtotal = items.reduce((sum,x)=>sum+x.line_total,0)
-  let discountAmount = 0
-  let discountCode = ''
-  const requestedCode = String(body?.discount_code || '').trim().toUpperCase()
-  if (requestedCode) {
-    const discounts = Array.isArray(snapshot?.discounts) ? snapshot.discounts : []
-    const d = discounts.find(x => x.active && String(x.code).toUpperCase() === requestedCode)
-    const notExpired = !d?.expires_at || new Date(d.expires_at).getTime() > Date.now()
-    const underLimit = !d?.usage_limit || Number(d.used_count || 0) < Number(d.usage_limit)
-    if (d && notExpired && underLimit && subtotal >= Number(d.min_spend || 0)) {
-      discountCode = requestedCode
-      discountAmount = d.kind === 'fixed' ? Math.min(subtotal, Number(d.value || 0)) : subtotal * Math.min(100, Math.max(0, Number(d.value || 0))) / 100
-    }
-  }
-  const settings = snapshot?.settings || {}
-  const shippingAmount = subtotal > 0 ? Math.max(0, Number(settings.shippingFlat || 0)) : 0
-  const taxableBase = Math.max(0, subtotal - discountAmount)
-  const taxAmount = taxableBase * Math.max(0, Number(settings.taxRate || 0)) / 100
-  const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
 }
 
 async function handlePublicApi(req, res, url) {
@@ -383,12 +393,14 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/subscribe' && req.method === 'POST') {
     if (!body?.slug || !body?.email) return sendJson(res, 400, { error: 'Store and email are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: body.email })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
@@ -400,6 +412,9 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/booking' && req.method === 'POST') {
     if (!body?.slug || !body?.name || !body?.email || !body?.start_at) return sendJson(res, 400, { error: 'Store, name, email, and time are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    const bookingTime=Date.parse(body.start_at)
+    if (!Number.isFinite(bookingTime) || bookingTime <= Date.now()) return sendJson(res, 400, { error: 'Booking time must be in the future.' })
     const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
@@ -412,9 +427,12 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/review' && req.method === 'POST') {
     if (!body?.slug || !body?.product_id || !body?.name || !body?.rating) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    const rating=Number(body.rating)
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return sendJson(res, 400, { error: 'Rating must be between 1 and 5.' })
+    if (body.email && !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('review_store_product', {
       p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: Number(body.rating), p_body: body.body || ''
+      p_email: body.email || '', p_rating: rating, p_body: body.body || ''
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -429,6 +447,7 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
@@ -443,6 +462,7 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
+    if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
@@ -547,6 +567,14 @@ async function handleApi(req, res, url) {
     return sendJson(res, result.status, result.data)
   }
 
+  if (url.pathname === '/api/auth/logout' && req.method === 'POST') {
+    const token=authToken(req)
+    if(!token)return sendJson(res,200,{ok:true})
+    const result=await supabaseFetch('/auth/v1/logout',{method:'POST',headers:apiHeaders(token)})
+    if(!result.ok && result.status!==401)return sendJson(res,result.status,result.data)
+    return sendJson(res,200,{ok:true})
+  }
+
   if (url.pathname === '/api/auth/reset' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
@@ -600,6 +628,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/portal' && req.method === 'POST') {
+    if(!['Owner','Admin'].includes(role))return sendJson(res,403,{error:'Only owners and admins can manage billing.'})
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=customer_reference&limit=1`,{headers:apiHeaders(token)})
     const customer=result.ok&&Array.isArray(result.data)?result.data[0]?.customer_reference:null
@@ -744,6 +773,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/publish' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const body = await readJson(req)
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
@@ -765,6 +795,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
@@ -776,6 +807,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/media/upload' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
@@ -842,8 +874,10 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validated = validateResourceMutation(table, body, 'POST')
+      if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
-        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId, site_id: siteId })
+        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...validated.body, [ownerColumn]: ownerId, site_id: siteId })
       })
       return sendJson(res, result.status, result.data)
     }
@@ -851,9 +885,11 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
-      delete body.user_id; delete body.owner_user_id; delete body.id
+      delete body.user_id; delete body.owner_user_id; delete body.id; delete body.site_id
+      const validated = validateResourceMutation(table, body, 'PATCH')
+      if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
-        method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, updated_at: new Date().toISOString() })
+        method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...validated.body, updated_at: new Date().toISOString() })
       })
       return sendJson(res, result.status, result.data)
     }
