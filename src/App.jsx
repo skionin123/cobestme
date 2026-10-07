@@ -1219,7 +1219,7 @@ export default function App() {
   }
   const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
   const authSuccess=async(next)=>{ const invite=localStorage.getItem('cobest-pending-invite'); if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app')}catch{setMode(next)}}else setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
-  const signOut=()=>{ logout(); setMode('landing'); setPage('dashboard') }
+  const signOut=async()=>{ await logout(); setMode('landing'); setPage('dashboard') }
   const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
   const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('onboarding');window.location.reload()}}catch(err){alert(err.message)}}
   const removeSite=async id=>{if(!window.confirm('Delete this site and its site-scoped data? This cannot be undone.'))return;try{await deleteSite(id);if(String(id)===String(getActiveSiteId()))setActiveSiteId('');window.location.reload()}catch(err){alert(err.message)}}
