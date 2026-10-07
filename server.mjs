@@ -600,6 +600,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/portal' && req.method === 'POST') {
+    if(!['Owner','Admin'].includes(role))return sendJson(res,403,{error:'Only owners and admins can manage billing.'})
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=customer_reference&limit=1`,{headers:apiHeaders(token)})
     const customer=result.ok&&Array.isArray(result.data)?result.data[0]?.customer_reference:null
@@ -744,6 +745,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/publish' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const body = await readJson(req)
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
@@ -765,6 +767,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
@@ -776,6 +779,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/media/upload' && req.method === 'POST') {
+    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
