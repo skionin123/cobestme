@@ -113,7 +113,7 @@ export function validateResourceWrite(table,body,{partial=false}={}){
     if('value' in data){
       const value=finiteNumber(data.value,{min:0})
       if(value==null||value<=0)return 'Discount value must be greater than zero.'
-      if((data.kind==='percent'||(!data.kind&&partial))&&value>100)return 'Percentage discounts cannot exceed 100%.'
+      if(data.kind==='percent'&&value>100)return 'Percentage discounts cannot exceed 100%.'
     }
     if('min_spend' in data&&finiteNumber(data.min_spend,{min:0})==null)return 'Minimum spend cannot be negative.'
     if('usage_limit' in data&&data.usage_limit!=null&&data.usage_limit!==''&&finiteNumber(data.usage_limit,{min:1,integer:true})==null)return 'Usage limit must be a whole number of at least 1.'
