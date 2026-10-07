@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const server=readFileSync(new URL('../server.mjs',import.meta.url),'utf8')
 const api=readFileSync(new URL('../src/api.js',import.meta.url),'utf8')
 const admin=readFileSync(new URL('../src/AdminAdvanced.jsx',import.meta.url),'utf8')
+const app=readFileSync(new URL('../src/App.jsx',import.meta.url),'utf8')
 
 function routeBlock(start:string,end:string){
   const s=server.indexOf(start)
@@ -39,6 +40,13 @@ describe('server authorization guards',()=>{
     const block=admin.slice(start,end)
     expect(block).not.toContain('sendCampaign(')
     expect(block).not.toContain('Send now')
+  })
+
+  it('protects autosave when critical cloud startup fails',()=>{
+    expect(app).toContain('Promise.allSettled')
+    expect(app).toContain("Workspace sync failed. Editing autosave is paused")
+    expect(app).toContain('if(!cloudReady || !isAuthenticated()) return')
+    expect(app).not.toContain('.catch(()=>setCloudReady(true))')
   })
 
   it('limits billing management to Owner or Admin',()=>{
