@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import PublicStore from './PublicStore.jsx'
+import { isPlatformHost, publicStoreSlug } from './routing.js'
 import './styles.css'
 
 class AppErrorBoundary extends React.Component {
@@ -31,11 +32,10 @@ class AppErrorBoundary extends React.Component {
 }
 
 const hostname = window.location.hostname.toLowerCase()
-const slugMatch = window.location.pathname.match(/^\/store\/([^/]+)/)
-const platformHost = hostname === 'cobest.me' || hostname === 'www.cobest.me' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.up.railway.app')
-const routedApp = slugMatch
-  ? <PublicStore slug={decodeURIComponent(slugMatch[1])}/>
-  : !platformHost
+const slug = publicStoreSlug(window.location.pathname)
+const routedApp = slug
+  ? <PublicStore slug={slug}/>
+  : !isPlatformHost(hostname)
     ? <PublicStore host={hostname}/>
     : <App/>
 
