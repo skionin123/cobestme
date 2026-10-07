@@ -423,6 +423,7 @@ async function handlePublicApi(req, res, url) {
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
+    if (totals.inputIssues?.length) return sendJson(res,400,{error:'One or more cart items are invalid.',item_issues:totals.inputIssues})
     if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
