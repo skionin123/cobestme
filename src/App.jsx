@@ -667,6 +667,24 @@ function Modal({title,onClose,children}) { return <div className="modal-backdrop
 function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
+  const visualProject=editor.visualBuilderProject||null
+  const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
+  const openVisualPage=page=>{
+    setEditor(prev=>({...prev,visualBuilderProject:{...prev.visualBuilderProject,activePageId:page.id}}))
+    setPage('editor')
+  }
+  if(visualProject){
+    return <div className="page-wrap">
+      <div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Your Designer project is the single source of truth for pages, styling, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>setPage('editor')}><Palette size={15}/> Open Designer</Button></div></div>
+      <div className="online-store-grid">
+        <section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'}</h3></div><span className="status active">Designer</span></div><ThemePreview theme={themePresets[selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential']}/><div className="theme-actions"><strong>Visual design system</strong><div><Button variant="secondary" onClick={()=>setPage('themes')}>Choose theme</Button><Button onClick={()=>setPage('editor')}>Customize</Button></div></div></section>
+        <section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Exact Designer output"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Pages" value={String(visualPages.length)}/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section>
+      </div>
+      <div className="page-section-head"><div><span>Website structure</span><h2>Designer pages</h2><p className="field-help">Create, rename, duplicate, reorder, and delete pages in the Designer Pages panel so there is only one editable page tree.</p></div><Button onClick={()=>setPage('editor')}>Manage pages in Designer <ArrowRight size={15}/></Button></div>
+      <div className="page-list">{visualPages.map((p,i)=><div className="page-list-row" key={p.id}><div className="page-icon"><FileText size={18}/></div><div><strong>{p.name}</strong><span>{p.slug}</span></div><span className="status active">Live draft</span><small>{p.slug==='/'?'Homepage':'Page'}</small><div className="row-actions"><button title="Edit page in Designer" onClick={()=>openVisualPage(p)}><Pencil size={16}/></button></div></div>)}</div>
+      {!visualPages.length&&<div className="empty-panel"><FileText size={22}/><strong>No Designer pages</strong><p>Open the Designer and create the first page from the Pages panel.</p></div>}
+    </div>
+  }
   const pageMeta=editor.pageMeta||{}
   const applyTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Essential)}}))
   const openPage=(p)=>{
