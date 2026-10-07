@@ -345,13 +345,16 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/subscribe' && req.method === 'POST') {
     if (!body?.slug || !body?.email) return sendJson(res, 400, { error: 'Store and email are required.' })
-    const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: body.email })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: String(body.email).trim().toLowerCase() })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
-    const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    if(String(body.message).length>10000)return sendJson(res,400,{error:'Message is too long.'})
+    const result = await rpc('contact_store', { p_slug: body.slug, p_name: String(body.name || '').slice(0,160), p_email: String(body.email).trim().toLowerCase(), p_message: String(body.message).slice(0,10000) })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
@@ -391,7 +394,8 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
-    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: String(body.order_number).trim().toUpperCase(), p_email: String(body.email).trim().toLowerCase() })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
     return sendJson(res, 200, { order: result.data })
