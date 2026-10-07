@@ -5,8 +5,10 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
   Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getMe, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import VisualProjectFrame from './builder/VisualProjectFrame'
+import { applyThemeStyles, builderTemplates as visualThemes } from './builder/templates'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
 const APP_NAME = 'CoBest'
@@ -570,8 +572,11 @@ const navGroups = [
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
-function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite }) {
+function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite,role='Viewer',syncError='' }) {
   const [mobile, setMobile] = useState(false)
+  const viewer=role==='Viewer'
+  const viewerHidden=new Set(['taxonomy','collections','pages','themes','navigation','editor','media','blog','marketing','discounts'])
+  const visibleGroups=navGroups.map(group=>({...group,items:group.items.filter(([id])=>!viewer||!viewerHidden.has(id))})).filter(group=>group.items.length)
   const activeSite = sites.find(site=>String(site.id)===String(activeSiteId))
   const activeSiteName = activeSite?.site_name || activeSite?.slug || businessName || 'Untitled website'
   return <div className="app-shell">
@@ -581,7 +586,7 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
         <div className="site-switcher-head">
           <div className="store-avatar">{String(activeSiteName||'C').charAt(0).toUpperCase()}</div>
           <div className="site-switcher-copy"><span>Current store</span><strong>{activeSiteName}</strong></div>
-          <button className="site-add-button" title="Create another site" onClick={onCreateSite} aria-label="Create another site"><Plus size={16}/></button>
+          {!viewer&&<button className="site-add-button" title="Create another site" onClick={onCreateSite} aria-label="Create another site"><Plus size={16}/></button>}
         </div>
         <label className="site-switcher-control">
           <Store size={14}/>
@@ -591,27 +596,27 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
           </select>
         </label>
       </div>
-      <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
-      <div className="sidebar-bottom"><button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button><button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
+      <nav className="app-nav">{visibleGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
+      <div className="sidebar-bottom">{!viewer&&<button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button>}<button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button>{!viewer&&<button onClick={onRestart}><Sparkles size={18}/> Store setup</button>}{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
     </aside>
-    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{children}</main>
+    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><span className="status">{role}</span><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{syncError&&<div className="auth-message auth-error app-sync-message">{syncError}</div>}{children}</main>
   </div>
 }
 
-function Dashboard({ data, products, customers=[], orders=[], setPage }) {
+function Dashboard({ data, products, customers=[], orders=[], setPage, readOnly=false }) {
   const completeness = Math.min(96, 48 + data.pages.length * 4 + data.styles.length * 5 + products.length * 3)
   const paidSales = orders.filter(o=>o.payment_status==='Paid').reduce((sum,o)=>sum+Number(o.total||0),0)
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
+    <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button>{!readOnly&&<Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button>}</div></div>
     <div className="stat-grid"><Stat title="Sales" value={formatPrice(paidSales)} note={paidSales?"Paid revenue":"No paid sales yet"} icon={BarChart3}/><Stat title="Orders" value={String(orders.length)} note={orders.length?"Orders recorded":"No orders yet"} icon={ShoppingBag}/><Stat title="Conversion" value="—" note="Available after traffic" icon={Store}/><Stat title="Customers" value={String(customers.length)} note={customers.length?"Customer records":"No customers yet"} icon={Users}/></div>
     <div className="dashboard-grid commerce-home-grid"><section className="panel"><div className="panel-head"><div><span>Store activity</span><h3>Ready for your first visit</h3></div><Button variant="ghost" onClick={()=>setPage('analytics')}>View analytics <ArrowRight size={14}/></Button></div><div className="empty-panel"><BarChart3 size={24}/><strong>Performance will appear here</strong><p>Once your storefront receives traffic and orders, CoBest will show sales and conversion activity here.</p></div></section><section className="panel"><div className="panel-head"><div><span>Orders</span><h3>Nothing needs attention</h3></div><Button variant="ghost" onClick={()=>setPage('orders')}>View orders <ArrowRight size={14}/></Button></div><div className="empty-panel"><ShoppingBag size={24}/><strong>No orders yet</strong><p>New orders will appear here with payment and fulfillment status.</p></div></section></div>
     <div className="progress-panel"><div className="progress-ring" style={{'--p':`${completeness*3.6}deg`}}><span>{completeness}%</span></div><div className="progress-copy"><span>Store setup</span><h2>Keep building the storefront.</h2><p>Your business direction is captured. Continue refining pages, products, content, and the customer experience.</p><div className="progress-line"><i style={{width:`${completeness}%`}}/></div></div><div className="progress-action"><Button variant="secondary" onClick={()=>setPage('processes')}>Continue setup</Button></div></div>
-    <div className="workspace-grid"><button onClick={()=>setPage('products')}><Package size={20}/><div><span>Catalog</span><strong>{products.length} products</strong><p>Pricing, inventory, and product status.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Palette size={20}/><div><span>Online store</span><strong>Customize website</strong><p>Edit sections and customer-facing pages.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('customers')}><Users size={20}/><div><span>Customers</span><strong>Customer records</strong><p>Purchase history and customer details.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('media')}><ImageIcon size={20}/><div><span>Content</span><strong>Media library</strong><p>Website and product assets in one place.</p></div><ArrowRight size={15}/></button></div>
+    <div className="workspace-grid"><button onClick={()=>setPage('products')}><Package size={20}/><div><span>Catalog</span><strong>{products.length} products</strong><p>Pricing, inventory, and product status.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage(readOnly?'storefront':'editor')}><Palette size={20}/><div><span>Online store</span><strong>{readOnly?'Preview website':'Customize website'}</strong><p>{readOnly?'View the current customer-facing experience.':'Edit sections and customer-facing pages.'}</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('customers')}><Users size={20}/><div><span>Customers</span><strong>Customer records</strong><p>Purchase history and customer details.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('media')}><ImageIcon size={20}/><div><span>Content</span><strong>Media library</strong><p>Website and product assets in one place.</p></div><ArrowRight size={15}/></button></div>
   </div>
 }
 
 
-function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[],blogPosts=[],orders=[],customers=[],contacts=[],subscribers=[],setPage}) {
+function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[],blogPosts=[],orders=[],customers=[],contacts=[],subscribers=[],setPage,readOnly=false}) {
   const policies=workspace?.settings||{}
   const setup=[
     {title:'Business direction',note:'Business, audience, goals, brand direction, and required features.',done:!!data.businessName&&!!data.websiteType,action:'Review brief',page:'brief'},
@@ -633,9 +638,9 @@ function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[
     {title:'Analytics',value:'Store performance',note:'Review traffic, conversion, product performance, and sales signals.',page:'analytics',icon:BarChart3}
   ]
   return <div className="page-wrap process-center">
-    <div className="page-head"><div><p className="overline">STORE OPERATING SYSTEM</p><h1>Setup & workflow</h1><p>Work through CoBest in the right order, then run day-to-day operations from the same workspace.</p></div>{next&&<Button onClick={()=>setPage(next.page)}>Next: {next.title} <ArrowRight size={15}/></Button>}</div>
-    <div className="process-summary panel"><div className="process-progress"><div className="progress-ring" style={{'--p':(percent*3.6)+'deg'}}><span>{percent}%</span></div><div><span className="overline">LAUNCH READINESS</span><h2>{complete} of {setup.length} setup steps complete</h2><p>{next?'Recommended next step: '+next.title+'.':'Core setup is complete. Continue operating and improving the store.'}</p></div></div><div className="process-summary-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview</Button><Button variant="secondary" onClick={()=>setPage('settings')}><Settings size={15}/> Publishing</Button></div></div>
-    <div className="process-layout"><section className="panel"><div className="panel-head"><div><span>Launch process</span><h3>Build → organize → publish</h3></div></div><div className="process-step-list">{setup.map((x,i)=><div className={'process-step '+(x.done?'done':'')} key={x.title}><div className="process-step-number">{x.done?<Check size={15}/>:String(i+1).padStart(2,'0')}</div><div><strong>{x.title}</strong><p>{x.note}</p></div><button onClick={()=>setPage(x.page)}>{x.done?'Review':x.action}<ArrowRight size={14}/></button></div>)}</div></section>
+    <div className="page-head"><div><p className="overline">STORE OPERATING SYSTEM</p><h1>Setup & workflow</h1><p>{readOnly?'Review launch readiness and day-to-day operations with read-only access.':'Work through CoBest in the right order, then run day-to-day operations from the same workspace.'}</p></div>{next&&!readOnly&&<Button onClick={()=>setPage(next.page)}>Next: {next.title} <ArrowRight size={15}/></Button>}</div>
+    <div className="process-summary panel"><div className="process-progress"><div className="progress-ring" style={{'--p':(percent*3.6)+'deg'}}><span>{percent}%</span></div><div><span className="overline">LAUNCH READINESS</span><h2>{complete} of {setup.length} setup steps complete</h2><p>{next?'Recommended next step: '+next.title+'.':'Core setup is complete. Continue operating and improving the store.'}</p></div></div><div className="process-summary-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview</Button>{!readOnly&&<Button variant="secondary" onClick={()=>setPage('settings')}><Settings size={15}/> Publishing</Button>}</div></div>
+    <div className="process-layout"><section className="panel"><div className="panel-head"><div><span>Launch process</span><h3>Build → organize → publish</h3></div></div><div className="process-step-list">{setup.map((x,i)=><div className={'process-step '+(x.done?'done':'')} key={x.title}><div className="process-step-number">{x.done?<Check size={15}/>:String(i+1).padStart(2,'0')}</div><div><strong>{x.title}</strong><p>{x.note}</p></div>{readOnly?<span className="status">Read only</span>:<button onClick={()=>setPage(x.page)}>{x.done?'Review':x.action}<ArrowRight size={14}/></button>}</div>)}</div></section>
     <section className="panel"><div className="panel-head"><div><span>Daily operations</span><h3>Run the business</h3></div></div><div className="process-ops">{operations.map(x=>{const I=x.icon;return <button key={x.title} onClick={()=>setPage(x.page)}><div className="process-op-icon"><I size={18}/></div><div><strong>{x.title}</strong><span>{x.value}</span><p>{x.note}</p></div><ArrowRight size={15}/></button>})}</div></section></div>
     <div className="process-flow-strip"><span>01 Discover</span><b>→</b><span>02 Theme</span><b>→</b><span>03 Pages</span><b>→</b><span>04 Navigation</span><b>→</b><span>05 Catalog</span><b>→</b><span>06 Content</span><b>→</b><span>07 Settings</span><b>→</b><span>08 Publish</span><b>→</b><span>09 Operate</span></div>
   </div>
@@ -662,6 +667,24 @@ function Modal({title,onClose,children}) { return <div className="modal-backdrop
 function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
+  const visualProject=editor.visualBuilderProject||null
+  const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
+  const openVisualPage=page=>{
+    setEditor(prev=>({...prev,visualBuilderProject:{...prev.visualBuilderProject,activePageId:page.id}}))
+    setPage('editor')
+  }
+  if(visualProject){
+    return <div className="page-wrap">
+      <div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Your Designer project is the single source of truth for pages, styling, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>setPage('editor')}><Palette size={15}/> Open Designer</Button></div></div>
+      <div className="online-store-grid">
+        <section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'}</h3></div><span className="status active">Designer</span></div><ThemePreview theme={themePresets[selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential']}/><div className="theme-actions"><strong>Visual design system</strong><div><Button variant="secondary" onClick={()=>setPage('themes')}>Choose theme</Button><Button onClick={()=>setPage('editor')}>Customize</Button></div></div></section>
+        <section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Exact Designer output"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Pages" value={String(visualPages.length)}/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section>
+      </div>
+      <div className="page-section-head"><div><span>Website structure</span><h2>Designer pages</h2><p className="field-help">Create, rename, duplicate, reorder, and delete pages in the Designer Pages panel so there is only one editable page tree.</p></div><Button onClick={()=>setPage('editor')}>Manage pages in Designer <ArrowRight size={15}/></Button></div>
+      <div className="page-list">{visualPages.map((p,i)=><div className="page-list-row" key={p.id}><div className="page-icon"><FileText size={18}/></div><div><strong>{p.name}</strong><span>{p.slug}</span></div><span className="status active">Live draft</span><small>{p.slug==='/'?'Homepage':'Page'}</small><div className="row-actions"><button title="Edit page in Designer" onClick={()=>openVisualPage(p)}><Pencil size={16}/></button></div></div>)}</div>
+      {!visualPages.length&&<div className="empty-panel"><FileText size={22}/><strong>No Designer pages</strong><p>Open the Designer and create the first page from the Pages panel.</p></div>}
+    </div>
+  }
   const pageMeta=editor.pageMeta||{}
   const applyTheme=name=>setEditor(prev=>({...prev,theme:{...(themePresets[name]||themePresets.Essential)}}))
   const openPage=(p)=>{
@@ -711,41 +734,27 @@ function ThemePreview({theme,large=false}) {
 function ThemeLibrary({editor,setEditor,setPage}) {
   const current=selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'
   const currentTheme={...(themePresets[current]||themePresets.Essential),...(selectableThemeNames.includes(editor.theme?.name)?editor.theme:{})}
-  const [pickerTheme,setPickerTheme]=useState(null)
-  const [pickedSections,setPickedSections]=useState([])
+  const [busy,setBusy]=useState('')
 
-  const openPicker=name=>{
-    const recipe=themeRecipes[name]||themeRecipes.Essential
-    const existing=name===current?(editor.sectionOrder||[]).filter(id=>recipe.sections.includes(id)):[]
-    const recommended=existing.length?existing:recipe.sections.slice(0,Math.min(4,recipe.sections.length))
-    setPickedSections(recommended)
-    setPickerTheme(name)
+  const chooseTheme=name=>{
+    const template=visualThemes.find(x=>x.name===name)
+    if(!template)return
+    setBusy(name)
+    setEditor(prev=>{
+      const project=prev.visualBuilderProject
+        ? applyThemeStyles(template,prev.visualBuilderProject)
+        : template.build()
+      return {
+        ...prev,
+        theme:{...(themePresets[name]||themePresets.Essential)},
+        visualBuilderProject:project
+      }
+    })
+    setTimeout(()=>setBusy(''),250)
   }
-
-  const toggleSection=id=>{
-    setPickedSections(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
-  }
-
-  const applyTheme=()=>{
-    if(!pickerTheme)return
-    if(!pickedSections.length)return
-    const recipe=themeRecipes[pickerTheme]||themeRecipes.Essential
-    const ordered=recipe.sections.filter(id=>pickedSections.includes(id))
-    setEditor(prev=>({
-      ...prev,
-      theme:{...(themePresets[pickerTheme]||themePresets.Essential)},
-      sectionOrder:ordered,
-      sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},
-      selected:ordered[0]||'header'
-    }))
-    setPickerTheme(null)
-  }
-
-  const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Essential):null
 
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Two professional starting points only. Choose one, then focus on editing the actual page instead of browsing endless themes.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
-
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose one professional design system. Your Designer pages and content stay intact when you switch.</p></div><Button onClick={()=>setPage('editor')}>Open Designer <ArrowRight size={15}/></Button></div>
     <section className="panel current-theme-panel compact-current-theme">
       <div className="current-theme-layout">
         <ThemePreview theme={currentTheme} large/>
@@ -754,33 +763,15 @@ function ThemeLibrary({editor,setEditor,setPage}) {
           <h2>{current}</h2>
           <p>{currentTheme.description}</p>
           <div className="current-theme-tags"><span>{currentTheme.category}</span><span>{currentTheme.fit}</span></div>
-          <div className="current-theme-buttons"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><Button onClick={()=>setPage('editor')}>Customize <ArrowRight size={15}/></Button></div>
+          <div className="current-theme-buttons"><Button onClick={()=>setPage('editor')}>Customize in Designer <ArrowRight size={15}/></Button></div>
         </div>
       </div>
     </section>
-
-    <div className="page-section-head"><div><span>CoBest themes</span><h2>Keep the choice simple</h2><p className="field-help">Essential is neutral and versatile. Editorial is warmer and typography-led. Both stay intentionally uncluttered.</p></div></div>
-
-    <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];return <article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Two focused design systems</h2><p className="field-help">Changing theme updates typography, colors, spacing, cards, and shared components. It does not replace your page tree.</p></div></div>
+    <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];const selected=current===name;return <article className={'theme-library-card '+(selected?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
-      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
+      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{selected&&<span className="status active">Current</span>}<Button variant={selected?'secondary':'primary'} disabled={!!busy||selected} onClick={()=>chooseTheme(name)}>{busy===name?'Applying…':selected?'Applied':'Use '+name}</Button></div></div>
     </article>})}</div>
-
-    {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
-      <div className="theme-section-picker">
-        <div className="theme-picker-intro"><p>Pick the sections this store needs. Start small—you can come back and change this later.</p><span>{pickedSections.length} selected</span></div>
-        <div className="theme-picker-grid">{pickerRecipe.sections.length===0?<div className="blank-theme-note"><strong>Blank canvas</strong><p>No preset homepage sections will be added. Header and footer remain available, and you can add your own sections in the editor.</p></div>:pickerRecipe.sections.map((id,i)=>{
-          const checked=pickedSections.includes(id)
-          const label=pickerRecipe.labels[id]||id
-          const desc=pickerRecipe.defaults?.[id]?.title||themePresets[pickerTheme]?.description||''
-          return <button type="button" key={id} className={'theme-picker-item '+(checked?'selected':'')} onClick={()=>toggleSection(id)}>
-            <span className="theme-picker-check">{checked?<Check size={14}/>:<Plus size={14}/>}</span>
-            <div><small>SECTION {String(i+1).padStart(2,'0')}</small><strong>{label}</strong><p>{desc}</p></div>
-          </button>
-        })}</div>
-        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>{`Apply ${pickerTheme} with ${pickedSections.length} sections`}</Button></div>
-      </div>
-    </Modal>}
   </div>
 }
 function NavigationManager({pages=[],editor,setEditor}) {
@@ -1015,25 +1006,65 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
   return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",'--heading-weight':editor.typography?.headingWeight||600,'--body-weight':editor.typography?.bodyWeight||400,'--nav-weight':editor.typography?.navWeight||500,'--button-weight':editor.typography?.buttonWeight||600,'--eyebrow-weight':editor.typography?.eyebrowWeight||700,'--h1-size':`${editor.typography?.h1Size||62}px`,'--h2-size':`${editor.typography?.h2Size||36}px`,'--h3-size':`${editor.typography?.h3Size||24}px`,'--body-size':`${editor.typography?.bodySize||16}px`,'--body-line':editor.typography?.lineHeight||1.6,'--letter-spacing':`${editor.typography?.letterSpacing||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
 
-function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
+function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder,readOnly=false,currency='PHP'}) {
   const [cart,setCart]=useState([])
   const [checkout,setCheckout]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState(()=>sessionStorage.getItem('cobest-auth-message')||'')
   const [error,setError]=useState(()=>sessionStorage.getItem('cobest-auth-error')||'')
   const [buyer,setBuyer]=useState({name:'',email:'',phone:''})
-  const add=(p)=>setCart(prev=>[...prev,p])
+  const submittingRef=useRef(false)
+  const visualProject=editor?.visualBuilderProject||null
+  const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
+  const defaultVisualPage=visualPages.find(p=>p.id===visualProject?.activePageId)||visualPages.find(p=>p.slug==='/')||visualPages[0]||null
+  const [visualRoute,setVisualRoute]=useState(()=>defaultVisualPage?.name||'Home')
+  useEffect(()=>{
+    if(!visualProject)return
+    const current=visualPages.find(p=>p.name===visualRoute)
+    if(!current&&visualRoute!=='Shop')setVisualRoute(defaultVisualPage?.name||'Home')
+  },[visualProject?.id,visualProject?.activePageId,visualPages.length])
+  const visualPage=visualPages.find(p=>p.name===visualRoute)||defaultVisualPage
+  const activeProducts=(products||[]).filter(p=>p.status==='Active')
+  const add=p=>setCart(prev=>[...prev,p])
   const total=cart.reduce((sum,p)=>sum+Number(p.price||0),0)
   const placeOrder=async()=>{
-    if(!buyer.name||!buyer.email||!cart.length)return
+    if(submittingRef.current||busy||readOnly)return
+    const cleanEmail=buyer.email.trim().toLowerCase()
+    if(!buyer.name.trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)||!cart.length){
+      setError('Enter a customer name and valid email, and add at least one product.')
+      return
+    }
+    submittingRef.current=true
     setBusy(true);setError('');setMessage('')
     try{
-      const customer=await onCreateCustomer?.({...buyer,notes:'Created from storefront checkout test'})
+      const customer=await onCreateCustomer?.({...buyer,name:buyer.name.trim(),email:cleanEmail,notes:'Created from storefront checkout test'})
       const order=await onCreateOrder?.({customer_id:customer?.id||null,order_number:`CO-${Date.now().toString().slice(-6)}`,total,payment_status:'Pending',fulfillment_status:'Unfulfilled',notes:`Storefront checkout test: ${cart.map(x=>x.name).join(', ')}`})
       if(order){setMessage(`Order ${order.order_number||'#'+order.id} created. Payment is pending until a payment provider is connected.`);setCart([]);setBuyer({name:'',email:'',phone:''});setCheckout(false)}
-    }catch(err){setError(err.message)}finally{setBusy(false)}
+    }catch(err){setError(err.message)}finally{submittingRef.current=false;setBusy(false)}
   }
-  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
+
+  if(visualProject&&visualPage){
+    const navigateVisual=name=>{
+      if(name==='Shop'){setVisualRoute('Shop');return}
+      if(visualPages.some(p=>p.name===name))setVisualRoute(name)
+    }
+    return <div className="store-preview-page">
+      <div className="store-preview-toolbar">
+        <div><strong>Designer preview</strong><span>Clean preview from the same visual project used for publishing</span></div>
+        <div className="page-actions">
+          <select className="toolbar-select" value={visualRoute} onChange={e=>setVisualRoute(e.target.value)}>{visualPages.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}<option value="Shop">Shop</option></select>
+          {!readOnly&&<Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout test ({cart.length})</Button>}
+        </div>
+      </div>
+      {message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}
+      {visualRoute==='Shop'
+        ? <div className="storefront full-storefront"><section className="sf-products"><div className="sf-section-head"><div><span className="overline">COMMERCE ROUTE</span><h2>Shop</h2></div><span>{activeProducts.length} active products</span></div><div className="sf-product-grid columns-4">{activeProducts.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price,currency)}</p>{!readOnly&&<button className="sf-add-cart" onClick={()=>add(p)}>Add to test cart</button>}</article>)}</div>{!activeProducts.length&&<div className="empty-panel"><Package size={22}/><strong>No active products</strong><p>Activate products in Catalog to populate the public Shop route.</p></div>}</section></div>
+        : <VisualProjectFrame project={visualProject} page={visualPage} onNavigate={navigateVisual} className="visual-published-frame store-admin-visual-preview"/>}
+      {checkout&&!readOnly&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until a payment provider is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total,currency)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}
+    </div>
+  }
+
+  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Legacy storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total,currency)}</span></div>{!readOnly&&<Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button>}</div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={readOnly?undefined:add} cartCount={cart.length}/>{checkout&&!readOnly&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until a payment provider is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total,currency)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
 }
 
 function ResetRequest({onBack}) {
@@ -1132,6 +1163,8 @@ export default function App() {
   const [events,setEvents] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
+  const [cloudError,setCloudError] = useState('')
+  const [accessRole,setAccessRole] = useState('Viewer')
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
 
@@ -1171,41 +1204,64 @@ export default function App() {
   useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
-    Promise.all([
-      listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
-      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
-      listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
-      listResource('product_reviews'),listResource('store_events')
-    ]).then(([siteList,workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
-      if(!active) return
-      if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
-      setWorkspace(workspaceData)
-      if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
-      if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
-      if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
-      if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
-      if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
-      if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
-      if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
-      if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
-      if(Array.isArray(cloudCollections)) setCollections(cloudCollections)
-      if(Array.isArray(cloudBlogPosts)) setBlogPosts(cloudBlogPosts)
-      if(Array.isArray(cloudCatalogTerms)) setCatalogTerms(cloudCatalogTerms)
-      if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
-      if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
-      if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
-      if(Array.isArray(cloudReviews)) setReviews(cloudReviews)
-      if(Array.isArray(cloudEvents)) setEvents(cloudEvents)
-      setCloudReady(true)
-    }).catch(()=>setCloudReady(true))
+    const hydrate=async()=>{
+      setCloudReady(false)
+      setCloudError('')
+      try{
+        const identity=await getMe()
+        if(!active)return
+        setAccessRole(identity?.role||'Owner')
+        const results=await Promise.allSettled([
+          listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
+          listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
+          listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
+          listResource('product_reviews'),listResource('store_events')
+        ])
+        if(!active)return
+        const authFailure=results.find(result=>result.status==='rejected'&&result.reason?.status===401)
+        if(authFailure)throw authFailure.reason
+        const value=index=>results[index]?.status==='fulfilled'?results[index].value:null
+        const siteList=value(0),workspaceData=value(1)
+        if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
+        if(results[1].status==='rejected'){
+          setCloudError('Your workspace could not be loaded, so autosave has been paused to protect cloud data. Refresh or sign in again before editing.')
+          return
+        }
+        setWorkspace(workspaceData)
+        if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
+        if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
+        const setters=[
+          setProducts,setCustomers,setOrders,setMediaAssets,setDiscounts,setCampaigns,setCollections,setBlogPosts,setCatalogTerms,
+          setSubscribers,setContacts,setBookings,setReviews,setEvents
+        ]
+        setters.forEach((setter,index)=>{const data=value(index+2);if(Array.isArray(data))setter(data)})
+        const failed=results.filter((result,index)=>index!==1&&result.status==='rejected').length
+        if(failed)setCloudError(`${failed} workspace data request${failed===1?'':'s'} could not be loaded. Loaded data is preserved; unavailable areas may need a refresh.`)
+        setCloudReady(true)
+      }catch(err){
+        if(!active)return
+        if(err?.status===401){
+          logout()
+          setAccessRole('Viewer')
+          setCloudReady(false)
+          setCloudError('Your session expired. Please log in again.')
+          setMode('login')
+          setPage('dashboard')
+        }else{
+          setCloudReady(false)
+          setCloudError(err?.message||'CoBest could not load the cloud workspace. Autosave is paused to protect your data.')
+        }
+      }
+    }
+    hydrate()
     return ()=>{active=false}
   },[mode])
 
   useEffect(()=>{
-    if(!cloudReady || !isAuthenticated()) return
+    if(!cloudReady || !isAuthenticated() || accessRole==='Viewer') return
     const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
-  },[onboarding,editor,page,cloudReady])
+  },[onboarding,editor,page,cloudReady,accessRole])
 
   const complete = () => {
     const featurePages=[]
@@ -1296,30 +1352,30 @@ export default function App() {
   if(mode==='recovery') return <Recovery onDone={()=>{setMode('login');window.history.replaceState({},document.title,'/')}}/>
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
   let content = null
-  if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
-  if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
+  if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage} readOnly={accessRole==='Viewer'}/>
+  if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage} readOnly={accessRole==='Viewer'}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
-  if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
+  if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'} readOnly={accessRole==='Viewer'}/>
   if(page==='taxonomy') content=<TaxonomyManager items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/>
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='themes') content=<ThemeLibrary editor={safeEditor} setEditor={setEditor} setPage={setPage}/>
   if(page==='navigation') content=<NavigationManager pages={safeOnboarding.pages} editor={safeEditor} setEditor={setEditor}/>
   if(page==='media') content=<MediaManager items={mediaAssets} setItems={setMediaAssets}/>
   if(page==='blog') content=<BlogManager items={blogPosts} setItems={setBlogPosts} media={mediaAssets}/>
-  if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers}/>
+  if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers} currency={workspace?.currency||'PHP'} readOnly={accessRole==='Viewer'}/>
   if(page==='collections') content=<CollectionsManager items={collections} setItems={setCollections} products={products}/>
-  if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders}/>
-  if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
+  if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders} currency={workspace?.currency||'PHP'} readOnly={accessRole==='Viewer'}/>
+  if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products} currency={workspace?.currency||'PHP'}/>
   if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
   if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
-  if(page==='sites') content=<SitesManager sites={sites} activeSiteId={getActiveSiteId()} onSwitch={switchSite} onCreate={addSite} onDelete={removeSite}/>
+  if(page==='sites') content=<SitesManager sites={sites} activeSiteId={getActiveSiteId()} onSwitch={switchSite} onCreate={addSite} onDelete={removeSite} role={accessRole}/>
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
-  if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
+  if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder} readOnly={accessRole==='Viewer'} currency={workspace?.currency||'PHP'}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
-  if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
-  if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
-  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite}>{content}</AppShell>
+  if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews} readOnly={accessRole==='Viewer'}/>
+  if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button>{accessRole!=='Viewer'&&<><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button></>}<button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
+  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite} role={accessRole} syncError={cloudError}>{content}</AppShell>
 }

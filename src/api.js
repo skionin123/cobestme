@@ -46,6 +46,13 @@ export function logout() {
   localStorage.removeItem(SITE_KEY)
 }
 
+function apiError(message,status=0,data=null) {
+  const error = new Error(message)
+  error.status = status
+  error.data = data
+  return error
+}
+
 let refreshing = null
 async function refreshSession() {
   const refresh_token = getRefreshToken()
@@ -57,7 +64,10 @@ async function refreshSession() {
       body: JSON.stringify({ refresh_token })
     }).then(async response => {
       const data = await response.json().catch(()=>({}))
-      if (!response.ok) throw new Error(data?.error_description || data?.error || 'Session expired.')
+      if (!response.ok) {
+        logout()
+        throw apiError(data?.error_description || data?.error || 'Session expired.', response.status || 401, data)
+      }
       return saveSession(data)
     }).finally(()=>{ refreshing = null })
   }
@@ -72,15 +82,22 @@ async function request(path, options = {}, retry = true) {
   if(siteId) headers['x-cobest-site-id']=siteId
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401 && retry && getRefreshToken()) {
-    await refreshSession()
-    return request(path, options, false)
+    try {
+      await refreshSession()
+      return request(path, options, false)
+    } catch (error) {
+      logout()
+      if (!error.status) error.status = 401
+      throw error
+    }
   }
   const text = await response.text()
   let data = null
   try { data = text ? JSON.parse(text) : null } catch { data = text }
   if (!response.ok) {
     const message = data?.msg || data?.message || data?.error_description || data?.error || `Request failed (${response.status})`
-    throw new Error(message)
+    if (response.status === 401) logout()
+    throw apiError(message,response.status,data)
   }
   return data
 }

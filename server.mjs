@@ -1,4 +1,6 @@
 import { createServer } from 'node:http'
+import { canDeleteSite, canManageBilling, canManageTeam, canSeeInviteTokens, canWriteWorkspace } from './authorization.mjs'
+import { calculateCheckout, isValidEmail, normalizeFutureDate, normalizeReviewRating, validateResourceWrite } from './commerce-validation.mjs'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
@@ -299,46 +301,6 @@ async function getPublishedStoreByDomain(host) {
   return row?.slug ? getPublishedStore(row.slug) : null
 }
 
-function calculateCheckout(snapshot, body) {
-  const catalog = Array.isArray(snapshot?.products) ? snapshot.products : []
-  const requested = Array.isArray(body?.items) ? body.items : []
-  const items = []
-  const inventoryIssues = []
-  for (const row of requested) {
-    const product = catalog.find(p => String(p.id) === String(row.product_id) && p.status === 'Active')
-    if (!product) continue
-    const requestedQuantity = Math.max(1, Math.min(99, Number(row.quantity || 1)))
-    const inventory = product.inventory == null ? null : Math.max(0, Number(product.inventory || 0))
-    if (inventory != null && requestedQuantity > inventory) {
-      inventoryIssues.push({ product_id: product.id, name: product.name, requested: requestedQuantity, available: inventory })
-      continue
-    }
-    const quantity = requestedQuantity
-    const unitPrice = Number(product.price || 0)
-    items.push({ product_id: product.id, name: product.name, quantity, unit_price: unitPrice, line_total: unitPrice * quantity })
-  }
-  const subtotal = items.reduce((sum,x)=>sum+x.line_total,0)
-  let discountAmount = 0
-  let discountCode = ''
-  const requestedCode = String(body?.discount_code || '').trim().toUpperCase()
-  if (requestedCode) {
-    const discounts = Array.isArray(snapshot?.discounts) ? snapshot.discounts : []
-    const d = discounts.find(x => x.active && String(x.code).toUpperCase() === requestedCode)
-    const notExpired = !d?.expires_at || new Date(d.expires_at).getTime() > Date.now()
-    const underLimit = !d?.usage_limit || Number(d.used_count || 0) < Number(d.usage_limit)
-    if (d && notExpired && underLimit && subtotal >= Number(d.min_spend || 0)) {
-      discountCode = requestedCode
-      discountAmount = d.kind === 'fixed' ? Math.min(subtotal, Number(d.value || 0)) : subtotal * Math.min(100, Math.max(0, Number(d.value || 0))) / 100
-    }
-  }
-  const settings = snapshot?.settings || {}
-  const shippingAmount = subtotal > 0 ? Math.max(0, Number(settings.shippingFlat || 0)) : 0
-  const taxableBase = Math.max(0, subtotal - discountAmount)
-  const taxAmount = taxableBase * Math.max(0, Number(settings.taxRate || 0)) / 100
-  const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
-}
-
 async function handlePublicApi(req, res, url) {
   const storeMatch = url.pathname.match(/^\/api\/public\/store\/([^/]+)$/)
   if (storeMatch && req.method === 'GET') {
@@ -383,13 +345,16 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/subscribe' && req.method === 'POST') {
     if (!body?.slug || !body?.email) return sendJson(res, 400, { error: 'Store and email are required.' })
-    const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: body.email })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: String(body.email).trim().toLowerCase() })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
-    const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    if(String(body.message).length>10000)return sendJson(res,400,{error:'Message is too long.'})
+    const result = await rpc('contact_store', { p_slug: body.slug, p_name: String(body.name || '').slice(0,160), p_email: String(body.email).trim().toLowerCase(), p_message: String(body.message).slice(0,10000) })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
@@ -400,21 +365,30 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/booking' && req.method === 'POST') {
     if (!body?.slug || !body?.name || !body?.email || !body?.start_at) return sendJson(res, 400, { error: 'Store, name, email, and time are required.' })
-    const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const bookingTime=normalizeFutureDate(body.start_at)
+    if(!bookingTime.ok)return sendJson(res,400,{error:bookingTime.error})
+    const result = await rpc('book_store', { p_slug: body.slug, p_name: String(body.name).trim().slice(0,160), p_email: String(body.email).trim().toLowerCase(), p_phone: String(body.phone || '').slice(0,80), p_start_at: bookingTime.value, p_notes: String(body.notes || '').slice(0,5000) })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(body.start_at)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
-      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(body.start_at)}</strong> has been received.</p>`).catch(()=>{})
+      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(bookingTime.value)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
+      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(bookingTime.value)}</strong> has been received.</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/review' && req.method === 'POST') {
-    if (!body?.slug || !body?.product_id || !body?.name || !body?.rating) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    if (!body?.slug || !body?.product_id || !body?.name || body?.rating==null) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    const rating=normalizeReviewRating(body.rating)
+    if(!rating.ok)return sendJson(res,400,{error:rating.error})
+    if(body.email&&!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    if(String(body.body||'').length>5000)return sendJson(res,400,{error:'Review is too long.'})
+    const productId=Number(body.product_id)
+    if(!Number.isInteger(productId)||productId<1)return sendJson(res,400,{error:'Invalid product.'})
     const result = await rpc('review_store_product', {
-      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: Number(body.rating), p_body: body.body || ''
+      p_slug: body.slug, p_product_id: productId, p_name: String(body.name).trim().slice(0,160),
+      p_email: String(body.email || '').trim().toLowerCase(), p_rating: rating.value, p_body: String(body.body || '').slice(0,5000)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -429,7 +403,8 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
-    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
+    if(!isValidEmail(body.email))return sendJson(res,400,{error:'Enter a valid email address.'})
+    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: String(body.order_number).trim().toUpperCase(), p_email: String(body.email).trim().toLowerCase() })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
     return sendJson(res, 200, { order: result.data })
@@ -443,16 +418,23 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
+    if(!isValidEmail(body.buyer.email))return sendJson(res,400,{error:'Enter a valid checkout email address.'})
+    if(!Array.isArray(body.items)||!body.items.length||body.items.length>100)return sendJson(res,400,{error:'Cart must contain between 1 and 100 line items.'})
+    const paymentProvider=String(body.payment_provider||'').toLowerCase()
+    if(paymentProvider&&!['stripe','paypal'].includes(paymentProvider))return sendJson(res,400,{error:'Unsupported payment provider.'})
+    if(paymentProvider==='stripe'&&!stripeSecret)return sendJson(res,503,{error:'Card payments are not available right now.'})
+    if(paymentProvider==='paypal'&&!(paypalClientId&&paypalClientSecret))return sendJson(res,503,{error:'PayPal is not available right now.'})
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
+    if (totals.inputIssues?.length) return sendJson(res,400,{error:'One or more cart items are invalid.',item_issues:totals.inputIssues})
     if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
       p_slug: body.slug,
-      p_name: body.buyer.name,
-      p_email: body.buyer.email,
-      p_phone: body.buyer.phone || '',
+      p_name: String(body.buyer.name).trim().slice(0,160),
+      p_email: String(body.buyer.email).trim().toLowerCase(),
+      p_phone: String(body.buyer.phone || '').slice(0,80),
       p_items: totals.items,
       p_subtotal: totals.subtotal,
       p_discount_code: totals.discountCode,
@@ -467,7 +449,7 @@ async function handlePublicApi(req, res, url) {
     if(resendApiKey&&body.buyer?.email){
       sendEmail(body.buyer.email,`Order ${order.order_number} received`,`<p>Hi ${escapeHtml(body.buyer.name)},</p><p>We received order <strong>${escapeHtml(order.order_number)}</strong>.</p><p>Total: <strong>${escapeHtml(String(totals.total))} ${escapeHtml(String(store?.settings?.currency||'PHP'))}</strong></p><p>Payment status: Pending.</p>`).catch(()=>{})
     }
-    const provider=String(body.payment_provider||'').toLowerCase()
+    const provider=paymentProvider
     try{
       if(provider==='stripe'&&stripeSecret){
         const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
@@ -584,6 +566,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/status' && req.method === 'GET') {
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can view billing.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
     const subscription=result.ok&&Array.isArray(result.data)?result.data[0]||null:null
     return sendJson(res,200,{subscription,plan:subscription?.plan||'Free',stripe_connected:Boolean(stripeSecret&&stripeLaunchPriceId&&stripeGrowthPriceId)})
@@ -591,7 +574,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/billing/checkout' && req.method === 'POST') {
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
-    if(!['Owner','Admin'].includes(role))return sendJson(res,403,{error:'Only owners and admins can change billing.'})
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can change billing.'})
     const body=await readJson(req)
     const plan=body?.plan
     if(!['Launch','Growth'].includes(plan))return sendJson(res,400,{error:'Choose Launch or Growth.'})
@@ -600,6 +583,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/portal' && req.method === 'POST') {
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can manage billing.'})
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=customer_reference&limit=1`,{headers:apiHeaders(token)})
     const customer=result.ok&&Array.isArray(result.data)?result.data[0]?.customer_reference:null
@@ -608,7 +592,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/me' && req.method === 'GET') {
-    return sendJson(res, 200, { user: { id: user.id, email: user.email } })
+    return sendJson(res, 200, { user: { id: user.id, email: user.email }, owner_id: ownerId, role })
   }
 
   if (url.pathname === '/api/integrations/status' && req.method === 'GET') {
@@ -629,7 +613,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/sites' && req.method === 'POST') {
-    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
     const body=await readJson(req)
     const siteName=String(body?.site_name||'New website').trim()||'New website'
     const base=safeSlug(body?.slug||siteName||'site')||'site'
@@ -648,7 +632,7 @@ async function handleApi(req, res, url) {
 
   const siteDelete=url.pathname.match(/^\/api\/sites\/(\d+)$/)
   if(siteDelete&&req.method==='DELETE'){
-    if(role!=='Owner')return sendJson(res,403,{error:'Only the workspace owner can delete a site.'})
+    if(!canDeleteSite(role))return sendJson(res,403,{error:'Only the workspace owner can delete a site.'})
     const result=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteDelete[1]}&user_id=eq.${encodeURIComponent(ownerId)}`,{method:'DELETE',headers:apiHeaders(token,{Prefer:'return=representation'})})
     return sendJson(res,result.status,result.data)
   }
@@ -658,13 +642,13 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/team' && req.method === 'GET') {
     const [members, invites] = await Promise.all([
       supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,email,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
-      supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,email,role,token,expires_at,accepted_at,created_at&order=id.desc`, { headers: apiHeaders(token) })
+      supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=${canSeeInviteTokens(role)?'id,email,role,token,expires_at,accepted_at,created_at':'id,email,role,expires_at,accepted_at,created_at'}&order=id.desc`, { headers: apiHeaders(token) })
     ])
     return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: invites.ok ? invites.data : [] })
   }
 
   if (url.pathname === '/api/team/invite' && req.method === 'POST') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
     const inviteRole = ['Admin','Editor','Viewer'].includes(body.role) ? body.role : 'Editor'
@@ -683,7 +667,7 @@ async function handleApi(req, res, url) {
 
   const memberDelete = url.pathname.match(/^\/api\/team\/member\/(\d+)$/)
   if (memberDelete && req.method === 'DELETE') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can remove members.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can remove members.' })
     const result = await supabaseFetch(`/rest/v1/workspace_members?id=eq.${memberDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
     })
@@ -692,7 +676,7 @@ async function handleApi(req, res, url) {
 
   const inviteDelete = url.pathname.match(/^\/api\/team\/invite\/(\d+)$/)
   if (inviteDelete && req.method === 'DELETE') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can revoke invitations.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can revoke invitations.' })
     const result = await supabaseFetch(`/rest/v1/workspace_invites?id=eq.${inviteDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
     })
@@ -707,7 +691,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, result.status, result.data)
     }
     if (req.method === 'PUT') {
-      if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+      if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       let existing=null
@@ -744,6 +728,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/publish' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot publish.'})
     const body = await readJson(req)
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
@@ -765,6 +750,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot unpublish.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
@@ -776,6 +762,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/media/upload' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot upload media.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
@@ -803,13 +790,14 @@ async function handleApi(req, res, url) {
 
   const campaignSend = url.pathname.match(/^\/api\/campaigns\/(\d+)\/send$/)
   if(campaignSend&&req.method==='POST'){
-    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
     if(!resendApiKey)return sendJson(res,503,{error:'Email delivery is not connected. Configure RESEND_API_KEY first.'})
     const campaignResult=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaignSend[1]}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=*&limit=1`,{headers:apiHeaders(token)})
     const campaign=campaignResult.ok&&Array.isArray(campaignResult.data)?campaignResult.data[0]:null
     if(!campaign)return sendJson(res,404,{error:'Campaign not found.'})
     const subsResult=await supabaseFetch(`/rest/v1/newsletter_subscribers?owner_user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=email`,{headers:apiHeaders(token)})
     const subscribers=subsResult.ok&&Array.isArray(subsResult.data)?subsResult.data:[]
+    if(!subscribers.length)return sendJson(res,400,{error:'There are no subscribers to send this campaign to.'})
     let sent=0,failed=0
     for(const sub of subscribers.slice(0,500)){
       const mail=await sendEmail(sub.email,campaign.subject||campaign.name,`<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.content||'').replaceAll('\n','<br>')}</div>`)
@@ -825,7 +813,7 @@ async function handleApi(req, res, url) {
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)(?:\/(\d+))?$/)
   if (match) {
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
-    if (role === 'Viewer' && req.method !== 'GET') return sendJson(res, 403, { error: 'Viewer access is read-only.' })
+    if (req.method !== 'GET' && !canWriteWorkspace(role)) return sendJson(res, 403, { error: 'This workspace role is read-only.' })
     const table = match[1]
     const id = match[2]
     if (!allowedTables.has(table)) return sendJson(res, 404, { error: 'Unknown resource.' })
@@ -842,6 +830,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validationError=validateResourceWrite(table,body,{partial:false})
+      if(validationError)return sendJson(res,400,{error:validationError})
       const result = await supabaseFetch(`/rest/v1/${table}`, {
         method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId, site_id: siteId })
       })
@@ -851,6 +841,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validationError=validateResourceWrite(table,body,{partial:true})
+      if(validationError)return sendJson(res,400,{error:validationError})
       delete body.user_id; delete body.owner_user_id; delete body.id
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
         method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, updated_at: new Date().toISOString() })

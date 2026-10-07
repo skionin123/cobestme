@@ -15,12 +15,13 @@ export interface BuilderTemplate {
 }
 
 function decorateProject(project:BuilderProject,variant:TemplateCategory){
-  const page=project.pages[0]
-  walkNodes(page.root,node=>{
-    if(node.name==='Hero Container'&&!node.classes.includes('hero-inner')) node.classes=[...(node.classes||[]),'hero-inner']
-    if(node.name==='Features') node.classes=[...(node.classes||[]),variant==='Editorial'?'editorial-section':'soft-section']
-    if(node.name==='Testimonials') node.classes=[...(node.classes||[]),'editorial-section']
-  })
+  project.pages.forEach(page=>walkNodes(page.root,node=>{
+    const classes=(node.classes||[]).filter(x=>!['soft-section','editorial-section'].includes(x))
+    if(node.name==='Hero Container'&&!classes.includes('hero-inner'))classes.push('hero-inner')
+    if(node.name==='Features')classes.push(variant==='Editorial'?'editorial-section':'soft-section')
+    if(node.name==='Testimonials'&&variant==='Editorial')classes.push('editorial-section')
+    node.classes=classes
+  }))
 }
 
 function setSharedStyles(project:BuilderProject){
@@ -236,6 +237,21 @@ export function applyTemplate(template:BuilderTemplate,current:BuilderProject){
   next.name=current.name==='Untitled CoBest Site'?template.name:current.name
   next.assets=clone(current.assets||[])
   next.version=(current.version||0)+1
+  next.versions=clone(current.versions||[])
+  return next
+}
+
+export function applyThemeStyles(template:BuilderTemplate,current:BuilderProject){
+  const theme=template.build()
+  const next=clone(current)
+  next.styles={...clone(current.styles),...clone(theme.styles)}
+  next.globals={
+    colors:{...(current.globals?.colors||{}),...(theme.globals?.colors||{})},
+    textStyles:{...(current.globals?.textStyles||{}),...(theme.globals?.textStyles||{})},
+  }
+  decorateProject(next,template.category)
+  next.version=(current.version||0)+1
+  next.updatedAt=new Date().toISOString()
   next.versions=clone(current.versions||[])
   return next
 }
