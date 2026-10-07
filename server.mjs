@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { canDeleteSite, canManageBilling, canManageTeam, canSeeInviteTokens, canWriteWorkspace } from './authorization.mjs'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
@@ -584,6 +585,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/status' && req.method === 'GET') {
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can view billing.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
     const subscription=result.ok&&Array.isArray(result.data)?result.data[0]||null:null
     return sendJson(res,200,{subscription,plan:subscription?.plan||'Free',stripe_connected:Boolean(stripeSecret&&stripeLaunchPriceId&&stripeGrowthPriceId)})
@@ -591,7 +593,7 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/billing/checkout' && req.method === 'POST') {
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
-    if(!['Owner','Admin'].includes(role))return sendJson(res,403,{error:'Only owners and admins can change billing.'})
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can change billing.'})
     const body=await readJson(req)
     const plan=body?.plan
     if(!['Launch','Growth'].includes(plan))return sendJson(res,400,{error:'Choose Launch or Growth.'})
@@ -600,6 +602,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/billing/portal' && req.method === 'POST') {
+    if(!canManageBilling(role))return sendJson(res,403,{error:'Only owners and admins can manage billing.'})
     if(!stripeSecret)return sendJson(res,503,{error:'Stripe is not connected.'})
     const result=await supabaseFetch(`/rest/v1/billing_subscriptions?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=customer_reference&limit=1`,{headers:apiHeaders(token)})
     const customer=result.ok&&Array.isArray(result.data)?result.data[0]?.customer_reference:null
@@ -608,7 +611,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/me' && req.method === 'GET') {
-    return sendJson(res, 200, { user: { id: user.id, email: user.email } })
+    return sendJson(res, 200, { user: { id: user.id, email: user.email }, owner_id: ownerId, role })
   }
 
   if (url.pathname === '/api/integrations/status' && req.method === 'GET') {
@@ -629,7 +632,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/sites' && req.method === 'POST') {
-    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
     const body=await readJson(req)
     const siteName=String(body?.site_name||'New website').trim()||'New website'
     const base=safeSlug(body?.slug||siteName||'site')||'site'
@@ -648,7 +651,7 @@ async function handleApi(req, res, url) {
 
   const siteDelete=url.pathname.match(/^\/api\/sites\/(\d+)$/)
   if(siteDelete&&req.method==='DELETE'){
-    if(role!=='Owner')return sendJson(res,403,{error:'Only the workspace owner can delete a site.'})
+    if(!canDeleteSite(role))return sendJson(res,403,{error:'Only the workspace owner can delete a site.'})
     const result=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteDelete[1]}&user_id=eq.${encodeURIComponent(ownerId)}`,{method:'DELETE',headers:apiHeaders(token,{Prefer:'return=representation'})})
     return sendJson(res,result.status,result.data)
   }
@@ -658,13 +661,13 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/team' && req.method === 'GET') {
     const [members, invites] = await Promise.all([
       supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,email,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
-      supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,email,role,token,expires_at,accepted_at,created_at&order=id.desc`, { headers: apiHeaders(token) })
+      supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=${canSeeInviteTokens(role)?'id,email,role,token,expires_at,accepted_at,created_at':'id,email,role,expires_at,accepted_at,created_at'}&order=id.desc`, { headers: apiHeaders(token) })
     ])
     return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: invites.ok ? invites.data : [] })
   }
 
   if (url.pathname === '/api/team/invite' && req.method === 'POST') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
     const inviteRole = ['Admin','Editor','Viewer'].includes(body.role) ? body.role : 'Editor'
@@ -683,7 +686,7 @@ async function handleApi(req, res, url) {
 
   const memberDelete = url.pathname.match(/^\/api\/team\/member\/(\d+)$/)
   if (memberDelete && req.method === 'DELETE') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can remove members.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can remove members.' })
     const result = await supabaseFetch(`/rest/v1/workspace_members?id=eq.${memberDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
     })
@@ -692,7 +695,7 @@ async function handleApi(req, res, url) {
 
   const inviteDelete = url.pathname.match(/^\/api\/team\/invite\/(\d+)$/)
   if (inviteDelete && req.method === 'DELETE') {
-    if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can revoke invitations.' })
+    if (!canManageTeam(role)) return sendJson(res, 403, { error: 'Only owners and admins can revoke invitations.' })
     const result = await supabaseFetch(`/rest/v1/workspace_invites?id=eq.${inviteDelete[1]}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=representation' })
     })
@@ -707,7 +710,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, result.status, result.data)
     }
     if (req.method === 'PUT') {
-      if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+      if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
       let existing=null
@@ -744,6 +747,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/publish' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot publish.'})
     const body = await readJson(req)
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
@@ -765,6 +769,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot unpublish.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
@@ -776,6 +781,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/media/upload' && req.method === 'POST') {
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role cannot upload media.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
@@ -803,7 +809,7 @@ async function handleApi(req, res, url) {
 
   const campaignSend = url.pathname.match(/^\/api\/campaigns\/(\d+)\/send$/)
   if(campaignSend&&req.method==='POST'){
-    if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
+    if(!canWriteWorkspace(role))return sendJson(res,403,{error:'This workspace role is read-only.'})
     if(!resendApiKey)return sendJson(res,503,{error:'Email delivery is not connected. Configure RESEND_API_KEY first.'})
     const campaignResult=await supabaseFetch(`/rest/v1/campaigns?id=eq.${campaignSend[1]}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=*&limit=1`,{headers:apiHeaders(token)})
     const campaign=campaignResult.ok&&Array.isArray(campaignResult.data)?campaignResult.data[0]:null
@@ -825,7 +831,7 @@ async function handleApi(req, res, url) {
   const match = url.pathname.match(/^\/api\/data\/([a-z_]+)(?:\/(\d+))?$/)
   if (match) {
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
-    if (role === 'Viewer' && req.method !== 'GET') return sendJson(res, 403, { error: 'Viewer access is read-only.' })
+    if (req.method !== 'GET' && !canWriteWorkspace(role)) return sendJson(res, 403, { error: 'This workspace role is read-only.' })
     const table = match[1]
     const id = match[2]
     if (!allowedTables.has(table)) return sendJson(res, 404, { error: 'Unknown resource.' })
