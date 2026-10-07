@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getMe, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import VisualProjectFrame from './builder/VisualProjectFrame'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
 const APP_NAME = 'CoBest'
@@ -1018,25 +1019,65 @@ function StorefrontMini({data,products,editor,full=false,onAdd,cartCount=0,onNav
   return <div className={`storefront theme-${theme.styleKey||'warm'} ${full?'full-storefront':''}`} style={{'--brand':theme.ink||data.primaryColor,'--paper':theme.paper||data.secondaryColor,'--accent':theme.accent||data.accentColor,'--surface':theme.surface||'#fbfaf7','--muted':theme.muted||'#ded8cf','--section-gap':`${theme.sectionGap||32}px`,'--card-radius':`${theme.radius||0}px`,'--button-radius':`${theme.buttonRadius||0}px`,'--display-font':theme.displayFont||"'Playfair Display', Georgia, serif",'--heading-weight':editor.typography?.headingWeight||600,'--body-weight':editor.typography?.bodyWeight||400,'--nav-weight':editor.typography?.navWeight||500,'--button-weight':editor.typography?.buttonWeight||600,'--eyebrow-weight':editor.typography?.eyebrowWeight||700,'--h1-size':`${editor.typography?.h1Size||62}px`,'--h2-size':`${editor.typography?.h2Size||36}px`,'--h3-size':`${editor.typography?.h3Size||24}px`,'--body-size':`${editor.typography?.bodySize||16}px`,'--body-line':editor.typography?.lineHeight||1.6,'--letter-spacing':`${editor.typography?.letterSpacing||0}px`,fontFamily:theme.fontFamily||'Arial, Helvetica, sans-serif'}}><header><div className="store-logo">{editor.header?.logoText||data.businessName||'Your Store'}</div><nav>{(editor.header?.menu||['Shop','About','Contact']).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav><div><Search size={15}/><span className="store-cart-indicator"><ShoppingBag size={16}/>{full&&cartCount>0&&<b>{cartCount}</b>}</span></div></header>{order.map(section)}<footer><strong>{data.businessName||'Your Store'}</strong><span>{editor.footer?.text||'Built with CoBest'}</span>{(editor.footer?.menu||[]).length>0&&<nav className="store-footer-menu">{(editor.footer?.menu||[]).map(item=><button key={item} onClick={full?()=>onNavigate?.(item):undefined}>{item}</button>)}</nav>}<small>© 2026 {data.businessName||'Your Store'}</small></footer></div>
 }
 
-function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder}) {
+function StorefrontPage({data,products,editor,onCreateCustomer,onCreateOrder,readOnly=false,currency='PHP'}) {
   const [cart,setCart]=useState([])
   const [checkout,setCheckout]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState(()=>sessionStorage.getItem('cobest-auth-message')||'')
   const [error,setError]=useState(()=>sessionStorage.getItem('cobest-auth-error')||'')
   const [buyer,setBuyer]=useState({name:'',email:'',phone:''})
-  const add=(p)=>setCart(prev=>[...prev,p])
+  const submittingRef=useRef(false)
+  const visualProject=editor?.visualBuilderProject||null
+  const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
+  const defaultVisualPage=visualPages.find(p=>p.id===visualProject?.activePageId)||visualPages.find(p=>p.slug==='/')||visualPages[0]||null
+  const [visualRoute,setVisualRoute]=useState(()=>defaultVisualPage?.name||'Home')
+  useEffect(()=>{
+    if(!visualProject)return
+    const current=visualPages.find(p=>p.name===visualRoute)
+    if(!current&&visualRoute!=='Shop')setVisualRoute(defaultVisualPage?.name||'Home')
+  },[visualProject?.id,visualProject?.activePageId,visualPages.length])
+  const visualPage=visualPages.find(p=>p.name===visualRoute)||defaultVisualPage
+  const activeProducts=(products||[]).filter(p=>p.status==='Active')
+  const add=p=>setCart(prev=>[...prev,p])
   const total=cart.reduce((sum,p)=>sum+Number(p.price||0),0)
   const placeOrder=async()=>{
-    if(!buyer.name||!buyer.email||!cart.length)return
+    if(submittingRef.current||busy||readOnly)return
+    const cleanEmail=buyer.email.trim().toLowerCase()
+    if(!buyer.name.trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)||!cart.length){
+      setError('Enter a customer name and valid email, and add at least one product.')
+      return
+    }
+    submittingRef.current=true
     setBusy(true);setError('');setMessage('')
     try{
-      const customer=await onCreateCustomer?.({...buyer,notes:'Created from storefront checkout test'})
+      const customer=await onCreateCustomer?.({...buyer,name:buyer.name.trim(),email:cleanEmail,notes:'Created from storefront checkout test'})
       const order=await onCreateOrder?.({customer_id:customer?.id||null,order_number:`CO-${Date.now().toString().slice(-6)}`,total,payment_status:'Pending',fulfillment_status:'Unfulfilled',notes:`Storefront checkout test: ${cart.map(x=>x.name).join(', ')}`})
       if(order){setMessage(`Order ${order.order_number||'#'+order.id} created. Payment is pending until a payment provider is connected.`);setCart([]);setBuyer({name:'',email:'',phone:''});setCheckout(false)}
-    }catch(err){setError(err.message)}finally{setBusy(false)}
+    }catch(err){setError(err.message)}finally{submittingRef.current=false;setBusy(false)}
   }
-  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total)}</span></div><Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button></div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={add} cartCount={cart.length}/>{checkout&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until Stripe/PayPal is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
+
+  if(visualProject&&visualPage){
+    const navigateVisual=name=>{
+      if(name==='Shop'){setVisualRoute('Shop');return}
+      if(visualPages.some(p=>p.name===name))setVisualRoute(name)
+    }
+    return <div className="store-preview-page">
+      <div className="store-preview-toolbar">
+        <div><strong>Designer preview</strong><span>Clean preview from the same visual project used for publishing</span></div>
+        <div className="page-actions">
+          <select className="toolbar-select" value={visualRoute} onChange={e=>setVisualRoute(e.target.value)}>{visualPages.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}<option value="Shop">Shop</option></select>
+          {!readOnly&&<Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout test ({cart.length})</Button>}
+        </div>
+      </div>
+      {message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}
+      {visualRoute==='Shop'
+        ? <div className="storefront full-storefront"><section className="sf-products"><div className="sf-section-head"><div><span className="overline">COMMERCE ROUTE</span><h2>Shop</h2></div><span>{activeProducts.length} active products</span></div><div className="sf-product-grid columns-4">{activeProducts.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price,currency)}</p>{!readOnly&&<button className="sf-add-cart" onClick={()=>add(p)}>Add to test cart</button>}</article>)}</div>{!activeProducts.length&&<div className="empty-panel"><Package size={22}/><strong>No active products</strong><p>Activate products in Catalog to populate the public Shop route.</p></div>}</section></div>
+        : <VisualProjectFrame project={visualProject} page={visualPage} onNavigate={navigateVisual} className="visual-published-frame store-admin-visual-preview"/>}
+      {checkout&&!readOnly&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until a payment provider is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total,currency)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}
+    </div>
+  }
+
+  return <div className="store-preview-page"><div className="store-preview-toolbar"><div><strong>Legacy storefront preview</strong><span>{cart.length} item{cart.length===1?'':'s'} · {formatPrice(total,currency)}</span></div>{!readOnly&&<Button variant="secondary" disabled={!cart.length} onClick={()=>setCheckout(true)}>Checkout</Button>}</div>{message&&<div className="store-preview-message">{message}</div>}{error&&<div className="store-preview-message error">{error}</div>}<StorefrontMini data={data} products={products} editor={editor} full onAdd={readOnly?undefined:add} cartCount={cart.length}/>{checkout&&!readOnly&&<Modal title="Checkout test" onClose={()=>setCheckout(false)}><div className="modal-form"><p>This creates a real customer and order in your CoBest database. Payment stays Pending until a payment provider is connected.</p><Field label="Customer name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><SummaryRow label="Items" value={String(cart.length)}/><SummaryRow label="Total" value={formatPrice(total,currency)}/><div className="modal-actions"><Button variant="secondary" onClick={()=>setCheckout(false)}>Cancel</Button><Button disabled={busy||!buyer.name||!buyer.email} onClick={placeOrder}>{busy?'Creating…':'Place test order'}</Button></div></div></Modal>}</div>
 }
 
 function ResetRequest({onBack}) {
@@ -1345,7 +1386,7 @@ export default function App() {
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
-  if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
+  if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder} readOnly={accessRole==='Viewer'} currency={workspace?.currency||'PHP'}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews} readOnly={accessRole==='Viewer'}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button>{accessRole!=='Viewer'&&<><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button></>}<button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
