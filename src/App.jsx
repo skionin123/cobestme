@@ -570,7 +570,7 @@ const navGroups = [
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
-function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite }) {
+function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,sites=[],activeSiteId,onSiteChange,onCreateSite,cloudError='' }) {
   const [mobile, setMobile] = useState(false)
   const activeSite = sites.find(site=>String(site.id)===String(activeSiteId))
   const activeSiteName = activeSite?.site_name || activeSite?.slug || businessName || 'Untitled website'
@@ -594,7 +594,7 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
       <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
       <div className="sidebar-bottom"><button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button><button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
     </aside>
-    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{children}</main>
+    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{cloudError&&<div className="app-sync-warning auth-message auth-error">{cloudError}</div>}{children}</main>
   </div>
 }
 
@@ -1132,6 +1132,7 @@ export default function App() {
   const [events,setEvents] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
+  const [cloudLoadError,setCloudLoadError] = useState('')
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
 
@@ -1171,33 +1172,60 @@ export default function App() {
   useEffect(()=>{
     if(!isAuthenticated()) return
     let active=true
-    Promise.all([
-      listSites(),getWorkspace(),listResource('products'),listResource('customers'),listResource('orders'),
-      listResource('media_assets'),listResource('discounts'),listResource('campaigns'),listResource('collections'),listResource('blog_posts'),listResource('catalog_terms'),
-      listResource('newsletter_subscribers'),listResource('contact_messages'),listResource('bookings'),
-      listResource('product_reviews'),listResource('store_events')
-    ]).then(([siteList,workspaceData,cloudProducts,cloudCustomers,cloudOrders,cloudMedia,cloudDiscounts,cloudCampaigns,cloudCollections,cloudBlogPosts,cloudCatalogTerms,cloudSubscribers,cloudContacts,cloudBookings,cloudReviews,cloudEvents])=>{
-      if(!active) return
-      if(Array.isArray(siteList)){setSites(siteList);if(!getActiveSiteId()&&siteList[0]?.id)setActiveSiteId(siteList[0].id)}
-      setWorkspace(workspaceData)
-      if(workspaceData?.onboarding) setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
-      if(workspaceData?.editor) setEditor(prev=>({...prev,...workspaceData.editor}))
-      if(Array.isArray(cloudProducts)) setProducts(cloudProducts)
-      if(Array.isArray(cloudCustomers)) setCustomers(cloudCustomers)
-      if(Array.isArray(cloudOrders)) setOrders(cloudOrders)
-      if(Array.isArray(cloudMedia)) setMediaAssets(cloudMedia)
-      if(Array.isArray(cloudDiscounts)) setDiscounts(cloudDiscounts)
-      if(Array.isArray(cloudCampaigns)) setCampaigns(cloudCampaigns)
-      if(Array.isArray(cloudCollections)) setCollections(cloudCollections)
-      if(Array.isArray(cloudBlogPosts)) setBlogPosts(cloudBlogPosts)
-      if(Array.isArray(cloudCatalogTerms)) setCatalogTerms(cloudCatalogTerms)
-      if(Array.isArray(cloudSubscribers)) setSubscribers(cloudSubscribers)
-      if(Array.isArray(cloudContacts)) setContacts(cloudContacts)
-      if(Array.isArray(cloudBookings)) setBookings(cloudBookings)
-      if(Array.isArray(cloudReviews)) setReviews(cloudReviews)
-      if(Array.isArray(cloudEvents)) setEvents(cloudEvents)
+    setCloudReady(false)
+    setCloudLoadError('')
+    const requests=[
+      ['sites',listSites()],['workspace',getWorkspace()],['products',listResource('products')],['customers',listResource('customers')],['orders',listResource('orders')],
+      ['media',listResource('media_assets')],['discounts',listResource('discounts')],['campaigns',listResource('campaigns')],['collections',listResource('collections')],['blog',listResource('blog_posts')],['terms',listResource('catalog_terms')],
+      ['subscribers',listResource('newsletter_subscribers')],['contacts',listResource('contact_messages')],['bookings',listResource('bookings')],
+      ['reviews',listResource('product_reviews')],['events',listResource('store_events')]
+    ]
+    Promise.allSettled(requests.map(([,promise])=>promise)).then(results=>{
+      if(!active)return
+      const values={}
+      const failures=[]
+      results.forEach((result,index)=>{
+        const key=requests[index][0]
+        if(result.status==='fulfilled')values[key]=result.value
+        else failures.push({key,error:result.reason})
+      })
+      const workspaceFailure=failures.find(x=>x.key==='workspace')
+      if(workspaceFailure){
+        setCloudLoadError('Workspace sync failed. Editing autosave is paused to protect your saved data. Refresh or sign in again before making changes.')
+        return
+      }
+      const siteList=values.sites
+      const workspaceData=values.workspace
+      if(Array.isArray(siteList)){
+        setSites(siteList)
+        const activeId=getActiveSiteId()
+        const activeExists=siteList.some(site=>String(site.id)===String(activeId))
+        if((!activeId||!activeExists)&&workspaceData?.id)setActiveSiteId(workspaceData.id)
+        else if(!activeId&&siteList[0]?.id)setActiveSiteId(siteList[0].id)
+      }
+      setWorkspace(workspaceData||null)
+      if(workspaceData?.onboarding)setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
+      if(workspaceData?.editor)setEditor(prev=>({...prev,...workspaceData.editor}))
+      if(Array.isArray(values.products))setProducts(values.products)
+      if(Array.isArray(values.customers))setCustomers(values.customers)
+      if(Array.isArray(values.orders))setOrders(values.orders)
+      if(Array.isArray(values.media))setMediaAssets(values.media)
+      if(Array.isArray(values.discounts))setDiscounts(values.discounts)
+      if(Array.isArray(values.campaigns))setCampaigns(values.campaigns)
+      if(Array.isArray(values.collections))setCollections(values.collections)
+      if(Array.isArray(values.blog))setBlogPosts(values.blog)
+      if(Array.isArray(values.terms))setCatalogTerms(values.terms)
+      if(Array.isArray(values.subscribers))setSubscribers(values.subscribers)
+      if(Array.isArray(values.contacts))setContacts(values.contacts)
+      if(Array.isArray(values.bookings))setBookings(values.bookings)
+      if(Array.isArray(values.reviews))setReviews(values.reviews)
+      if(Array.isArray(values.events))setEvents(values.events)
+      if(failures.length){
+        const names=failures.map(x=>x.key).join(', ')
+        setCloudLoadError(`Some workspace data could not be loaded (${names}). Loaded sections remain usable; failed sections were not overwritten.`)
+      }
       setCloudReady(true)
-    }).catch(()=>setCloudReady(true))
+    })
     return ()=>{active=false}
   },[mode])
 
@@ -1321,5 +1349,5 @@ export default function App() {
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
-  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite}>{content}</AppShell>
+  return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite} cloudError={cloudLoadError}>{content}</AppShell>
 }
