@@ -8,6 +8,7 @@ import {
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getMe, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 import VisualProjectFrame from './builder/VisualProjectFrame'
+import { applyThemeStyles, builderTemplates as visualThemes } from './builder/templates'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 
 const APP_NAME = 'CoBest'
@@ -715,41 +716,27 @@ function ThemePreview({theme,large=false}) {
 function ThemeLibrary({editor,setEditor,setPage}) {
   const current=selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'
   const currentTheme={...(themePresets[current]||themePresets.Essential),...(selectableThemeNames.includes(editor.theme?.name)?editor.theme:{})}
-  const [pickerTheme,setPickerTheme]=useState(null)
-  const [pickedSections,setPickedSections]=useState([])
+  const [busy,setBusy]=useState('')
 
-  const openPicker=name=>{
-    const recipe=themeRecipes[name]||themeRecipes.Essential
-    const existing=name===current?(editor.sectionOrder||[]).filter(id=>recipe.sections.includes(id)):[]
-    const recommended=existing.length?existing:recipe.sections.slice(0,Math.min(4,recipe.sections.length))
-    setPickedSections(recommended)
-    setPickerTheme(name)
+  const chooseTheme=name=>{
+    const template=visualThemes.find(x=>x.name===name)
+    if(!template)return
+    setBusy(name)
+    setEditor(prev=>{
+      const project=prev.visualBuilderProject
+        ? applyThemeStyles(template,prev.visualBuilderProject)
+        : template.build()
+      return {
+        ...prev,
+        theme:{...(themePresets[name]||themePresets.Essential)},
+        visualBuilderProject:project
+      }
+    })
+    setTimeout(()=>setBusy(''),250)
   }
-
-  const toggleSection=id=>{
-    setPickedSections(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
-  }
-
-  const applyTheme=()=>{
-    if(!pickerTheme)return
-    if(!pickedSections.length)return
-    const recipe=themeRecipes[pickerTheme]||themeRecipes.Essential
-    const ordered=recipe.sections.filter(id=>pickedSections.includes(id))
-    setEditor(prev=>({
-      ...prev,
-      theme:{...(themePresets[pickerTheme]||themePresets.Essential)},
-      sectionOrder:ordered,
-      sectionContent:{...(prev.sectionContent||{}),...(recipe.defaults||{})},
-      selected:ordered[0]||'header'
-    }))
-    setPickerTheme(null)
-  }
-
-  const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Essential):null
 
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Two professional starting points only. Choose one, then focus on editing the actual page instead of browsing endless themes.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
-
+    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Choose one professional design system. Your Designer pages and content stay intact when you switch.</p></div><Button onClick={()=>setPage('editor')}>Open Designer <ArrowRight size={15}/></Button></div>
     <section className="panel current-theme-panel compact-current-theme">
       <div className="current-theme-layout">
         <ThemePreview theme={currentTheme} large/>
@@ -758,33 +745,15 @@ function ThemeLibrary({editor,setEditor,setPage}) {
           <h2>{current}</h2>
           <p>{currentTheme.description}</p>
           <div className="current-theme-tags"><span>{currentTheme.category}</span><span>{currentTheme.fit}</span></div>
-          <div className="current-theme-buttons"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><Button onClick={()=>setPage('editor')}>Customize <ArrowRight size={15}/></Button></div>
+          <div className="current-theme-buttons"><Button onClick={()=>setPage('editor')}>Customize in Designer <ArrowRight size={15}/></Button></div>
         </div>
       </div>
     </section>
-
-    <div className="page-section-head"><div><span>CoBest themes</span><h2>Keep the choice simple</h2><p className="field-help">Essential is neutral and versatile. Editorial is warmer and typography-led. Both stay intentionally uncluttered.</p></div></div>
-
-    <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];return <article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Two focused design systems</h2><p className="field-help">Changing theme updates typography, colors, spacing, cards, and shared components. It does not replace your page tree.</p></div></div>
+    <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];const selected=current===name;return <article className={'theme-library-card '+(selected?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
-      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
+      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{selected&&<span className="status active">Current</span>}<Button variant={selected?'secondary':'primary'} disabled={!!busy||selected} onClick={()=>chooseTheme(name)}>{busy===name?'Applying…':selected?'Applied':'Use '+name}</Button></div></div>
     </article>})}</div>
-
-    {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
-      <div className="theme-section-picker">
-        <div className="theme-picker-intro"><p>Pick the sections this store needs. Start small—you can come back and change this later.</p><span>{pickedSections.length} selected</span></div>
-        <div className="theme-picker-grid">{pickerRecipe.sections.length===0?<div className="blank-theme-note"><strong>Blank canvas</strong><p>No preset homepage sections will be added. Header and footer remain available, and you can add your own sections in the editor.</p></div>:pickerRecipe.sections.map((id,i)=>{
-          const checked=pickedSections.includes(id)
-          const label=pickerRecipe.labels[id]||id
-          const desc=pickerRecipe.defaults?.[id]?.title||themePresets[pickerTheme]?.description||''
-          return <button type="button" key={id} className={'theme-picker-item '+(checked?'selected':'')} onClick={()=>toggleSection(id)}>
-            <span className="theme-picker-check">{checked?<Check size={14}/>:<Plus size={14}/>}</span>
-            <div><small>SECTION {String(i+1).padStart(2,'0')}</small><strong>{label}</strong><p>{desc}</p></div>
-          </button>
-        })}</div>
-        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>{`Apply ${pickerTheme} with ${pickedSections.length} sections`}</Button></div>
-      </div>
-    </Modal>}
   </div>
 }
 function NavigationManager({pages=[],editor,setEditor}) {
