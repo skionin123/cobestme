@@ -432,9 +432,9 @@ async function handlePublicApi(req, res, url) {
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
       p_slug: body.slug,
-      p_name: body.buyer.name,
-      p_email: body.buyer.email,
-      p_phone: body.buyer.phone || '',
+      p_name: String(body.buyer.name).trim().slice(0,160),
+      p_email: String(body.buyer.email).trim().toLowerCase(),
+      p_phone: String(body.buyer.phone || '').slice(0,80),
       p_items: totals.items,
       p_subtotal: totals.subtotal,
       p_discount_code: totals.discountCode,
