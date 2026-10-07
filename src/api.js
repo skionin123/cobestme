@@ -40,10 +40,16 @@ export function acceptSessionFromHash() {
   return { ok:true, type:params.get('type')||'' }
 }
 
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(REFRESH_KEY)
-  localStorage.removeItem(SITE_KEY)
+export async function logout() {
+  const token=getToken()
+  try{
+    if(token)await fetch('/api/auth/logout',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:'{}'})
+  }catch{}
+  finally{
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
+    localStorage.removeItem(SITE_KEY)
+  }
 }
 
 let refreshing = null
