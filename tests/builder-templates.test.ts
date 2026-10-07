@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from '../src/builder/defaultProject'
-import { applyTemplate, builderTemplates } from '../src/builder/templates'
+import { applyTemplate, applyThemeStyles, builderTemplates } from '../src/builder/templates'
 
 describe('builder templates',()=>{
   it('keeps the theme choice intentionally limited to two professional options',()=>{
@@ -28,6 +28,29 @@ describe('builder templates',()=>{
     expect(editorial.styles.button.desktop.focused?.outline).toContain('var(--accent)')
     expect(essential.styles['feature-grid'].mobilePortrait?.none?.gridTemplateColumns).toBe('1fr')
     expect(editorial.styles.quote.desktop.none.fontFamily).toContain('Playfair Display')
+  })
+
+  it('applies theme styles without replacing pages, content, assets, or custom classes',()=>{
+    const current=createDefaultProject()
+    current.id='site-keep'
+    current.name='Acme Studio'
+    current.pages.push({...current.pages[0],id:'page-about',name:'About',slug:'/about',root:{...current.pages[0].root,id:'root-about'}})
+    current.pages[0].root.children[1].children[0].children[0].content='Keep this customer headline'
+    current.pages[0].root.children[1].children[0].children[0].classes.push('customer-heading')
+    current.styles['customer-heading']={desktop:{none:{textTransform:'uppercase'}}}
+    current.assets=[{id:'asset-1',name:'photo.jpg',mimeType:'image/jpeg',url:'data:image/jpeg;base64,AA==',createdAt:'2026-01-01'}]
+
+    const editorial=builderTemplates.find(x=>x.name==='Editorial')!
+    const next=applyThemeStyles(editorial,current)
+
+    expect(next.id).toBe('site-keep')
+    expect(next.name).toBe('Acme Studio')
+    expect(next.pages).toHaveLength(2)
+    expect(next.pages[0].root.children[1].children[0].children[0].content).toBe('Keep this customer headline')
+    expect(next.styles['customer-heading'].desktop?.none?.textTransform).toBe('uppercase')
+    expect(next.assets).toHaveLength(1)
+    expect(next.globals.colors.accent).toBe('#8d5c3f')
+    expect(next.styles.display.desktop.none.fontFamily).toContain('Playfair Display')
   })
 
   it('applies a theme without changing the current project id or assets',()=>{
