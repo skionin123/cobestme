@@ -816,6 +816,7 @@ async function handleApi(req, res, url) {
     if(!campaign)return sendJson(res,404,{error:'Campaign not found.'})
     const subsResult=await supabaseFetch(`/rest/v1/newsletter_subscribers?owner_user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=email`,{headers:apiHeaders(token)})
     const subscribers=subsResult.ok&&Array.isArray(subsResult.data)?subsResult.data:[]
+    if(!subscribers.length)return sendJson(res,400,{error:'There are no subscribers to send this campaign to.'})
     let sent=0,failed=0
     for(const sub of subscribers.slice(0,500)){
       const mail=await sendEmail(sub.email,campaign.subject||campaign.name,`<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(campaign.content||'').replaceAll('\n','<br>')}</div>`)
