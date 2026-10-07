@@ -287,6 +287,11 @@ function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
 
+function isValidEmail(value='') {
+  const email=String(value).trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254
+}
+
 function validateResourceMutation(table, body, method='POST') {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Invalid payload.' }
   const next = { ...body }
@@ -388,12 +393,14 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/subscribe' && req.method === 'POST') {
     if (!body?.slug || !body?.email) return sendJson(res, 400, { error: 'Store and email are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('subscribe_store', { p_slug: body.slug, p_email: body.email })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
@@ -405,6 +412,9 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/booking' && req.method === 'POST') {
     if (!body?.slug || !body?.name || !body?.email || !body?.start_at) return sendJson(res, 400, { error: 'Store, name, email, and time are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    const bookingTime=Date.parse(body.start_at)
+    if (!Number.isFinite(bookingTime) || bookingTime <= Date.now()) return sendJson(res, 400, { error: 'Booking time must be in the future.' })
     const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
@@ -417,9 +427,12 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/review' && req.method === 'POST') {
     if (!body?.slug || !body?.product_id || !body?.name || !body?.rating) return sendJson(res, 400, { error: 'Required review fields are missing.' })
+    const rating=Number(body.rating)
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return sendJson(res, 400, { error: 'Rating must be between 1 and 5.' })
+    if (body.email && !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('review_store_product', {
       p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: Number(body.rating), p_body: body.body || ''
+      p_email: body.email || '', p_rating: rating, p_body: body.body || ''
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -434,6 +447,7 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
@@ -448,6 +462,7 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
+    if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
