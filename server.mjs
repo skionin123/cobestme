@@ -418,6 +418,8 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
+    if(!isValidEmail(body.buyer.email))return sendJson(res,400,{error:'Enter a valid checkout email address.'})
+    if(!Array.isArray(body.items)||!body.items.length||body.items.length>100)return sendJson(res,400,{error:'Cart must contain between 1 and 100 line items.'})
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
