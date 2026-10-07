@@ -567,6 +567,14 @@ async function handleApi(req, res, url) {
     return sendJson(res, result.status, result.data)
   }
 
+  if (url.pathname === '/api/auth/logout' && req.method === 'POST') {
+    const token=authToken(req)
+    if(!token)return sendJson(res,200,{ok:true})
+    const result=await supabaseFetch('/auth/v1/logout',{method:'POST',headers:apiHeaders(token)})
+    if(!result.ok && result.status!==401)return sendJson(res,result.status,result.data)
+    return sendJson(res,200,{ok:true})
+  }
+
   if (url.pathname === '/api/auth/reset' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
