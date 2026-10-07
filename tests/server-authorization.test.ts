@@ -1,0 +1,31 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const server=readFileSync(new URL('../server.mjs',import.meta.url),'utf8')
+
+function routeBlock(start:string,end:string){
+  const s=server.indexOf(start)
+  const e=server.indexOf(end,s+start.length)
+  expect(s).toBeGreaterThanOrEqual(0)
+  expect(e).toBeGreaterThan(s)
+  return server.slice(s,e)
+}
+
+describe('server authorization guards',()=>{
+  it('keeps Viewer accounts read-only for publish and unpublish',()=>{
+    const publish=routeBlock("if (url.pathname === '/api/publish'","if (url.pathname === '/api/unpublish'")
+    const unpublish=routeBlock("if (url.pathname === '/api/unpublish'","if (url.pathname === '/api/media/upload'")
+    expect(publish).toContain("if(role==='Viewer')return sendJson(res,403")
+    expect(unpublish).toContain("if(role==='Viewer')return sendJson(res,403")
+  })
+
+  it('prevents Viewer media uploads',()=>{
+    const media=routeBlock("if (url.pathname === '/api/media/upload'","const campaignSend")
+    expect(media).toContain("if(role==='Viewer')return sendJson(res,403")
+  })
+
+  it('limits billing management to Owner or Admin',()=>{
+    const portal=routeBlock("if (url.pathname === '/api/billing/portal'","if (url.pathname === '/api/me'")
+    expect(portal).toContain("if(!['Owner','Admin'].includes(role))return sendJson(res,403")
+  })
+})
