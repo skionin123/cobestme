@@ -793,3 +793,11 @@ Audit standard: trace the real MVP end to end, fix root causes, and only mark ve
 - **Fix:** refreshed lockfile with Vitest 4.1.11 / @vitest/mocker 4.1.11 and source-map-js 1.2.2; vulnerable tinypool is no longer installed.
 - **Verification:** dependency refresh runner passed `npm audit --audit-level=high`, unit tests, and production build. Normal PR CI must still pass on the final clean head.
 
+
+
+### AUDIT-008 — P1 — Partial cloud load could enable stale autosave
+- **Area:** authenticated app startup and persistence.
+- **Problem:** one failed resource request rejected the entire startup `Promise.all`; the failure was swallowed and `cloudReady` was still enabled.
+- **Risk:** stale local onboarding/editor state could autosave after a failed workspace hydration.
+- **Fix:** startup now uses isolated settled results; workspace hydration is critical and pauses autosave on failure; noncritical failures do not erase successfully loaded sections; a visible sync warning is shown.
+- **Regression:** source-level persistence assertion in `tests/server-authorization.test.ts`.
