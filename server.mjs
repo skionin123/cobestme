@@ -286,6 +286,50 @@ function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
 
+function validateResourceMutation(table, body, method='POST') {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Invalid payload.' }
+  const next = { ...body }
+  if (table === 'products') {
+    if (method === 'POST' && !String(next.name || '').trim()) return { error: 'Product name is required.' }
+    for (const key of ['price','compare_at_price','inventory']) {
+      if (next[key] == null || next[key] === '') continue
+      const value = Number(next[key])
+      if (!Number.isFinite(value) || value < 0) return { error: `${key.replaceAll('_',' ')} must be zero or greater.` }
+      if (key === 'inventory' && !Number.isInteger(value)) return { error: 'Inventory must be a whole number.' }
+      next[key] = value
+    }
+    if (next.status != null && !['Draft','Active','Archived'].includes(next.status)) return { error: 'Invalid product status.' }
+  }
+  if (table === 'discounts') {
+    if (method === 'POST' && !String(next.code || '').trim()) return { error: 'Discount code is required.' }
+    if (next.kind != null && !['percent','fixed'].includes(next.kind)) return { error: 'Invalid discount type.' }
+    if (next.value != null && next.value !== '') {
+      const value = Number(next.value)
+      if (!Number.isFinite(value) || value <= 0) return { error: 'Discount value must be greater than zero.' }
+      if ((next.kind || body.kind) === 'percent' && value > 100) return { error: 'Percent discount cannot exceed 100%.' }
+      next.value = value
+    }
+    if (next.min_spend != null && next.min_spend !== '') {
+      const value = Number(next.min_spend)
+      if (!Number.isFinite(value) || value < 0) return { error: 'Minimum spend must be zero or greater.' }
+      next.min_spend = value
+    }
+    if (next.usage_limit !== undefined && next.usage_limit !== null && next.usage_limit !== '') {
+      const value = Number(next.usage_limit)
+      if (!Number.isInteger(value) || value < 1) return { error: 'Usage limit must be a positive whole number.' }
+      next.usage_limit = value
+    }
+  }
+  if (table === 'orders' && method === 'PATCH') {
+    const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
+    for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
+    if (next.payment_status != null && !['Pending','Paid','Refunded','Failed'].includes(next.payment_status)) return { error: 'Invalid payment status.' }
+    if (next.fulfillment_status != null && !['Unfulfilled','Processing','Fulfilled','Cancelled'].includes(next.fulfillment_status)) return { error: 'Invalid fulfillment status.' }
+    if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
+  }
+  return { body: next }
+}
+
 async function getPublishedStore(slug) {
   const result = await rpc('public_store_payload', { p_slug: slug })
   return result.ok ? result.data || null : null
@@ -846,8 +890,10 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validated = validateResourceMutation(table, body, 'POST')
+      if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
-        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId, site_id: siteId })
+        method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...validated.body, [ownerColumn]: ownerId, site_id: siteId })
       })
       return sendJson(res, result.status, result.data)
     }
@@ -855,9 +901,11 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
-      delete body.user_id; delete body.owner_user_id; delete body.id
+      delete body.user_id; delete body.owner_user_id; delete body.id; delete body.site_id
+      const validated = validateResourceMutation(table, body, 'PATCH')
+      if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
-        method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, updated_at: new Date().toISOString() })
+        method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...validated.body, updated_at: new Date().toISOString() })
       })
       return sendJson(res, result.status, result.data)
     }
