@@ -830,6 +830,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validationError=validateResourceWrite(table,body,{partial:false})
+      if(validationError)return sendJson(res,400,{error:validationError})
       const result = await supabaseFetch(`/rest/v1/${table}`, {
         method: 'POST', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, [ownerColumn]: ownerId, site_id: siteId })
       })
@@ -839,6 +841,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      const validationError=validateResourceWrite(table,body,{partial:true})
+      if(validationError)return sendJson(res,400,{error:validationError})
       delete body.user_id; delete body.owner_user_id; delete body.id
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
         method: 'PATCH', headers: apiHeaders(token, { Prefer: 'return=representation' }), body: JSON.stringify({ ...body, updated_at: new Date().toISOString() })
