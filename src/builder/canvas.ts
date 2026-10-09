@@ -63,7 +63,6 @@ ${body}${emptyState}
   let hovered = null
   let label = null
   let nodeDragging = false
-  let activeNodeDragPayload = null
   let handles = []
   const clearHandles=()=>{handles.forEach(h=>h.remove());handles=[]}
   const spacingProperty=(kind,edge)=>kind+(edge[0].toUpperCase()+edge.slice(1))
@@ -84,28 +83,8 @@ ${body}${emptyState}
     const rect=el.getBoundingClientRect()
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
-    label.title='Drag to move this element'
-    label.draggable=true
-    label.ondragstart=event=>{
-      activeNodeDragPayload={kind:'node',nodeId:el.dataset.builderNode}
-      const payload=JSON.stringify(activeNodeDragPayload)
-      nodeDragging=true
-      send('node-drag-start',{payload:activeNodeDragPayload,label:el.dataset.builderName||el.dataset.builderType||'Element'})
-      document.documentElement.style.cursor='grabbing'
-      document.body.style.cursor='grabbing'
-      event.dataTransfer.effectAllowed='move'
-      event.dataTransfer.setData('application/x-cobest-builder',payload)
-      event.dataTransfer.setData('text/plain','cobest:'+payload)
-    }
-    label.ondragend=()=>{
-      nodeDragging=false
-      send('node-drag-end')
-      activeNodeDragPayload=null
-      document.documentElement.style.cursor=''
-      document.body.style.cursor=''
-      removeDropMarker()
-    }
+    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())
+    label.title='Selected element'
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
     document.body.appendChild(label)
@@ -152,14 +131,12 @@ ${body}${emptyState}
   let dropMarker=null
   const removeDropMarker=()=>{if(dropMarker){dropMarker.remove();dropMarker=null}}
   const dragPayload=event=>{
-    if(nodeDragging&&activeNodeDragPayload)return activeNodeDragPayload
     let raw=''
     try{raw=event.dataTransfer?.getData('application/x-cobest-builder')||event.dataTransfer?.getData('text/plain')||''}catch{}
     if(raw.startsWith('cobest:'))raw=raw.slice(7)
     try{return raw?JSON.parse(raw):null}catch{return null}
   }
   const hasBuilderDrag=event=>{
-    if(nodeDragging&&activeNodeDragPayload)return true
     const types=Array.from(event.dataTransfer?.types||[])
     return types.includes('application/x-cobest-builder')||types.includes('text/plain')
   }
