@@ -51,8 +51,12 @@ const containerTypes=new Set([
   'div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList','dropdown','list','select'
 ])
 
+export function canAcceptChildren(parent:BuilderNode){
+  return containerTypes.has(parent.type)
+}
+
 export function canAcceptChild(parent:BuilderNode,child:BuilderNode){
-  if(!containerTypes.has(parent.type))return false
+  if(!canAcceptChildren(parent))return false
   if(parent.type==='list')return child.tag==='li'
   if(parent.type==='select')return child.tag==='option'
   if(parent.type==='navbar')return ['link','button','div','dropdown'].includes(child.type)
