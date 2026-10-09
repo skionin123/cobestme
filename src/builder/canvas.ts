@@ -85,42 +85,21 @@ ${body}${emptyState}
     label.className='builder-node-label'
     label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
     label.title='Drag to move this element'
-    label.onpointerdown=startEvent=>{
-      if(startEvent.button!==0)return
-      startEvent.preventDefault();startEvent.stopPropagation()
-      const payload={kind:'node',nodeId:el.dataset.builderNode}
-      const startX=startEvent.clientX,startY=startEvent.clientY
-      const dragLabel=label
-      let moved=false
+    label.draggable=true
+    label.ondragstart=event=>{
+      const payload=JSON.stringify({kind:'node',nodeId:el.dataset.builderNode})
       nodeDragging=true
-      dragLabel?.setPointerCapture?.(startEvent.pointerId)
-      if(dragLabel)dragLabel.style.pointerEvents='none'
       document.documentElement.style.cursor='grabbing'
       document.body.style.cursor='grabbing'
-      const move=event=>{
-        if(Math.hypot(event.clientX-startX,event.clientY-startY)>4)moved=true
-        if(!moved)return
-        const target=document.elementFromPoint(event.clientX,event.clientY)
-        drawDropMarker(dropIntentFor(target,event.clientY))
-      }
-      const up=event=>{
-        window.removeEventListener('pointermove',move)
-        window.removeEventListener('pointerup',up)
-        if(dragLabel){
-          dragLabel.style.pointerEvents='auto'
-          try{dragLabel.releasePointerCapture?.(startEvent.pointerId)}catch{}
-        }
-        document.documentElement.style.cursor=''
-        document.body.style.cursor=''
-        nodeDragging=false
-        if(!moved){removeDropMarker();return}
-        const target=document.elementFromPoint(event.clientX,event.clientY)
-        const intent=dropIntentFor(target,event.clientY)
-        removeDropMarker()
-        if(payload.nodeId&&intent)send('canvas-drop',{payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
-      }
-      window.addEventListener('pointermove',move)
-      window.addEventListener('pointerup',up,{once:true})
+      event.dataTransfer.effectAllowed='move'
+      event.dataTransfer.setData('application/x-cobest-builder',payload)
+      event.dataTransfer.setData('text/plain','cobest:'+payload)
+    }
+    label.ondragend=()=>{
+      nodeDragging=false
+      document.documentElement.style.cursor=''
+      document.body.style.cursor=''
+      removeDropMarker()
     }
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
