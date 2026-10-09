@@ -71,7 +71,7 @@ export function AddPanel(){
 
 function DropLine({id}:{id:string}){
   const {setNodeRef,isOver}=useDroppable({id,data:{kind:'drop-line'}})
-  return <div ref={setNodeRef} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
+  return <div ref={setNodeRef} data-drop-id={id} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
 }
 
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
