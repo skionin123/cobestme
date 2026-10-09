@@ -94,18 +94,33 @@ test.describe('CoBest MVP browser golden path',()=>{
     )
     const imageIndex=beforeOrder.indexOf('image')
     expect(imageIndex).toBeGreaterThanOrEqual(0)
+    const imageId=await image.getAttribute('data-builder-node')
+    await page.evaluate(()=>{
+      ;(window as any).__cobestCanvasDrops=[]
+      window.addEventListener('message',event=>{
+        if(event.data?.source==='cobest-builder'&&event.data?.type==='canvas-drop'){
+          ;(window as any).__cobestCanvasDrops.push(event.data)
+        }
+      })
+    })
     await image.click()
     await expect(frame.locator('.builder-node-label')).toContainText('Image')
     if(imageIndex!==0){
       const firstType=beforeOrder[0]
       const firstSibling=frame.locator(`[data-builder-type="${firstType}"]`).first()
+      const firstId=await firstSibling.getAttribute('data-builder-node')
       const sourceBox=await frame.locator('.builder-node-label').boundingBox()
       const targetBox=await firstSibling.boundingBox()
       expect(sourceBox).not.toBeNull();expect(targetBox).not.toBeNull()
       await page.mouse.move(sourceBox!.x+sourceBox!.width/2,sourceBox!.y+sourceBox!.height/2)
       await page.mouse.down()
+      await expect.poll(()=>frame.locator('body').evaluate(el=>el.style.cursor)).toBe('grabbing')
       await page.mouse.move(targetBox!.x+8,targetBox!.y+2,{steps:12})
+      await expect(frame.locator('.builder-drop-marker')).toBeVisible()
       await page.mouse.up()
+      await expect.poll(()=>page.evaluate(()=>(window as any).__cobestCanvasDrops.length)).toBeGreaterThan(0)
+      const drop=await page.evaluate(()=>(window as any).__cobestCanvasDrops.at(-1))
+      expect(drop).toMatchObject({payload:{kind:'node',nodeId:imageId},targetId:firstId,mode:'before'})
       await expect.poll(()=>containerNode.evaluate(el=>(el.children[0] as HTMLElement|undefined)?.dataset.builderType||'')).toBe('image')
     }else{
       const lastType=beforeOrder.at(-1)!
