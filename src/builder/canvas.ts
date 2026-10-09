@@ -144,11 +144,11 @@ ${body}${emptyState}
           drawLabel(el)
         }
         const up=()=>{
-          window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up)
+          window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)
           send('spacing-change',{id:el.dataset.builderNode,property:prop,value:finalValue+'px'})
           requestAnimationFrame(reportSize)
         }
-        window.addEventListener('mousemove',move);window.addEventListener('mouseup',up,{once:true})
+        window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true})
       }
       document.body.appendChild(h);handles.push(h)
     }))
