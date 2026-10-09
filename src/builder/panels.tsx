@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { createElement, createPrebuiltSection, elementCatalog, sectionCatalog } from './elements'
+import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
 import { findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
@@ -55,19 +55,16 @@ export function AddPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Add elements</span>
+      <strong className="mb-2 block text-[11px] text-zinc-200">MVP building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
     </div>
     <div className="p-3">
-      <div className="mb-4">
-        <span className={label}>Pre-built sections</span>
-        <div className="grid grid-cols-2 gap-2">{sectionCatalog.filter(x=>!q||x.label.toLowerCase().includes(q)).map(x=><DraggablePaletteItem key={x.id} type={x.id} label={x.label} section/>)}</div>
-      </div>
-      {elementCatalog.map(group=>{
+      {mvpElementCatalog.map(group=>{
         const items=group.items.filter(([,name])=>!q||name.toLowerCase().includes(q))
         if(!items.length)return null
         return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="grid grid-cols-2 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Wix-style adding</strong>Click an item to add it to the selected section, or drag it directly onto the exact place on the page. Navigator drag-and-drop still works for precise layer nesting.</p>
+      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Start with structure</strong>Drag a Section onto the page, then add a Container and content inside it. Use Navigator for precise reordering and nesting.</p>
     </div>
   </div>
 }
@@ -80,9 +77,12 @@ function DropLine({id}:{id:string}){
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
   const selectNode=useBuilderStore(s=>s.selectNode)
+  const duplicateNode=useBuilderStore(s=>s.duplicateNode)
+  const deleteNode=useBuilderStore(s=>s.deleteNode)
   const [open,setOpen]=useState(true)
   const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id}})
-  const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id}})
+  const acceptsChildren=['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList','dropdown','list','select'].includes(node.type)
+  const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id},disabled:!acceptsChildren})
   const childCount=node.children?.length||0
   return <div>
     <DropLine id={`before:${node.id}`}/>
@@ -92,6 +92,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
         <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
         <button className="vb-nav-name min-w-0 flex-1 truncate text-left" onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
         {node.componentId&&<span title="Component" className="rounded bg-violet-500/15 px-1 text-[8px] text-violet-300">C</span>}
+        {depth>0&&<div className="hidden items-center gap-0.5 group-hover:flex"><button title="Duplicate" className="rounded p-1 text-zinc-500 hover:bg-zinc-700 hover:text-white" onClick={()=>duplicateNode(node.id)}><Copy size={10}/></button><button title="Delete" className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300" onClick={()=>deleteNode(node.id)}><Trash2 size={10}/></button></div>}
       </div>
     </div>
     {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
