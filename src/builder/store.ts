@@ -361,11 +361,17 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     importProject:project=>set({project:clone(project),history:[],future:[],selectedNodeId:project.pages.find(p=>p.id===project.activePageId)?.root.id||null,saveStatus:'dirty'}),
     undo:()=>{
       const state=get();const previous=state.history.at(-1);if(!previous)return
-      set({project:clone(previous),history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty'})
+      const restored=clone(previous)
+      const page=currentPage(restored)
+      const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
+      set({project:restored,history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
     },
     redo:()=>{
       const state=get();const next=state.future[0];if(!next)return
-      set({project:clone(next),history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty'})
+      const restored=clone(next)
+      const page=currentPage(restored)
+      const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
+      set({project:restored,history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
     },
   }
 })
