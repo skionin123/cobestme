@@ -90,7 +90,8 @@ test.describe('CoBest MVP browser golden path',()=>{
     image=frame.locator('[data-builder-type="image"]').first()
     paragraph=frame.locator('[data-builder-type="paragraph"]').first()
     await image.click()
-    await frame.locator('.builder-node-label').dragTo(paragraph,{force:true})
+    await expect(frame.locator('.builder-node-label')).toContainText('Image')
+    await frame.locator('.builder-node-label').dragTo(paragraph,{force:true,targetPosition:{x:8,y:2}})
     const order=await frame.locator('[data-builder-type="container"]').first().evaluate(el=>
       Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType)
     )
