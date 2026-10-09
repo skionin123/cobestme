@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
-import { clone, findNode, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
+import { clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
   BuilderAsset,
   BuilderComponent,
@@ -204,8 +204,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     updateNode:(nodeId,patch)=>commit('Edit element',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,...clone(patch)}))
-      let cursor=findNode(page.root,nodeId)
-      let componentRoot:BuilderNode|null=cursor
+      let componentRoot:BuilderNode|null=findNode(page.root,nodeId)
       while(componentRoot&&!componentRoot.componentId){
         componentRoot=findParent(page.root,componentRoot.id)
       }
@@ -238,7 +237,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       let copy:BuilderNode|null=null
       commit('Duplicate element',draft=>{
         const page=currentPage(draft)
-        const node=findNode(page.root,nodeId);const parent=findNode(page.root,nodeId) ? null : null
+        const node=findNode(page.root,nodeId)
         if(!node)return
         const findParentLocal=(root:BuilderNode,id:string):BuilderNode|null=>{
           for(const child of root.children){if(child.id===id)return root;const hit=findParentLocal(child,id);if(hit)return hit}return null
@@ -272,7 +271,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     setStyle:(className,property,value,breakpoint,state)=>commit('Edit style',draft=>{
       const bp=breakpoint||get().breakpoint
       const st=state||get().styleState
-      draft.styles[className]=draft.styles[className]||{}
+      draft.styles[className]=draft.styles[className]||{desktop:{none:{}}}
       draft.styles[className][bp]=draft.styles[className][bp]||{}
       draft.styles[className][bp]![st]=draft.styles[className][bp]![st]||{}
       draft.styles[className][bp]![st]![property]=value
