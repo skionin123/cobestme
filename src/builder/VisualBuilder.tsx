@@ -197,7 +197,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
       if(msg.type==='canvas-resize'&&Number(msg.height)){
-        const next=Math.max(viewportHeights[breakpoint],Math.min(24000,Math.ceil(Number(msg.height))))
+        const next=Math.max(viewportHeights[breakpoint],Math.ceil(Number(msg.height)))
         setCanvasHeight(next)
       }
       if(msg.type==='canvas-drop'&&msg.payload&&msg.targetId&&msg.mode){
