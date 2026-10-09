@@ -388,7 +388,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </CanvasDropZone>
         </main>
         <aside className="vb-right">
-          <div className="vb-right-tabs">{(['style','settings'] as RightTab[]).map(id=><button key={id} title={id[0].toUpperCase()+id.slice(1)} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{id}</button>)}</div>
+          <div className="vb-right-tabs">{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
