@@ -147,7 +147,7 @@ export function PagesPanel(){
         <button className={panelButton} onClick={()=>duplicatePage(page.id)}>Duplicate</button>
         <button className={panelButton} onClick={()=>reorderPage(page.id,-1)} disabled={i===0}>↑</button>
         <button className={panelButton} onClick={()=>reorderPage(page.id,1)} disabled={i===project.pages.length-1}>↓</button>
-        {project.pages.length>1&&<button className={panelButton} onClick={()=>confirm(`Delete ${page.name}?`)&&deletePage(page.id)}><Trash2 size={11}/></button>}
+        {page.slug!=='/'&&project.pages.length>1&&<button className={panelButton} onClick={()=>confirm(`Delete ${page.name}?`)&&deletePage(page.id)}><Trash2 size={11}/></button>}
       </div>
     </div>)}</div>
   </div>
