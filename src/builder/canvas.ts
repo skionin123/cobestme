@@ -206,8 +206,8 @@ ${body}${emptyState}
     if(!document.documentElement.classList.contains('builder-editing'))return
     const el=event.target.closest?.('[data-builder-node]')
     if(!el)return
-    const tag=el.tagName.toLowerCase()
-    if(['img','input','textarea','select','video','iframe','form'].includes(tag))return
+    const type=el.dataset.builderType||''
+    if(!['heading','paragraph','button','link'].includes(type))return
     event.preventDefault();event.stopPropagation()
     el.contentEditable='true'
     el.focus()
