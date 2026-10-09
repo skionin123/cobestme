@@ -50,6 +50,39 @@ describe('MVP builder state history',()=>{
     expect(state.saveStatus).toBe('dirty')
   })
 
+  it('keeps selection valid when undo removes the selected node',()=>{
+    const store=useBuilderStore.getState()
+    const root=store.project.pages[0].root
+    const section=createElement('section')
+    store.addNode(root.id,section)
+    expect(useBuilderStore.getState().selectedNodeId).toBe(section.id)
+    useBuilderStore.getState().undo()
+    const state=useBuilderStore.getState()
+    expect(findNode(state.project.pages[0].root,section.id)).toBeNull()
+    expect(state.selectedNodeId).toBe(state.project.pages[0].root.id)
+  })
+
+  it('deleting a parent removes its subtree and undo restores it',()=>{
+    const store=useBuilderStore.getState()
+    const root=store.project.pages[0].root
+    const section=createElement('section')
+    store.addNode(root.id,section)
+    const container=createElement('container')
+    useBuilderStore.getState().addNode(section.id,container)
+    const heading=createElement('heading')
+    useBuilderStore.getState().addNode(container.id,heading)
+
+    useBuilderStore.getState().deleteNode(section.id)
+    let state=useBuilderStore.getState()
+    expect(findNode(state.project.pages[0].root,section.id)).toBeNull()
+    expect(findNode(state.project.pages[0].root,heading.id)).toBeNull()
+
+    useBuilderStore.getState().undo()
+    state=useBuilderStore.getState()
+    expect(findNode(state.project.pages[0].root,section.id)).not.toBeNull()
+    expect(findNode(state.project.pages[0].root,heading.id)).not.toBeNull()
+  })
+
   it('creates, renames, switches and deletes only non-required pages',()=>{
     const store=useBuilderStore.getState()
     const homeId=store.project.pages[0].id
