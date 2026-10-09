@@ -27,6 +27,18 @@ html.builder-editing,html.builder-editing body{overflow:hidden}
 html.builder-editing [data-builder-node]:hover{outline:1px solid rgba(99,102,241,.72);outline-offset:2px}
 html.builder-editing [data-builder-node].builder-hovered{outline:1px solid #818cf8;outline-offset:2px}
 html.builder-editing [data-builder-node].builder-selected{outline:2px solid #6366f1!important;outline-offset:3px}
+html.builder-editing [data-builder-node][data-builder-type="container"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="div"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="grid"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="flex"]:empty{
+  min-height:72px;outline:1px dashed rgba(99,102,241,.38);outline-offset:-1px;background:rgba(99,102,241,.025)
+}
+html.builder-editing [data-builder-node][data-builder-type="container"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="div"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="grid"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
+  content:"Drop elements here";display:grid;place-items:center;min-height:72px;color:#8b8fa3;font:500 11px/1.3 Inter,Arial,sans-serif;pointer-events:none
+}
 .builder-node-label{position:fixed;z-index:2147483647;pointer-events:auto;cursor:grab;background:#4f46e5;color:#fff;font:600 11px/1.2 Arial,sans-serif;padding:6px 8px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.14);user-select:none}
 .builder-node-label:active{cursor:grabbing}
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
