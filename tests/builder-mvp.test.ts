@@ -18,6 +18,16 @@ describe('MVP builder surface',()=>{
     for(const type of types)expect(createElement(type).classes.length).toBeGreaterThan(0)
   })
 
+  it('keeps basic page path management in the Pages workflow',()=>{
+    const panels=readFileSync(new URL('../src/builder/panels.tsx',import.meta.url),'utf8')
+    expect(panels).toContain("prompt('Page path',page.slug)")
+    const settingsStart=panels.indexOf('export function SettingsPanel')
+    const settingsEnd=panels.indexOf('export function InteractionsPanel',settingsStart)
+    const settings=panels.slice(settingsStart,settingsEnd)
+    expect(settings).not.toContain('Page SEO')
+    expect(settings).not.toContain('Custom attributes')
+  })
+
   it('keeps only MVP left and right panel tabs visible',()=>{
     expect(visualBuilder).toContain("['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets']")
     expect(visualBuilder).toContain("(['style','settings'] as RightTab[])")
