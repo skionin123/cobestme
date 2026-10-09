@@ -139,7 +139,7 @@ export function PagesPanel(){
   const [name,setName]=useState('')
   const create=()=>{if(!name.trim())return;addPage(name);setName('');setAdding(false)}
   return <div className="h-full overflow-auto">
-    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Pages</span><strong className="text-xs text-zinc-100">{project.pages.length} pages</strong></div><button className={panelButton} onClick={()=>setAdding(true)}><Plus size={12}/></button></div>
+    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Pages</span><strong className="text-xs text-zinc-100">{project.pages.length} pages</strong></div><button className={panelButton} aria-label="Add page" onClick={()=>setAdding(true)}><Plus size={12}/></button></div>
     {adding&&<div className={panelSection}><input autoFocus className={control} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&create()} placeholder="Page name"/><div className="mt-2 flex gap-2"><button className={panelButton} onClick={create}>Create</button><button className={panelButton} onClick={()=>setAdding(false)}>Cancel</button></div></div>}
     <div className="p-2">{project.pages.map((page,i)=><div className={'group mb-1 rounded-lg border p-2 '+(page.id===project.activePageId?'border-indigo-500/60 bg-indigo-500/10':'border-transparent hover:bg-zinc-900')} key={page.id}>
       <button className="w-full text-left" onClick={()=>setActivePage(page.id)}><strong className="block text-[11px] text-zinc-100">{page.name}</strong><span className="text-[9px] text-zinc-500">{page.slug}</span></button>
@@ -182,7 +182,7 @@ export function AssetsPanel(){
     }
   }
   return <div className="h-full overflow-auto">
-    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Assets</span><strong className="text-xs text-zinc-100">{project.assets.length} files</strong></div><><input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={e=>upload(e.target.files)}/><button className={panelButton} onClick={()=>fileRef.current?.click()}><Upload size={12}/></button></></div>
+    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Assets</span><strong className="text-xs text-zinc-100">{project.assets.length} files</strong></div><><input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={e=>upload(e.target.files)}/><button className={panelButton} aria-label="Upload image" onClick={()=>fileRef.current?.click()}><Upload size={12}/></button></></div>
     <div className="grid grid-cols-2 gap-2 p-3">{project.assets.map(asset=><div className="group relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900" key={asset.id}><img src={asset.url} alt={asset.alt||''} className="h-24 w-full object-cover"/><div className="p-2"><strong className="block truncate text-[9px] text-zinc-300">{asset.name}</strong></div><button className="absolute right-1 top-1 hidden rounded bg-black/70 p-1 text-white group-hover:block" onClick={()=>removeAsset(asset.id)}><X size={11}/></button></div>)}</div>
     {!project.assets.length&&<div className="p-6 text-center text-[10px] leading-5 text-zinc-500"><ImageIcon className="mx-auto mb-2" size={20}/>Upload images to reuse across pages.</div>}
   </div>
