@@ -33,6 +33,18 @@ export const elementCatalog=[
   ]},
 ] as const
 
+export const mvpElementCatalog=[
+  {group:'Structure',items:[
+    ['section','Section'],['container','Container'],['div','Box'],
+  ]},
+  {group:'Content',items:[
+    ['heading','Heading'],['paragraph','Paragraph'],['button','Button'],['link','Link'],['image','Image'],
+  ]},
+  {group:'Layout',items:[
+    ['flex','Flex container'],['grid','Grid container'],
+  ]},
+] as const
+
 export const sectionCatalog=[
   {id:'hero',label:'Hero'},
   {id:'features',label:'Features grid'},
