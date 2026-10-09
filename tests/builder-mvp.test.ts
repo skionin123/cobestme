@@ -30,13 +30,13 @@ describe('MVP builder surface',()=>{
     expect(visualBuilder).toContain('Math.max(viewportHeights[breakpoint],Math.ceil(Number(msg.height)))')
   })
 
-  it('shows the three MVP breakpoints in the toolbar',()=>{
+  it('shows the MVP breakpoints including the existing 767 layer',()=>{
     const start=visualBuilder.indexOf('const breakpoints:')
     const end=visualBuilder.indexOf('if(preview)',start)
     const block=visualBuilder.slice(start,end)
     expect(block).toContain("['desktop','Desktop 1440'")
     expect(block).toContain("['tablet','Tablet 991'")
+    expect(block).toContain("['mobileLandscape','Mobile landscape 767'")
     expect(block).toContain("['mobilePortrait','Mobile 478'")
-    expect(block).not.toContain("['mobileLandscape'")
   })
 })
