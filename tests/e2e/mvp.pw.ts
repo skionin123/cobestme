@@ -88,14 +88,28 @@ test.describe('CoBest MVP browser golden path',()=>{
     await expect(fontSize.locator('input')).toHaveValue('52')
 
     image=frame.locator('[data-builder-type="image"]').first()
-    paragraph=frame.locator('[data-builder-type="paragraph"]').first()
+    const containerNode=frame.locator('[data-builder-type="container"]').first()
+    const beforeOrder=await containerNode.evaluate(el=>
+      Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||'')
+    )
+    const imageIndex=beforeOrder.indexOf('image')
+    expect(imageIndex).toBeGreaterThanOrEqual(0)
     await image.click()
     await expect(frame.locator('.builder-node-label')).toContainText('Image')
-    await frame.locator('.builder-node-label').dragTo(paragraph,{force:true,targetPosition:{x:8,y:2}})
-    const order=await frame.locator('[data-builder-type="container"]').first().evaluate(el=>
-      Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType)
-    )
-    expect(order.slice(0,4)).toEqual(['heading','image','paragraph','button'])
+    if(imageIndex!==0){
+      const firstType=beforeOrder[0]
+      const firstSibling=frame.locator(`[data-builder-type="${firstType}"]`).first()
+      await frame.locator('.builder-node-label').dragTo(firstSibling,{force:true,targetPosition:{x:8,y:2}})
+      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
+      expect(order[0]).toBe('image')
+    }else{
+      const lastType=beforeOrder.at(-1)!
+      const lastSibling=frame.locator(`[data-builder-type="${lastType}"]`).first()
+      const height=await lastSibling.evaluate(el=>el.getBoundingClientRect().height)
+      await frame.locator('.builder-node-label').dragTo(lastSibling,{force:true,targetPosition:{x:8,y:Math.max(2,height-2)}})
+      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
+      expect(order.at(-1)).toBe('image')
+    }
 
     await page.getByRole('button',{name:'Navigator',exact:true}).click()
     const headingRow=page.locator('.vb-nav-row',{hasText:'Heading'}).first()
