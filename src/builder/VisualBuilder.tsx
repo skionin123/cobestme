@@ -330,8 +330,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const breakpoints:[BreakpointId,string,React.ComponentType<{size?:number}>][]=[
     ['desktop','Desktop 1440',Monitor],
     ['tablet','Tablet 991',Tablet],
-    ['mobileLandscape','Mobile L 767',Smartphone],
-    ['mobilePortrait','Mobile P 478',Smartphone],
+    ['mobilePortrait','Mobile 478',Smartphone],
   ]
 
   if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
@@ -345,23 +344,17 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-top-actions">
           <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo" aria-label="Undo"><Undo2 size={16}/></button>
           <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo" aria-label="Redo"><Redo2 size={16}/></button>
-          <div className="vb-zoom"><button onClick={()=>setZoom(z=>Math.max(35,z-5))}><ZoomOut size={13}/></button><span>{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(125,z+5))}><ZoomIn size={13}/></button></div>
-          <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Save failed':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
-          <button className="vb-toolbar-icon" onClick={()=>setVersionsOpen(x=>!x)} title="Version history" aria-label="Version history"><FolderOpen size={15}/></button>
-          <button className="vb-toolbar-icon" onClick={()=>{setRightTab('settings');selectNode(selectedNodeId||activePage.root.id)}} title="Settings" aria-label="Settings"><Settings2 size={15}/></button>
+          <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
-          <button className="vb-publish" onClick={publish}>Publish</button>
         </div>
-        {versionsOpen&&<VersionPopover onClose={()=>setVersionsOpen(false)}/>}
       </header>
       <div className="vb-workspace">
         <aside className="vb-left">
           <div className="vb-left-tabs">
             {([
-              ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],
-              ['templates',Sparkles,'Templates'],['assets',ImageIcon,'Assets'],['components',Component,'Components'],['cms',Database,'CMS'],
+              ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
             ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} data-label={labelText} aria-label={labelText} onClick={()=>setLeftTab(id)}><Icon size={16}/></button>)}
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
@@ -381,7 +374,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </CanvasDropZone>
         </main>
         <aside className="vb-right">
-          <div className="vb-right-tabs">{(['style','settings','interactions'] as RightTab[]).map(id=><button key={id} title={id[0].toUpperCase()+id.slice(1)} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{id}</button>)}</div>
+          <div className="vb-right-tabs">{(['style','settings'] as RightTab[]).map(id=><button key={id} title={id[0].toUpperCase()+id.slice(1)} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{id}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
