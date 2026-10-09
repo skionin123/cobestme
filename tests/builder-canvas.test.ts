@@ -27,6 +27,13 @@ describe('visual builder canvas document',()=>{
     expect(html).toContain('min-height:648px')
   })
 
+  it('restricts direct content editing to text-bearing MVP elements',()=>{
+    const project=createDefaultProject()
+    const html=createCanvasDocument(project,'desktop',true)
+    expect(html).toContain("if(!['heading','paragraph','button','link'].includes(type))return")
+    expect(html).toContain("send('text-change'")
+  })
+
   it('shows empty-page guidance only while editing',()=>{
     const project=createDefaultProject()
     project.pages[0].root.children=[]
