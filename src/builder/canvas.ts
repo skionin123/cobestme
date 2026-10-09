@@ -213,7 +213,11 @@ ${body}${emptyState}
     if(!el)return
     event.preventDefault()
     event.stopPropagation()
-    send('select',{id:el.dataset.builderNode})
+    clearClass(selected,'builder-selected')
+    selected=el.dataset.builderNode||null
+    apply(selected,'builder-selected')
+    drawLabel(el)
+    send('select',{id:selected})
   }, true)
   document.addEventListener('dblclick', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
