@@ -20,6 +20,11 @@ describe('MVP builder surface',()=>{
     expect(visualBuilder).not.toContain("['components',Component,'Components'],")
   })
 
+  it('does not cap long-page canvas height',()=>{
+    expect(visualBuilder).not.toContain('Math.min(24000')
+    expect(visualBuilder).toContain('Math.max(viewportHeights[breakpoint],Math.ceil(Number(msg.height)))')
+  })
+
   it('shows the three MVP breakpoints in the toolbar',()=>{
     const start=visualBuilder.indexOf('const breakpoints:')
     const end=visualBuilder.indexOf('if(preview)',start)
