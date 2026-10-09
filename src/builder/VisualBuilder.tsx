@@ -81,8 +81,11 @@ function ExportModal({onClose}:{onClose:()=>void}){
 }
 
 function ContextMenu({x,y,nodeId,onClose}:{x:number;y:number;nodeId:string;onClose:()=>void}){
+  const project=useBuilderStore(s=>s.project)
   const duplicate=useBuilderStore(s=>s.duplicateNode)
   const remove=useBuilderStore(s=>s.deleteNode)
+  const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
+  if(nodeId===page.root.id)return null
   return <div className="fixed z-[120] w-44 rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-2xl" style={{left:x,top:y}} onMouseLeave={onClose}>
     <button className="w-full rounded px-3 py-2 text-left text-[10px] text-zinc-300 hover:bg-zinc-800" onClick={()=>{duplicate(nodeId);onClose()}}>Duplicate</button>
     <button className="w-full rounded px-3 py-2 text-left text-[10px] text-red-300 hover:bg-red-500/10" onClick={()=>{remove(nodeId);onClose()}}>Delete</button>
