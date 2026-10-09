@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
 import { loadProject, saveProject } from './persistence'
+import { createSaveQueue } from './saveQueue'
 import {
   AddPanel, AssetsPanel, CmsPanel, ComponentsPanel, InteractionsPanel, NavigatorPanel,
   PagesPanel, SettingsPanel, StylePanel, TemplatesPanel, createElement, createPrebuiltSection
@@ -149,6 +150,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
   const copiedNodeRef=useRef<BuilderNode|null>(null)
+  const saveQueueRef=useRef(createSaveQueue())
 
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
@@ -242,11 +244,19 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     if(onCloudSave)await onCloudSave(current)
   }
 
+  const queuedPersist=(current:BuilderProject)=>saveQueueRef.current(()=>persistProject(current))
+
+  const finishSave=(current:BuilderProject,status:'saved'|'error')=>{
+    const latest=useBuilderStore.getState().project
+    if(latest.id===current.id&&latest.version===current.version)setSaveStatus(status)
+  }
+
   useEffect(()=>{
     if(saveStatus!=='dirty')return
+    const snapshot=clone(project)
     const timer=window.setTimeout(async()=>{
       setSaveStatus('saving')
-      try{await persistProject(project);setSaveStatus('saved')}catch{setSaveStatus('error')}
+      try{await queuedPersist(snapshot);finishSave(snapshot,'saved')}catch{finishSave(snapshot,'error')}
     },1100)
     return()=>window.clearTimeout(timer)
   },[project,saveStatus,setSaveStatus,onCloudSave])
@@ -274,13 +284,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   },[selectedNode,selectedNodeId,activePage,preview,undo,redo,duplicateNode,addNode,deleteNode])
 
   const manualSave=async()=>{
+    const snapshot=clone(project)
     setSaveStatus('saving')
     try{
-      await persistProject(project)
-      setSaveStatus('saved')
+      await queuedPersist(snapshot)
+      finishSave(snapshot,'saved')
       return true
     }catch(error:any){
-      setSaveStatus('error')
+      finishSave(snapshot,'error')
       alert(error?.message||'Project could not be saved.')
       return false
     }
