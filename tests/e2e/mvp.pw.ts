@@ -5,7 +5,7 @@ const preview=(page:Page)=>page.frameLocator('iframe[title="CoBest preview"]')
 const palette=(page:Page,label:string)=>page.locator('.vb-palette-item',{hasText:label}).first()
 
 async function createBlankPage(page:Page,name='Landing'){
-  await page.getByRole('button',{name:'Pages'}).click()
+  await page.getByRole('button',{name:'Pages',exact:true}).click()
   await page.getByRole('button',{name:'Add page'}).click()
   await page.getByPlaceholder('Page name').fill(name)
   await page.getByRole('button',{name:'Create',exact:true}).click()
@@ -23,17 +23,17 @@ test.describe('CoBest MVP browser golden path',()=>{
     await page.goto('/e2e.html')
     await expect(page.getByText('COBEST DESIGNER')).toBeVisible()
 
-    await expect(page.getByRole('button',{name:'Add'})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Navigator'})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Pages'})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Assets'})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Add',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Navigator',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Pages',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Assets',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'Style',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'CMS'})).toHaveCount(0)
     await expect(page.getByRole('button',{name:'Interactions'})).toHaveCount(0)
 
     await createBlankPage(page)
-    await page.getByRole('button',{name:'Add'}).click()
+    await page.getByRole('button',{name:'Add',exact:true}).click()
 
     const frame=canvas(page)
     const root=frame.locator('[data-builder-name="Page"]')
@@ -95,7 +95,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     )
     expect(order.slice(0,4)).toEqual(['heading','image','paragraph','button'])
 
-    await page.getByRole('button',{name:'Navigator'}).click()
+    await page.getByRole('button',{name:'Navigator',exact:true}).click()
     const headingRow=page.locator('.vb-nav-row',{hasText:'Heading'}).first()
     await headingRow.locator('.vb-nav-name').click()
     await expect(frame.locator('[data-builder-type="heading"]').first()).toHaveClass(/builder-selected/)
@@ -103,7 +103,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     await frame.locator('[data-builder-type="paragraph"]').first().click()
     await expect(page.locator('.vb-nav-row.is-selected')).toContainText('Paragraph')
 
-    await page.getByRole('button',{name:'Assets'}).click()
+    await page.getByRole('button',{name:'Assets',exact:true}).click()
     const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl7jZ0AAAAASUVORK5CYII=','base64')
     await page.locator('input[type="file"]').setInputFiles({name:'hero.png',mimeType:'image/png',buffer:png})
     await expect(page.getByText('hero.png',{exact:true})).toBeVisible()
@@ -154,7 +154,7 @@ test.describe('CoBest MVP browser golden path',()=>{
   test('keeps long pages scrollable to the bottom',async({page})=>{
     await page.goto('/e2e.html')
     await createBlankPage(page,'Long Page')
-    await page.getByRole('button',{name:'Add'}).click()
+    await page.getByRole('button',{name:'Add',exact:true}).click()
     const sectionButton=palette(page,'Section')
     for(let i=0;i<18;i++)await sectionButton.click()
 
