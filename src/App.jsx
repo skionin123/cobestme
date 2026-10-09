@@ -160,6 +160,8 @@ const themePresets = {
 }
 
 const selectableThemeNames = ['Essential','Editorial']
+const themeDisplayNames = { Essential:'Simple', Editorial:'Professional' }
+const themeDisplayName = name => themeDisplayNames[name] || name
 
 const themeRecipes = {
   Blank: { sections:[], labels:{}, defaults:{} },
@@ -443,8 +445,8 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
-            ['Essential','Essential','Clean, neutral, professional'],
-            ['Editorial','Editorial','Refined, typography-led, focused']
+            ['Simple','Simple','Clean, neutral, professional'],
+            ['Professional','Professional','Refined, typography-led, focused']
           ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use theme <ArrowRight size={13}/></button></article>)}
         </div>
       </section>
@@ -687,7 +689,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
     ;[list[i],list[j]]=[list[j],list[i]];setPages?.(list)
   }
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
-    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Choose one of two</strong><div><select className="toolbar-select" value={selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'} onChange={e=>applyTheme(e.target.value)}>{selectableThemeNames.map(x=><option key={x}>{x}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
+    <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{themeDisplayName(selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential')}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Choose one of two</strong><div><select className="toolbar-select" value={selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'} onChange={e=>applyTheme(e.target.value)}>{selectableThemeNames.map(x=><option key={x} value={x}>{themeDisplayName(x)}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
     <div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div>
     <div className="page-list">{(pages||[]).map((p,i)=>{const visible=pageMeta[p]?.visible!==false;return <div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><button className={`status ${visible?'active':'draft'}`} onClick={()=>toggleVisible(p)}>{visible?'Visible':'Hidden'}</button><small>{i===0?'Homepage':'Page'}</small><div className="row-actions"><button title="Move up" disabled={i===0} onClick={()=>move(p,-1)}>↑</button><button title="Move down" disabled={i===(pages||[]).length-1} onClick={()=>move(p,1)}>↓</button><button title="Edit page" onClick={()=>openPage(p)}><Pencil size={16}/></button>{p!=='Home'&&<button title="Delete page" onClick={()=>removePage(p)}><X size={16}/></button>}</div></div>})}</div>
     {adding&&<Modal title="Add page" onClose={()=>setAdding(false)}><div className="modal-form"><Field label="Page name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Contact"/></Field><div className="modal-actions"><Button variant="secondary" onClick={()=>setAdding(false)}>Cancel</Button><Button onClick={addPage}>Add & edit page</Button></div></div></Modal>}
@@ -700,7 +702,7 @@ function ThemePreview({theme,large=false}) {
   const sections=recipe.sections.slice(0,3)
   return <div className={`theme-thumb theme-thumb-${t.styleKey||'warm'} ${large?'large':''}`} style={{'--tp-paper':t.paper,'--tp-surface':t.surface,'--tp-ink':t.ink,'--tp-accent':t.accent,'--tp-muted':t.muted,'--tp-radius':`${t.radius||0}px`,'--tp-font':t.fontFamily,'--tp-display':t.displayFont}}>
     <div className="theme-thumb-browser">
-      <div className="theme-thumb-top"><b>{t.name}</b><span>Shop&nbsp;&nbsp;About</span><i/></div>
+      <div className="theme-thumb-top"><b>{themeDisplayName(t.name)}</b><span>Shop&nbsp;&nbsp;About</span><i/></div>
       <div className="theme-thumb-hero"><div><small>{t.previewEyebrow}</small><strong>{t.previewHeading}</strong><button>Explore</button></div><div className="theme-thumb-art"><i/><b/></div></div>
       <div className="theme-thumb-sections">
         {sections.map((id,i)=><div key={id} className={`theme-thumb-section section-${i+1}`}><span>{recipe.labels[id]||id}</span><div><i/><i/><i/></div></div>)}
@@ -751,7 +753,7 @@ function ThemeLibrary({editor,setEditor,setPage}) {
         <ThemePreview theme={currentTheme} large/>
         <div className="current-theme-info">
           <span className="overline">CURRENT THEME</span>
-          <h2>{current}</h2>
+          <h2>{themeDisplayName(current)}</h2>
           <p>{currentTheme.description}</p>
           <div className="current-theme-tags"><span>{currentTheme.category}</span><span>{currentTheme.fit}</span></div>
           <div className="current-theme-buttons"><Button variant="secondary" onClick={()=>openPicker(current)}>Choose sections</Button><Button onClick={()=>setPage('editor')}>Customize <ArrowRight size={15}/></Button></div>
@@ -759,14 +761,14 @@ function ThemeLibrary({editor,setEditor,setPage}) {
       </div>
     </section>
 
-    <div className="page-section-head"><div><span>CoBest themes</span><h2>Keep the choice simple</h2><p className="field-help">Essential is neutral and versatile. Editorial is warmer and typography-led. Both stay intentionally uncluttered.</p></div></div>
+    <div className="page-section-head"><div><span>CoBest themes</span><h2>Keep the choice simple</h2><p className="field-help">Simple is neutral and versatile. Professional is warmer and typography-led. Both stay intentionally uncluttered.</p></div></div>
 
     <div className="theme-library-grid">{selectableThemeNames.map(name=>{const t=themePresets[name];return <article className={'theme-library-card '+(current===name?'selected':'')} key={name}>
       <ThemePreview theme={t}/>
-      <div className="theme-library-meta"><div><strong>{name}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
+      <div className="theme-library-meta"><div><strong>{themeDisplayName(name)}</strong><span>{t.category}</span><small>{t.fit}</small></div><div className="theme-card-actions">{current===name?<span className="status active">Current</span>:null}<Button variant="secondary" onClick={()=>openPicker(name)}>{current===name?'Edit':'Choose'}</Button></div></div>
     </article>})}</div>
 
-    {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${pickerTheme} sections`} onClose={()=>setPickerTheme(null)}>
+    {pickerTheme&&pickerRecipe&&<Modal title={`Choose ${themeDisplayName(pickerTheme)} sections`} onClose={()=>setPickerTheme(null)}>
       <div className="theme-section-picker">
         <div className="theme-picker-intro"><p>Pick the sections this store needs. Start small—you can come back and change this later.</p><span>{pickedSections.length} selected</span></div>
         <div className="theme-picker-grid">{pickerRecipe.sections.length===0?<div className="blank-theme-note"><strong>Blank canvas</strong><p>No preset homepage sections will be added. Header and footer remain available, and you can add your own sections in the editor.</p></div>:pickerRecipe.sections.map((id,i)=>{
@@ -778,7 +780,7 @@ function ThemeLibrary({editor,setEditor,setPage}) {
             <div><small>SECTION {String(i+1).padStart(2,'0')}</small><strong>{label}</strong><p>{desc}</p></div>
           </button>
         })}</div>
-        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>{`Apply ${pickerTheme} with ${pickedSections.length} sections`}</Button></div>
+        <div className="modal-actions"><Button variant="secondary" onClick={()=>setPickerTheme(null)}>Cancel</Button><Button onClick={applyTheme} disabled={!pickedSections.length}>{`Apply ${themeDisplayName(pickerTheme)} with ${pickedSections.length} sections`}</Button></div>
       </div>
     </Modal>}
   </div>
