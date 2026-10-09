@@ -131,7 +131,7 @@
 .vb-left-content{min-width:0;flex:1;overflow:hidden;background:#181a1f}
 
 .vb-right-tabs{
-  height:44px;display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--vb-border);
+  height:44px;display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1px solid var(--vb-border);
   padding:5px;background:#15171b;gap:3px
 }
 .vb-right-tabs button{
