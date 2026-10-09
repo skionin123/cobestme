@@ -83,13 +83,34 @@ ${body}${emptyState}
     label=document.createElement('div')
     label.className='builder-node-label'
     label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
-    label.draggable=true
     label.title='Drag to move this element'
-    label.ondragstart=event=>{
-      const payload=JSON.stringify({kind:'node',nodeId:el.dataset.builderNode})
-      event.dataTransfer.effectAllowed='move'
-      event.dataTransfer.setData('application/x-cobest-builder',payload)
-      event.dataTransfer.setData('text/plain','cobest:'+payload)
+    label.onpointerdown=startEvent=>{
+      if(startEvent.button!==0)return
+      startEvent.preventDefault();startEvent.stopPropagation()
+      const payload={kind:'node',nodeId:el.dataset.builderNode}
+      const startX=startEvent.clientX,startY=startEvent.clientY
+      let moved=false
+      label.style.pointerEvents='none'
+      document.body.style.cursor='grabbing'
+      const move=event=>{
+        if(Math.hypot(event.clientX-startX,event.clientY-startY)>4)moved=true
+        if(!moved)return
+        const target=document.elementFromPoint(event.clientX,event.clientY)
+        drawDropMarker(dropIntentFor(target,event.clientY))
+      }
+      const up=event=>{
+        window.removeEventListener('pointermove',move)
+        window.removeEventListener('pointerup',up)
+        label.style.pointerEvents='auto'
+        document.body.style.cursor=''
+        if(!moved){removeDropMarker();return}
+        const target=document.elementFromPoint(event.clientX,event.clientY)
+        const intent=dropIntentFor(target,event.clientY)
+        removeDropMarker()
+        if(payload.nodeId&&intent)send('canvas-drop',{payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
+      }
+      window.addEventListener('pointermove',move)
+      window.addEventListener('pointerup',up,{once:true})
     }
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
