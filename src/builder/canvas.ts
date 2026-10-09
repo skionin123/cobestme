@@ -8,6 +8,10 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
     ? rawCss.replace(/(-?[\d.]+)vh\b/g,(_,value)=>String((Number(value)*virtualViewportHeight)/100)+'px')
     : rawCss
   const body=renderPageBody(project,project.activePageId,editing)
+  const activePage=project.pages.find(page=>page.id===project.activePageId)||project.pages[0]
+  const emptyState=editing&&activePage?.root?.children?.length===0
+    ? '<div class="builder-empty-state"><strong>Start building your page</strong><span>Drag a Section onto the canvas.</span></div>'
+    : ''
   const interactionRuntime=compileInteractionRuntime(project)
   return `<!doctype html>
 <html>
@@ -33,11 +37,13 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-spacing-handle[data-kind="padding"]{background:#10b981}.builder-spacing-handle[data-kind="margin"]{background:#f59e0b}
 .cms-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.cms-card{border:1px solid #e5e7eb;border-radius:12px;padding:18px}.cms-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;margin-bottom:14px}
 .html-embed-preview{min-height:40px;outline:1px dashed #a1a1aa}
+.builder-empty-state{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483000;display:grid;gap:7px;min-width:260px;padding:22px 26px;border:1px dashed #a5a9b2;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 14px 40px rgba(15,23,42,.08);color:#4b5563;text-align:center;pointer-events:none;font:500 13px/1.45 Inter,Arial,sans-serif}.builder-empty-state strong{font-size:15px;color:#111827}.builder-empty-state span{font-size:12px;color:#6b7280}
+html:not(.builder-editing) .builder-empty-state{display:none}
 @media(max-width:767px){.cms-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-${body}
+${body}${emptyState}
 <script>
 (() => {
   document.documentElement.classList.toggle('builder-editing',${editing})
