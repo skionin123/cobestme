@@ -8,7 +8,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
-import { findNode, findParent, slugify, uid, walkNodes } from './tree'
+import { canAcceptChildren, findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
 
@@ -81,7 +81,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const deleteNode=useBuilderStore(s=>s.deleteNode)
   const [open,setOpen]=useState(true)
   const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id}})
-  const acceptsChildren=['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList','dropdown','list','select'].includes(node.type)
+  const acceptsChildren=canAcceptChildren(node)
   const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id},disabled:!acceptsChildren})
   const childCount=node.children?.length||0
   return <div>
