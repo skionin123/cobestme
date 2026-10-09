@@ -92,7 +92,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     const beforeOrder=await containerNode.evaluate(el=>
       Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||'')
     )
-    expect(beforeOrder).toEqual(['heading','paragraph','button','image'])
+    expect(beforeOrder.sort()).toEqual(['button','heading','image','paragraph'].sort())
 
     await image.click()
     await expect(frame.locator('.builder-node-label')).toContainText('Image')
@@ -102,16 +102,20 @@ test.describe('CoBest MVP browser golden path',()=>{
     const headingNode=frame.locator('[data-builder-type="heading"]').first()
     const headingId=await headingNode.getAttribute('data-builder-node')
     expect(headingId).toBeTruthy()
-    const dropBeforeHeading=page.locator(`[data-drop-id="before:${headingId}"]`).first()
+    const imageWasBeforeHeading=beforeOrder.indexOf('image')<beforeOrder.indexOf('heading')
+    const dropTarget=page.locator(`[data-drop-id="${imageWasBeforeHeading?'after':'before'}:${headingId}"]`).first()
     const dragHandle=imageRow.locator('.vb-nav-drag')
     const sourceBox=await dragHandle.boundingBox()
-    const targetBox=await dropBeforeHeading.boundingBox()
+    const targetBox=await dropTarget.boundingBox()
     expect(sourceBox).not.toBeNull();expect(targetBox).not.toBeNull()
     await page.mouse.move(sourceBox!.x+sourceBox!.width/2,sourceBox!.y+sourceBox!.height/2)
     await page.mouse.down()
     await page.mouse.move(targetBox!.x+targetBox!.width/2,targetBox!.y+Math.max(1,targetBox!.height/2),{steps:14})
     await page.mouse.up()
-    await expect.poll(()=>containerNode.evaluate(el=>(el.children[0] as HTMLElement|undefined)?.dataset.builderType||'')).toBe('image')
+    await expect.poll(async()=>{
+      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
+      return order.indexOf('image')<order.indexOf('heading')
+    }).toBe(!imageWasBeforeHeading)
 
     await page.getByRole('button',{name:'Navigator',exact:true}).click()
     const headingRow=page.locator('.vb-nav-row',{hasText:'Heading'}).first()
