@@ -106,8 +106,7 @@ test.describe('CoBest MVP browser golden path',()=>{
       await page.mouse.down()
       await page.mouse.move(targetBox!.x+8,targetBox!.y+2,{steps:12})
       await page.mouse.up()
-      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
-      expect(order[0]).toBe('image')
+      await expect.poll(()=>containerNode.evaluate(el=>(el.children[0] as HTMLElement|undefined)?.dataset.builderType||'')).toBe('image')
     }else{
       const lastType=beforeOrder.at(-1)!
       const lastSibling=frame.locator(`[data-builder-type="${lastType}"]`).first()
@@ -118,8 +117,7 @@ test.describe('CoBest MVP browser golden path',()=>{
       await page.mouse.down()
       await page.mouse.move(targetBox!.x+8,targetBox!.y+targetBox!.height-2,{steps:12})
       await page.mouse.up()
-      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
-      expect(order.at(-1)).toBe('image')
+      await expect.poll(()=>containerNode.evaluate(el=>(el.children[el.children.length-1] as HTMLElement|undefined)?.dataset.builderType||'')).toBe('image')
     }
 
     await page.getByRole('button',{name:'Navigator',exact:true}).click()
