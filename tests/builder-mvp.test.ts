@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { mvpElementCatalog } from '../src/builder/elements'
+import { createElement, mvpElementCatalog } from '../src/builder/elements'
 
 const visualBuilder=readFileSync(new URL('../src/builder/VisualBuilder.tsx',import.meta.url),'utf8')
 
@@ -11,6 +11,11 @@ describe('MVP builder surface',()=>{
     expect(items).not.toContain('tabs')
     expect(items).not.toContain('collectionList')
     expect(items).not.toContain('form')
+  })
+
+  it('gives every core MVP element a style class immediately',()=>{
+    const types=['section','container','div','heading','paragraph','button','link','image','flex','grid'] as const
+    for(const type of types)expect(createElement(type).classes.length).toBeGreaterThan(0)
   })
 
   it('keeps only MVP left and right panel tabs visible',()=>{
