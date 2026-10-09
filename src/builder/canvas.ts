@@ -62,6 +62,7 @@ ${body}${emptyState}
   let selected = null
   let hovered = null
   let label = null
+  let nodeDragging = false
   let handles = []
   const clearHandles=()=>{handles.forEach(h=>h.remove());handles=[]}
   const spacingProperty=(kind,edge)=>kind+(edge[0].toUpperCase()+edge.slice(1))
@@ -89,8 +90,10 @@ ${body}${emptyState}
       startEvent.preventDefault();startEvent.stopPropagation()
       const payload={kind:'node',nodeId:el.dataset.builderNode}
       const startX=startEvent.clientX,startY=startEvent.clientY
+      const dragLabel=label
       let moved=false
-      label.style.pointerEvents='none'
+      nodeDragging=true
+      if(dragLabel)dragLabel.style.pointerEvents='none'
       document.body.style.cursor='grabbing'
       const move=event=>{
         if(Math.hypot(event.clientX-startX,event.clientY-startY)>4)moved=true
@@ -101,8 +104,9 @@ ${body}${emptyState}
       const up=event=>{
         window.removeEventListener('pointermove',move)
         window.removeEventListener('pointerup',up)
-        label.style.pointerEvents='auto'
+        if(dragLabel)dragLabel.style.pointerEvents='auto'
         document.body.style.cursor=''
+        nodeDragging=false
         if(!moved){removeDropMarker();return}
         const target=document.elementFromPoint(event.clientX,event.clientY)
         const intent=dropIntentFor(target,event.clientY)
@@ -265,7 +269,7 @@ ${body}${emptyState}
     event.preventDefault()
     send('context',{id:el.dataset.builderNode,x:event.clientX,y:event.clientY})
   })
-  window.addEventListener('scroll',()=>{const el=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null;drawLabel(el)},{passive:true})
+  window.addEventListener('scroll',()=>{if(nodeDragging)return;const el=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null;drawLabel(el)},{passive:true})
   window.addEventListener('message',event=>{
     const msg=event.data||{}
     if(msg.source!=='cobest-editor')return
@@ -290,7 +294,7 @@ ${body}${emptyState}
       selected=msg.selected||null;hovered=msg.hovered||null
       apply(selected,'builder-selected');apply(hovered,'builder-hovered')
       const selectedEl=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null
-      drawLabel(selectedEl)
+      if(!nodeDragging)drawLabel(selectedEl)
     }
     if(msg.type==='mode'){
       document.documentElement.classList.toggle('builder-editing',msg.editing!==false)
