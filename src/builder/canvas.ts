@@ -147,17 +147,18 @@ ${body}${emptyState}
     return types.includes('application/x-cobest-builder')||types.includes('text/plain')
   }
   const nestingTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
-  const dropIntent=event=>{
-    const el=event.target?.closest?.('[data-builder-node]')
+  const dropIntentFor=(target,clientY)=>{
+    const el=target?.closest?.('[data-builder-node]')
     if(!el)return null
     const rect=el.getBoundingClientRect()
-    const y=(event.clientY-rect.top)/Math.max(rect.height,1)
+    const y=(clientY-rect.top)/Math.max(rect.height,1)
     const canNest=nestingTypes.has(el.dataset.builderType)
     let mode='inside'
     if(!canNest||y<.24)mode='before'
     else if(y>.76)mode='after'
     return {el,rect,mode}
   }
+  const dropIntent=event=>dropIntentFor(event.target,event.clientY)
   const drawDropMarker=intent=>{
     removeDropMarker()
     if(!intent)return
@@ -243,6 +244,22 @@ ${body}${emptyState}
   window.addEventListener('message',event=>{
     const msg=event.data||{}
     if(msg.source!=='cobest-editor')return
+    if(msg.type==='external-drag-leave'){
+      removeDropMarker()
+      return
+    }
+    if((msg.type==='external-drag-over'||msg.type==='external-drop')&&Number.isFinite(Number(msg.x))&&Number.isFinite(Number(msg.y))){
+      const x=Number(msg.x),y=Number(msg.y)
+      const target=document.elementFromPoint(x,y)
+      const intent=dropIntentFor(target,y)
+      if(msg.type==='external-drag-over'){
+        drawDropMarker(intent)
+        return
+      }
+      removeDropMarker()
+      if(msg.payload&&intent)send('canvas-drop',{payload:msg.payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
+      return
+    }
     if(msg.type==='selection'){
       clearClass(selected,'builder-selected');clearClass(hovered,'builder-hovered')
       selected=msg.selected||null;hovered=msg.hovered||null
