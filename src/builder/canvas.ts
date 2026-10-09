@@ -91,6 +91,7 @@ ${body}${emptyState}
       activeNodeDragPayload={kind:'node',nodeId:el.dataset.builderNode}
       const payload=JSON.stringify(activeNodeDragPayload)
       nodeDragging=true
+      send('node-drag-start',{payload:activeNodeDragPayload,label:el.dataset.builderName||el.dataset.builderType||'Element'})
       document.documentElement.style.cursor='grabbing'
       document.body.style.cursor='grabbing'
       event.dataTransfer.effectAllowed='move'
@@ -99,6 +100,7 @@ ${body}${emptyState}
     }
     label.ondragend=()=>{
       nodeDragging=false
+      send('node-drag-end')
       activeNodeDragPayload=null
       document.documentElement.style.cursor=''
       document.body.style.cursor=''
