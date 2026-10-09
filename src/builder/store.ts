@@ -176,7 +176,8 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     },
     deletePage:pageId=>{
       const project=get().project
-      if(project.pages.length<=1)return
+      const page=project.pages.find(p=>p.id===pageId)
+      if(!page||page.slug==='/'||project.pages.length<=1)return
       commit('Delete page',draft=>{
         draft.pages=draft.pages.filter(p=>p.id!==pageId)
         if(draft.activePageId===pageId)draft.activePageId=draft.pages[0].id
