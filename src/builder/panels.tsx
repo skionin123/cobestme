@@ -134,6 +134,7 @@ export function PagesPanel(){
   const duplicatePage=useBuilderStore(s=>s.duplicatePage)
   const deletePage=useBuilderStore(s=>s.deletePage)
   const reorderPage=useBuilderStore(s=>s.reorderPage)
+  const updatePageSeo=useBuilderStore(s=>s.updatePageSeo)
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
   const create=()=>{if(!name.trim())return;addPage(name);setName('');setAdding(false)}
@@ -145,6 +146,7 @@ export function PagesPanel(){
       <div className="mt-2 hidden gap-1 group-hover:flex">
         <button className={panelButton} onClick={()=>{const next=prompt('Rename page',page.name);if(next)renamePage(page.id,next)}}>Rename</button>
         <button className={panelButton} onClick={()=>duplicatePage(page.id)}>Duplicate</button>
+        {page.slug!=='/'&&<button className={panelButton} onClick={()=>{const next=prompt('Page path',page.slug);if(next)updatePageSeo(page.id,'slug',next)}}>Path</button>}
         <button className={panelButton} onClick={()=>reorderPage(page.id,-1)} disabled={i===0}>↑</button>
         <button className={panelButton} onClick={()=>reorderPage(page.id,1)} disabled={i===project.pages.length-1}>↓</button>
         {page.slug!=='/'&&project.pages.length>1&&<button className={panelButton} onClick={()=>confirm(`Delete ${page.name}?`)&&deletePage(page.id)}><Trash2 size={11}/></button>}
@@ -320,11 +322,8 @@ export function SettingsPanel(){
   const updateNode=useBuilderStore(s=>s.updateNode)
   const updateAttr=useBuilderStore(s=>s.updateNodeAttribute)
   const removeAttr=useBuilderStore(s=>s.removeNodeAttribute)
-  const updateSeo=useBuilderStore(s=>s.updatePageSeo)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
-  const [attrKey,setAttrKey]=useState('')
-  const [attrValue,setAttrValue]=useState('')
   if(!node)return <EmptyPanel text="Select an element to edit settings."/>
   const linkTypes=['link','button','lightbox']
   return <div className="h-full overflow-auto pb-8">
@@ -334,8 +333,7 @@ export function SettingsPanel(){
     {node.type==='image'&&<StyleGroup title="Image"><label><span className={label}>Asset library</span><select className={control} value={project.assets.some(a=>a.url===node.attributes.src)?node.attributes.src:''} onChange={e=>{const asset=project.assets.find(a=>a.url===e.target.value);if(asset){updateAttr(node.id,'src',asset.url);if(!node.attributes.alt)updateAttr(node.id,'alt',asset.alt||asset.name)}}}><option value="">Choose uploaded image</option>{project.assets.map(asset=><option value={asset.url} key={asset.id}>{asset.name}</option>)}</select></label><label><span className={label}>Source URL</span><input className={control} value={node.attributes.src||''} onChange={e=>updateAttr(node.id,'src',e.target.value)}/></label><label><span className={label}>Alt text</span><input className={control} value={node.attributes.alt||''} onChange={e=>updateAttr(node.id,'alt',e.target.value)}/></label></StyleGroup>}
     {node.type==='form'&&<StyleGroup title="Form"><label><span className={label}>Action</span><input className={control} value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)}/></label><label><span className={label}>Redirect after success</span><input className={control} value={node.attributes['data-redirect']||''} onChange={e=>updateAttr(node.id,'data-redirect',e.target.value)}/></label></StyleGroup>}
     {node.type==='collectionList'&&<StyleGroup title="CMS binding"><label><span className={label}>Collection</span><select className={control} value={node.attributes.collectionId||''} onChange={e=>updateAttr(node.id,'collectionId',e.target.value)}><option value="">Select collection</option>{project.collections.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label></StyleGroup>}
-    <StyleGroup title="Custom attributes"><div className="space-y-2">{Object.entries(node.attributes).filter(([key])=>!['id','href','target','src','alt','action','data-redirect','collectionId'].includes(key)).map(([key,value])=><div className="flex gap-1" key={key}><input className={control} value={key} readOnly/><input className={control} value={value} onChange={e=>updateAttr(node.id,key,e.target.value)}/><button className={panelButton} onClick={()=>removeAttr(node.id,key)}>×</button></div>)}</div><div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-1"><input className={control} value={attrKey} onChange={e=>setAttrKey(e.target.value)} placeholder="data-name"/><input className={control} value={attrValue} onChange={e=>setAttrValue(e.target.value)} placeholder="value"/><button className={panelButton} onClick={()=>{if(attrKey){updateAttr(node.id,attrKey,attrValue);setAttrKey('');setAttrValue('')}}}><Plus size={11}/></button></div></StyleGroup>
-    <StyleGroup title="Page SEO"><label><span className={label}>SEO title</span><input className={control} value={page.seo.title} onChange={e=>updateSeo(page.id,'title',e.target.value)}/></label><label><span className={label}>Meta description</span><textarea className={control} rows={4} value={page.seo.description} onChange={e=>updateSeo(page.id,'description',e.target.value)}/></label><label><span className={label}>Slug</span><input className={control} value={page.slug} onChange={e=>updateSeo(page.id,'slug',e.target.value)}/></label><label><span className={label}>OG image</span><input className={control} value={page.seo.ogImage||''} onChange={e=>updateSeo(page.id,'ogImage',e.target.value)}/></label></StyleGroup>
+
   </div>
 }
 
