@@ -30,9 +30,45 @@ const viewportHeights:Record<BreakpointId,number>={desktop:900,tablet:760,mobile
 type LeftTab='add'|'navigator'|'pages'|'templates'|'assets'|'components'|'cms'
 type RightTab='style'|'settings'|'interactions'
 
-function CanvasDropZone({children,dragging}:{children:React.ReactNode;dragging:boolean}){
+function CanvasDropZone({
+  children,dragging,nativePayload,iframeRef,scale,onNativeDropEnd,
+}:{
+  children:React.ReactNode
+  dragging:boolean
+  nativePayload:any|null
+  iframeRef:React.RefObject<HTMLIFrameElement>
+  scale:number
+  onNativeDropEnd:()=>void
+}){
   const {setNodeRef,isOver}=useDroppable({id:'canvas-root',data:{kind:'canvas-root'}})
-  return <div ref={setNodeRef} className={'vb-canvas-drop '+(isOver?'is-over':'')} data-dragging={dragging?'true':'false'}>{children}{dragging&&<div className={'vb-canvas-drop-label '+(isOver?'active':'')}>Drop to page</div>}</div>
+  const relay=(type:'external-drag-over'|'external-drop'|'external-drag-leave',event?:React.DragEvent<HTMLDivElement>)=>{
+    const win=iframeRef.current?.contentWindow
+    if(!win)return
+    if(type==='external-drag-leave'){
+      win.postMessage({source:'cobest-editor',type},'*')
+      return
+    }
+    const rect=iframeRef.current?.getBoundingClientRect()
+    if(!rect||!event)return
+    const x=(event.clientX-rect.left)/Math.max(scale,.01)
+    const y=(event.clientY-rect.top)/Math.max(scale,.01)
+    if(x<0||y<0||x>rect.width/Math.max(scale,.01)||y>rect.height/Math.max(scale,.01)){
+      win.postMessage({source:'cobest-editor',type:'external-drag-leave'},'*')
+      return
+    }
+    win.postMessage({source:'cobest-editor',type,x,y,payload:nativePayload},'*')
+  }
+  return <div ref={setNodeRef} className={'vb-canvas-drop '+(isOver?'is-over':'')} data-dragging={dragging?'true':'false'}>
+    {children}
+    {nativePayload&&<div
+      className="vb-native-drop-overlay"
+      aria-hidden="true"
+      onDragOver={event=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='copy';relay('external-drag-over',event)}}
+      onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))relay('external-drag-leave')}}
+      onDrop={event=>{event.preventDefault();event.stopPropagation();relay('external-drop',event);onNativeDropEnd()}}
+    />}
+    {dragging&&<div className={'vb-canvas-drop-label '+(isOver?'active':'')}>Drop to page</div>}
+  </div>
 }
 
 function resolveDropTarget(root:BuilderNode,overId:string){
@@ -149,6 +185,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [canvasHeight,setCanvasHeight]=useState(viewportHeights.desktop)
   const [dragLabel,setDragLabel]=useState('')
   const [dragging,setDragging]=useState(false)
+  const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
@@ -196,6 +233,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     const handler=(event:MessageEvent)=>{
       const msg=event.data||{}
       if(msg.source!=='cobest-builder')return
+      if(event.source!==iframeRef.current?.contentWindow)return
       if(msg.type==='select')selectNode(msg.id||null)
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
@@ -347,10 +385,27 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ['mobilePortrait','Mobile 478',Smartphone],
   ]
 
+  const beginNativeDrag=(event:React.DragEvent<HTMLDivElement>)=>{
+    let raw=''
+    try{raw=event.dataTransfer.getData('application/x-cobest-builder')||event.dataTransfer.getData('text/plain')||''}catch{}
+    if(raw.startsWith('cobest:'))raw=raw.slice(7)
+    try{
+      const payload=raw?JSON.parse(raw):null
+      if(payload?.kind==='new-element'||payload?.kind==='new-section'){
+        setNativeDragPayload(payload)
+        setDragLabel(payload.type||'Element')
+      }
+    }catch{}
+  }
+  const endNativeDrag=()=>{
+    setNativeDragPayload(null)
+    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'external-drag-leave'},'*')
+  }
+
   if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
 
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={()=>{setDragging(false);setDragLabel('')}}>
-    <div className="vb-shell">
+    <div className="vb-shell" onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
       <header className="vb-topbar">
         <div className="vb-project"><div className="vb-brand">C</div><div><small>COBEST DESIGNER</small><input value={project.name} onChange={e=>renameProject(e.target.value)} aria-label="Project name"/></div></div>
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
@@ -375,7 +430,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         </aside>
         <main className="vb-stage">
           <div className="vb-stage-meta"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong><em>{activePage.slug}</em></div>
-          <CanvasDropZone dragging={dragging}>
+          <CanvasDropZone dragging={dragging||!!nativeDragPayload} nativePayload={nativeDragPayload} iframeRef={iframeRef} scale={scale} onNativeDropEnd={endNativeDrag}>
             <div className="vb-canvas-scaler" style={{width:frameWidth*scale,height:canvasHeight*scale}}>
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>
                 <div className="vb-canvas-wrap" style={{width:frameWidth,height:canvasHeight}}>
