@@ -204,7 +204,7 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
 export const builderTemplates:BuilderTemplate[]=[
   {
     id:'essential',
-    name:'Essential',
+    name:'Simple',
     category:'Essential',
     accent:'#2563eb',
     description:'A clean, neutral foundation with fluid type, disciplined spacing, clear cards, and accessible interaction states.',
@@ -217,7 +217,7 @@ export const builderTemplates:BuilderTemplate[]=[
   },
   {
     id:'editorial',
-    name:'Editorial',
+    name:'Professional',
     category:'Editorial',
     accent:'#8d5c3f',
     description:'A refined serif-led foundation with warm neutrals, hairline borders, strong rhythm, and restrained visual detail.',
