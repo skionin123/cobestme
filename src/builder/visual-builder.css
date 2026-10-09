@@ -163,6 +163,7 @@
   border-radius:12px;transition:background .15s ease,box-shadow .15s ease;padding-bottom:60px
 }
 .vb-canvas-drop.is-over{background:rgba(113,100,255,.05);box-shadow:inset 0 0 0 1px rgba(113,100,255,.32)}
+.vb-native-drop-overlay{position:absolute;inset:0;z-index:54;background:transparent}
 .vb-canvas-drop-label{
   position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:55;padding:7px 11px;border-radius:999px;
   background:#1c1f25;color:#7a818d;border:1px solid #313640;font-size:9px;font-weight:650;pointer-events:none;
