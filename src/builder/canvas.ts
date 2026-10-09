@@ -85,7 +85,7 @@ ${body}${emptyState}
     label.className='builder-node-label'
     label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
     label.title='Drag to move this element'
-    label.onmousedown=startEvent=>{
+    label.onpointerdown=startEvent=>{
       if(startEvent.button!==0)return
       startEvent.preventDefault();startEvent.stopPropagation()
       const payload={kind:'node',nodeId:el.dataset.builderNode}
@@ -93,7 +93,9 @@ ${body}${emptyState}
       const dragLabel=label
       let moved=false
       nodeDragging=true
+      dragLabel?.setPointerCapture?.(startEvent.pointerId)
       if(dragLabel)dragLabel.style.pointerEvents='none'
+      document.documentElement.style.cursor='grabbing'
       document.body.style.cursor='grabbing'
       const move=event=>{
         if(Math.hypot(event.clientX-startX,event.clientY-startY)>4)moved=true
@@ -102,9 +104,13 @@ ${body}${emptyState}
         drawDropMarker(dropIntentFor(target,event.clientY))
       }
       const up=event=>{
-        window.removeEventListener('mousemove',move)
-        window.removeEventListener('mouseup',up)
-        if(dragLabel)dragLabel.style.pointerEvents='auto'
+        window.removeEventListener('pointermove',move)
+        window.removeEventListener('pointerup',up)
+        if(dragLabel){
+          dragLabel.style.pointerEvents='auto'
+          try{dragLabel.releasePointerCapture?.(startEvent.pointerId)}catch{}
+        }
+        document.documentElement.style.cursor=''
         document.body.style.cursor=''
         nodeDragging=false
         if(!moved){removeDropMarker();return}
@@ -113,8 +119,8 @@ ${body}${emptyState}
         removeDropMarker()
         if(payload.nodeId&&intent)send('canvas-drop',{payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
       }
-      window.addEventListener('mousemove',move)
-      window.addEventListener('mouseup',up,{once:true})
+      window.addEventListener('pointermove',move)
+      window.addEventListener('pointerup',up,{once:true})
     }
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
