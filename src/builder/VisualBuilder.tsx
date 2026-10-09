@@ -8,6 +8,7 @@ import {
   Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
   Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
 import { loadProject, saveProject } from './persistence'
@@ -327,7 +328,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
-  const breakpoints:[BreakpointId,string,React.ComponentType<{size?:number}>][]=[
+  const breakpoints:[BreakpointId,string,LucideIcon][]=[
     ['desktop','Desktop 1440',Monitor],
     ['tablet','Tablet 991',Tablet],
     ['mobilePortrait','Mobile 478',Smartphone],
