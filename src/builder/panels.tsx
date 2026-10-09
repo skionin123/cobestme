@@ -80,12 +80,12 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const deleteNode=useBuilderStore(s=>s.deleteNode)
   const [open,setOpen]=useState(true)
-  const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id}})
+  const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id},disabled:depth===0})
   const acceptsChildren=canAcceptChildren(node)
   const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id},disabled:!acceptsChildren})
   const childCount=node.children?.length||0
   return <div>
-    <DropLine id={`before:${node.id}`}/>
+    {depth>0&&<DropLine id={`before:${node.id}`}/>} 
     <div ref={dropRef} className={'relative '+(isOver?'bg-indigo-500/10':'')}>
       <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
         <button className="vb-nav-toggle grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
@@ -96,7 +96,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
       </div>
     </div>
     {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
-    <DropLine id={`after:${node.id}`}/>
+    {depth>0&&<DropLine id={`after:${node.id}`}/>}
   </div>
 }
 
