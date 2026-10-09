@@ -5,7 +5,7 @@ import { applyTemplate, builderTemplates } from '../src/builder/templates'
 describe('builder templates',()=>{
   it('keeps the theme choice intentionally limited to two professional options',()=>{
     expect(builderTemplates).toHaveLength(2)
-    expect(builderTemplates.map(x=>x.name)).toEqual(['Essential','Editorial'])
+    expect(builderTemplates.map(x=>x.name)).toEqual(['Simple','Professional'])
     expect(builderTemplates.map(x=>x.category)).toEqual(['Essential','Editorial'])
   })
 
