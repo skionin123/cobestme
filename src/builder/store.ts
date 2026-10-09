@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
-import { clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
+import { canAcceptChild, clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
   BuilderAsset,
   BuilderComponent,
@@ -195,9 +195,12 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       if(key==='slug'){page.slug=value.startsWith('/')?value:'/'+value;page.seo.slug=page.slug}
     }),
     addNode:(parentId,node,index)=>{
+      const page=currentPage(get().project)
+      const parent=findNode(page.root,parentId)
+      if(!parent||!canAcceptChild(parent,node))return
       commit('Add element',draft=>{
-        const page=currentPage(draft)
-        page.root=insertNode(page.root,parentId,node,index)
+        const draftPage=currentPage(draft)
+        draftPage.root=insertNode(draftPage.root,parentId,node,index)
       })
       set({selectedNodeId:node.id})
     },
@@ -249,10 +252,19 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       })
       if(copy)set({selectedNodeId:(copy as BuilderNode).id})
     },
-    moveNode:(nodeId,parentId,index)=>commit('Move element',draft=>{
-      const page=currentPage(draft)
-      page.root=moveNode(page.root,nodeId,parentId,index)
-    }),
+    moveNode:(nodeId,parentId,index)=>{
+      const page=currentPage(get().project)
+      const moving=findNode(page.root,nodeId)
+      const parent=findNode(page.root,parentId)
+      if(!moving||!parent||!canAcceptChild(parent,moving))return
+      let containsParent=false
+      walkNodes(moving,node=>{if(node.id===parentId)containsParent=true})
+      if(containsParent)return
+      commit('Move element',draft=>{
+        const draftPage=currentPage(draft)
+        draftPage.root=moveNode(draftPage.root,nodeId,parentId,index)
+      })
+    },
     addClass:(nodeId,className)=>commit('Add class',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,classes:Array.from(new Set([...(node.classes||[]),className]))}))
