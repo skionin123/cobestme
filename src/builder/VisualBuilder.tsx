@@ -258,7 +258,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       const target=event.target as HTMLElement
       if(['INPUT','TEXTAREA','SELECT'].includes(target.tagName)||target.isContentEditable)return
       const mod=event.metaKey||event.ctrlKey
-      if(mod&&event.key.toLowerCase()==='z'){event.preventDefault();event.shiftKey?redo():undo();return}
+      if(mod&&event.key.toLowerCase()==='z'){event.preventDefault();if(event.shiftKey)redo();else undo();return}
       if(mod&&event.key.toLowerCase()==='c'&&selectedNode){event.preventDefault();copiedNodeRef.current=clone(selectedNode);return}
       if(mod&&event.key.toLowerCase()==='d'&&selectedNodeId){event.preventDefault();duplicateNode(selectedNodeId);return}
       if(mod&&event.key.toLowerCase()==='v'&&copiedNodeRef.current){
