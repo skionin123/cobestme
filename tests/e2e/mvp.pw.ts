@@ -44,7 +44,8 @@ test.describe('CoBest MVP browser golden path',()=>{
     await dragPalette(page,'Container',section)
     const container=frame.locator('[data-builder-type="container"]').first()
     await expect(container).toBeVisible()
-    await expect(container).toContainText('Drop elements here')
+    await expect(container).toHaveCSS('min-height','72px')
+    expect(await container.evaluate(el=>getComputedStyle(el,'::after').content)).toContain('Drop elements here')
 
     await dragPalette(page,'Heading',container)
     await dragPalette(page,'Paragraph',container)
