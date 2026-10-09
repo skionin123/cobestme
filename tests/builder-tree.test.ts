@@ -48,6 +48,21 @@ describe('builder tree',()=>{
     expect(findNode(attempted,paragraph.id)?.children).toHaveLength(0)
   })
 
+  it('reorders siblings correctly when moving forward in the same parent',()=>{
+    const project=createDefaultProject()
+    const root=project.pages[0].root
+    const section=createElement('section')
+    let next=insertNode(root,root.id,section)
+    const a=createElement('heading');a.content='A'
+    const b=createElement('paragraph');b.content='B'
+    const c=createElement('button');c.content='C'
+    next=insertNode(next,section.id,a)
+    next=insertNode(next,section.id,b)
+    next=insertNode(next,section.id,c)
+    next=moveNode(next,a.id,section.id,2)
+    expect(findNode(next,section.id)?.children.map(x=>x.content)).toEqual(['B','A','C'])
+  })
+
   it('rejects moving an element into an invalid parent',()=>{
     const project=createDefaultProject()
     const root=project.pages[0].root
