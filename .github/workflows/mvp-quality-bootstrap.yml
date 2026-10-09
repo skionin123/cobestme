@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm install --save-dev --save-exact typescript@latest @types/react@18 @types/react-dom@18 eslint@latest typescript-eslint@latest
+      - run: npm install --save-dev --save-exact "typescript@>=6.0.0 <6.1.0" @types/react@18 @types/react-dom@18 eslint@latest typescript-eslint@latest
       - run: npm audit --audit-level=high
       - run: npm run typecheck
       - run: npm run lint
