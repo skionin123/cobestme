@@ -99,14 +99,25 @@ test.describe('CoBest MVP browser golden path',()=>{
     if(imageIndex!==0){
       const firstType=beforeOrder[0]
       const firstSibling=frame.locator(`[data-builder-type="${firstType}"]`).first()
-      await frame.locator('.builder-node-label').dragTo(firstSibling,{force:true,targetPosition:{x:8,y:2}})
+      const sourceBox=await frame.locator('.builder-node-label').boundingBox()
+      const targetBox=await firstSibling.boundingBox()
+      expect(sourceBox).not.toBeNull();expect(targetBox).not.toBeNull()
+      await page.mouse.move(sourceBox!.x+sourceBox!.width/2,sourceBox!.y+sourceBox!.height/2)
+      await page.mouse.down()
+      await page.mouse.move(targetBox!.x+8,targetBox!.y+2,{steps:12})
+      await page.mouse.up()
       const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
       expect(order[0]).toBe('image')
     }else{
       const lastType=beforeOrder.at(-1)!
       const lastSibling=frame.locator(`[data-builder-type="${lastType}"]`).first()
-      const height=await lastSibling.evaluate(el=>el.getBoundingClientRect().height)
-      await frame.locator('.builder-node-label').dragTo(lastSibling,{force:true,targetPosition:{x:8,y:Math.max(2,height-2)}})
+      const sourceBox=await frame.locator('.builder-node-label').boundingBox()
+      const targetBox=await lastSibling.boundingBox()
+      expect(sourceBox).not.toBeNull();expect(targetBox).not.toBeNull()
+      await page.mouse.move(sourceBox!.x+sourceBox!.width/2,sourceBox!.y+sourceBox!.height/2)
+      await page.mouse.down()
+      await page.mouse.move(targetBox!.x+8,targetBox!.y+targetBox!.height-2,{steps:12})
+      await page.mouse.up()
       const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
       expect(order.at(-1)).toBe('image')
     }
