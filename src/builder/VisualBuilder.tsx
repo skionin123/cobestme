@@ -236,6 +236,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(event.source!==iframeRef.current?.contentWindow)return
       if(msg.type==='select')selectNode(msg.id||null)
       if(msg.type==='hover')hoverNode(msg.id||null)
+      if(msg.type==='node-drag-start'&&msg.payload?.kind==='node'){
+        setNativeDragPayload(msg.payload)
+        setDragLabel(String(msg.label||'Element'))
+      }
+      if(msg.type==='node-drag-end')endNativeDrag()
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
       if(msg.type==='canvas-resize'&&Number(msg.height)){
         const next=Math.max(viewportHeights[breakpoint],Math.ceil(Number(msg.height)))
