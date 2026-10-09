@@ -6,10 +6,13 @@ describe('builder save queue',()=>{
     const queue=createSaveQueue()
     const events:string[]=[]
     let releaseFirst:()=>void=()=>{}
+    let markStarted:()=>void=()=>{}
     const firstGate=new Promise<void>(resolve=>{releaseFirst=resolve})
+    const firstStarted=new Promise<void>(resolve=>{markStarted=resolve})
 
     const first=queue(async()=>{
       events.push('first:start')
+      markStarted()
       await firstGate
       events.push('first:end')
     })
@@ -18,7 +21,7 @@ describe('builder save queue',()=>{
       events.push('second:end')
     })
 
-    await Promise.resolve()
+    await firstStarted
     expect(events).toEqual(['first:start'])
     releaseFirst()
     await Promise.all([first,second])
