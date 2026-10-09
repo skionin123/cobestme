@@ -85,7 +85,7 @@ ${body}${emptyState}
     label.className='builder-node-label'
     label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
     label.title='Drag to move this element'
-    label.onpointerdown=startEvent=>{
+    label.onmousedown=startEvent=>{
       if(startEvent.button!==0)return
       startEvent.preventDefault();startEvent.stopPropagation()
       const payload={kind:'node',nodeId:el.dataset.builderNode}
@@ -102,8 +102,8 @@ ${body}${emptyState}
         drawDropMarker(dropIntentFor(target,event.clientY))
       }
       const up=event=>{
-        window.removeEventListener('pointermove',move)
-        window.removeEventListener('pointerup',up)
+        window.removeEventListener('mousemove',move)
+        window.removeEventListener('mouseup',up)
         if(dragLabel)dragLabel.style.pointerEvents='auto'
         document.body.style.cursor=''
         nodeDragging=false
@@ -113,8 +113,8 @@ ${body}${emptyState}
         removeDropMarker()
         if(payload.nodeId&&intent)send('canvas-drop',{payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
       }
-      window.addEventListener('pointermove',move)
-      window.addEventListener('pointerup',up,{once:true})
+      window.addEventListener('mousemove',move)
+      window.addEventListener('mouseup',up,{once:true})
     }
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
@@ -144,11 +144,11 @@ ${body}${emptyState}
           drawLabel(el)
         }
         const up=()=>{
-          window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)
+          window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up)
           send('spacing-change',{id:el.dataset.builderNode,property:prop,value:finalValue+'px'})
           requestAnimationFrame(reportSize)
         }
-        window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true})
+        window.addEventListener('mousemove',move);window.addEventListener('mouseup',up,{once:true})
       }
       document.body.appendChild(h);handles.push(h)
     }))
