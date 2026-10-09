@@ -271,10 +271,12 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     setStyle:(className,property,value,breakpoint,state)=>commit('Edit style',draft=>{
       const bp=breakpoint||get().breakpoint
       const st=state||get().styleState
-      draft.styles[className]=draft.styles[className]||{desktop:{none:{}}}
-      draft.styles[className][bp]=draft.styles[className][bp]||{}
-      draft.styles[className][bp]![st]=draft.styles[className][bp]![st]||{}
-      draft.styles[className][bp]![st]![property]=value
+      const style=draft.styles[className]||(draft.styles[className]={desktop:{none:{}}})
+      if(bp==='desktop')style.desktop=style.desktop||{none:{}}
+      else style[bp]=style[bp]||{}
+      const breakpointStyle=style[bp]!
+      breakpointStyle[st]=breakpointStyle[st]||{}
+      breakpointStyle[st]![property]=value
     }),
     removeStyle:(className,property,breakpoint,state)=>commit('Reset style',draft=>{
       const bp=breakpoint||get().breakpoint
