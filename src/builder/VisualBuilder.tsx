@@ -340,6 +340,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const breakpoints:[BreakpointId,string,LucideIcon][]=[
     ['desktop','Desktop 1440',Monitor],
     ['tablet','Tablet 991',Tablet],
+    ['mobileLandscape','Mobile landscape 767',Smartphone],
     ['mobilePortrait','Mobile 478',Smartphone],
   ]
 
