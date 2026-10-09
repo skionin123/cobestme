@@ -50,6 +50,30 @@ describe('MVP builder state history',()=>{
     expect(state.saveStatus).toBe('dirty')
   })
 
+  it('creates, renames, switches and deletes only non-required pages',()=>{
+    const store=useBuilderStore.getState()
+    const homeId=store.project.pages[0].id
+    store.addPage('About Us')
+    let state=useBuilderStore.getState()
+    const about=state.project.pages.find(page=>page.name==='About Us')
+    expect(about?.slug).toBe('/about-us')
+    expect(state.project.activePageId).toBe(about?.id)
+
+    useBuilderStore.getState().renamePage(about!.id,'Company')
+    state=useBuilderStore.getState()
+    expect(state.project.pages.find(page=>page.id===about!.id)?.slug).toBe('/company')
+
+    useBuilderStore.getState().setActivePage(homeId)
+    useBuilderStore.getState().deletePage(homeId)
+    state=useBuilderStore.getState()
+    expect(state.project.pages.some(page=>page.id===homeId)).toBe(true)
+
+    useBuilderStore.getState().deletePage(about!.id)
+    state=useBuilderStore.getState()
+    expect(state.project.pages.some(page=>page.id===about!.id)).toBe(false)
+    expect(state.project.pages[0].slug).toBe('/')
+  })
+
   it('does not create history or select a phantom node for invalid nesting',()=>{
     const store=useBuilderStore.getState()
     const page=store.project.pages[0]
