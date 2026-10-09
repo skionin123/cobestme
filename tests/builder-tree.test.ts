@@ -41,7 +41,7 @@ describe('builder tree',()=>{
     const project=createDefaultProject()
     const root=project.pages[0].root
     const paragraph=createElement('paragraph')
-    let next=insertNode(root,root.id,paragraph)
+    const next=insertNode(root,root.id,paragraph)
     const heading=createElement('heading')
     const attempted=insertNode(next,paragraph.id,heading)
     expect(findNode(attempted,heading.id)).toBeNull()
