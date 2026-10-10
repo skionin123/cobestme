@@ -1,5 +1,5 @@
 import { createDefaultProject } from './defaultProject'
-import { createPrebuiltSection } from './elements'
+import { createElement, createPrebuiltSection } from './elements'
 import { clone, uid, walkNodes } from './tree'
 import type { BuilderProject } from './types'
 
@@ -107,9 +107,9 @@ function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
       color:'var(--ink)',background:'var(--surface)',minHeight:'100vh'
     }
     project.styles.hero.desktop.none={
-      minHeight:'70vh',display:'grid',alignItems:'center',
-      padding:'clamp(84px,11vw,150px) clamp(24px,7vw,96px)',
-      background:'linear-gradient(180deg,#fcfaf6 0%,#f3ece4 100%)',
+      minHeight:'74vh',display:'grid',alignItems:'center',
+      padding:'clamp(94px,12vw,172px) clamp(24px,7vw,96px)',
+      background:'radial-gradient(ellipse at 95% 0%,#e7d8c6 0%,transparent 52%),linear-gradient(180deg,#fcfaf6 0%,#f3ece4 100%)',
       borderBottom:'1px solid var(--line)'
     }
     project.styles.hero.mobilePortrait={none:{minHeight:'auto',padding:'68px 20px'}}
@@ -154,7 +154,7 @@ function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
     project.styles.hero.desktop.none={
       minHeight:'68vh',display:'grid',alignItems:'center',
       padding:'clamp(76px,10vw,132px) clamp(24px,6vw,88px)',
-      background:'linear-gradient(135deg,#ffffff 0%,#f4f7fb 100%)',
+      background:'radial-gradient(circle at 90% 25%,#dce9f9 0%,transparent 38%),linear-gradient(135deg,#ffffff 0%,#f4f7fb 100%)',
       borderBottom:'1px solid var(--line)'
     }
     project.styles.hero.mobilePortrait={none:{minHeight:'auto',padding:'62px 20px'}}
@@ -172,11 +172,23 @@ function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
       background:'var(--surface)',boxShadow:'0 10px 30px rgba(17,24,39,.055)'
     }
     project.styles['soft-section']={desktop:{none:{background:'var(--muted)'}}}
+    project.styles.button.desktop.none={...project.styles.button.desktop.none,background:'#1d4ed8',borderColor:'#1d4ed8',borderRadius:'9px',padding:'15px 24px'}
+    project.styles['section-title'].desktop.none={...project.styles['section-title'].desktop.none,maxWidth:'20ch'}
     project.styles.cta.desktop.none={
       padding:'clamp(72px,9vw,112px) clamp(24px,6vw,88px)',textAlign:'center',
       background:'var(--ink)',color:'#ffffff'
     }
   }
+  // Native CoBest styles: layout direction inspired by free MIT-licensed
+  // Start Bootstrap Business Frontpage and Agency references, not copied HTML.
+  project.styles['hero-eyebrow']={desktop:{none:{
+    display:'block',color:'var(--accent)',fontSize:'12px',letterSpacing:'0.16em',
+    fontWeight:'760',textTransform:'uppercase',margin:'0 0 22px',
+  }}}
+  project.styles['secondary-cta']={desktop:{none:{
+    display:'inline-flex',marginLeft:'20px',marginTop:'24px',fontSize:'14px',
+    color:'var(--ink)',fontWeight:'650',textDecoration:'underline',textUnderlineOffset:'5px',
+  }},mobilePortrait:{none:{marginLeft:'0',display:'block'}}}
 }
 
 function templateProject(variant:TemplateCategory,sections:string[],headline:string,copy:string){
@@ -195,6 +207,67 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
   const paragraph=hero?.children?.[0]?.children?.find(n=>n.type==='paragraph')
   if(heading)heading.content=headline
   if(paragraph)paragraph.content=copy
+  const heroInner=hero?.children?.[0]
+  if(heroInner){
+    const eyebrow=createElement('paragraph')
+    eyebrow.name='Hero eyebrow'
+    eyebrow.content=variant==='Essential'?'WELCOME TO YOUR NEXT CHAPTER':'CREATIVE STUDIO · EST. 2026'
+    eyebrow.classes=['hero-eyebrow']
+    heroInner.children.unshift(eyebrow)
+    const primaryButton=heroInner.children.find(n=>n.type==='button')
+    if(primaryButton){primaryButton.content=variant==='Essential'?'Explore services':'See our work';primaryButton.attributes={href:'#services'}}
+    const secondary=createElement('link')
+    secondary.name='Secondary hero link'
+    secondary.content='Learn more →'
+    secondary.attributes={href:'#services'}
+    secondary.classes=['secondary-cta']
+    heroInner.children.push(secondary)
+  }
+  const navbar=home.root.children.find(n=>n.name==='Navbar')
+  const brand=navbar?.children?.find(n=>n.name==='Brand')
+  if(brand)brand.content=variant==='Essential'?'YOUR COMPANY':'STUDIO / NAME'
+  const links=navbar?.children?.find(n=>n.name==='Nav Links')
+  if(links){for(const link of links.children||[]){
+    if(link.content==='About'){link.content='Services';link.attributes={href:'#services'}}
+    if(link.content==='Contact'){link.content='Contact';link.attributes={href:'mailto:hello@example.com'}}
+  }}
+  const features=home.root.children.find(n=>n.name==='Features')
+  if(features){
+    features.attributes={...features.attributes,id:'services'}
+    const title=features.children.find(n=>n.name==='Section Heading')
+    if(title)title.content=variant==='Essential'?'What we can do for you':'Thoughtful work. Lasting impact.'
+    const grid=features.children.find(n=>n.name==='Features Grid')
+    const labels=variant==='Essential'
+      ?['What we offer','How we work','Why choose us']
+      :['Strategy & direction','Design & experience','End-to-end delivery']
+    const descriptions=variant==='Essential'
+      ?['Introduce your core products or services in a few clear sentences.','Explain what makes working with your team easy and effective.','Give customers a practical reason to trust your business.']
+      :['Share the ideas and research that shape each project.','Highlight the care and craft behind your best work.','Show how your team turns vision into real-world results.']
+    for(const [i,card] of (grid?.children||[]).entries()){
+      const titleNode=card.children.find(n=>n.name==='Feature Heading')
+      const copyNode=card.children.find(n=>n.name==='Feature Copy')
+      if(titleNode)titleNode.content=labels[i]||'Our service'
+      if(copyNode)copyNode.content=descriptions[i]||'Describe your service.'
+    }
+  }
+  const testimonials=home.root.children.find(n=>n.name==='Testimonials')
+  if(testimonials){
+    testimonials.attributes={...testimonials.attributes,id:'about'}
+    const title=testimonials.children.find(n=>n.name==='Section Heading')
+    if(title)title.content='What clients say'
+    for(const quote of testimonials.children.filter(n=>n.type==='quote')){
+      quote.content='Replace this with a genuine client testimonial.'
+    }
+  }
+  const cta=home.root.children.find(n=>n.name==='CTA')
+  if(cta){
+    const title=cta.children.find(n=>n.name==='CTA Heading')
+    const copyNode=cta.children.find(n=>n.name==='CTA Copy')
+    const button=cta.children.find(n=>n.name==='CTA Button')
+    if(title)title.content=variant==='Essential'?'Let’s work together.':'Have a project in mind?'
+    if(copyNode)copyNode.content='Tell people how to reach your team, then replace this sample contact address with your own.'
+    if(button){button.content='Get in touch';button.attributes={href:'mailto:hello@example.com'}}
+  }
   decorateProject(project,variant)
   project.id=uid('template')
   project.updatedAt=new Date().toISOString()
@@ -210,9 +283,9 @@ export const builderTemplates:BuilderTemplate[]=[
     description:'A clean, neutral foundation with fluid type, disciplined spacing, clear cards, and accessible interaction states.',
     build:()=>templateProject(
       'Essential',
-      ['features'],
-      'Clear, credible, ready to grow.',
-      'A professional starting point with generous whitespace, strong hierarchy, and just enough structure to make every edit obvious.'
+      ['features','cta'],
+      'Your business deserves a strong first impression.',
+      'Introduce your services, explain what makes your business different, and give visitors a clear next step.'
     )
   },
   {
@@ -223,9 +296,9 @@ export const builderTemplates:BuilderTemplate[]=[
     description:'A refined serif-led foundation with warm neutrals, hairline borders, strong rhythm, and restrained visual detail.',
     build:()=>templateProject(
       'Editorial',
-      ['testimonials','cta'],
-      'A refined home for your brand.',
-      'A calm editorial system for brands, portfolios, ecommerce, and content where typography and spacing do most of the visual work.'
+      ['features','testimonials','cta'],
+      'We create work that moves people.',
+      'A considered home for independent studios, agencies, and creative brands. Show the work behind your reputation.'
     )
   }
 ]
