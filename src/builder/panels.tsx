@@ -320,10 +320,22 @@ export function StylePanel(){
         y:property==='y'?(amount||0):Number(y)
       })
     }else if(property==='width'){
-      if(amount===null){mutateGeometry('Reset element size',{kind:'reset'});return}
+      if(amount===null){
+        useBuilderStore.getState().mutate('Reset width',draft=>{
+          const properties=draft.styles[geometryName]?.[breakpoint]?.none
+          if(properties){delete properties.width;delete properties.maxWidth}
+        })
+        return
+      }
       mutateGeometry('Resize element',{kind:'resize',width:amount})
     }else{
-      if(amount===null){mutateGeometry('Reset text size',{kind:'reset'});return}
+      if(amount===null){
+        useBuilderStore.getState().mutate('Reset text size',draft=>{
+          const properties=draft.styles[geometryName]?.[breakpoint]?.none
+          if(properties)delete properties.fontSize
+        })
+        return
+      }
       mutateGeometry('Resize text',{kind:'font-size',fontSize:amount})
     }
   }
