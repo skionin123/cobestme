@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
+import { applyNodeGeometry } from './geometry'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
 import { chooseLatestProject, loadProject, saveProject } from './persistence'
 import { createSaveQueue } from './saveQueue'
@@ -257,6 +258,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         else if(payload.kind==='new-section')store.addNode(target.parentId,createPrebuiltSection(payload.type),target.index)
         else if(payload.kind==='node'&&payload.nodeId&&payload.nodeId!==target.parentId)store.moveNode(payload.nodeId,target.parentId,target.index)
       }
+      if(msg.type==='node-geometry'&&msg.id&&['move','resize','font-size','reset'].includes(msg.kind)){
+        const state=useBuilderStore.getState()
+        const page=state.project.pages.find(p=>p.id===state.project.activePageId)||state.project.pages[0]
+        if(page&&msg.id!==page.root.id&&findNode(page.root,msg.id)){
+          state.mutate(msg.kind==='move'?'Move element':msg.kind==='resize'?'Resize element':msg.kind==='reset'?'Reset element geometry':'Resize text',draft=>{
+            applyNodeGeometry(draft,String(msg.id),state.breakpoint,msg)
+          })
+        }
+      }
       if(msg.type==='spacing-change'&&msg.id&&msg.property){
         const page=useBuilderStore.getState().project.pages.find(p=>p.id===useBuilderStore.getState().project.activePageId)||useBuilderStore.getState().project.pages[0]
         const node=findNode(page.root,msg.id)
@@ -431,6 +441,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         </aside>
         <main className="vb-stage">
           <div className="vb-stage-meta"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong><em>{activePage.slug}</em></div>
+          <div className="vb-canvas-help" aria-label="Canvas editing tips">Select an element, drag <strong>✥ Move</strong> to reposition, drag the purple corner to resize, or use <strong>A− / A+</strong> for text.</div>
           <CanvasDropZone dragging={dragging||!!nativeDragPayload} nativePayload={nativeDragPayload} iframeRef={iframeRef} scale={scale} onNativeDropEnd={endNativeDrag}>
             <div className="vb-canvas-scaler" style={{width:frameWidth*scale,height:canvasHeight*scale}}>
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>
