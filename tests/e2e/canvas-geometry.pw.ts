@@ -114,7 +114,7 @@ test('section border reduces whitespace, keeps text size and supports Ctrl+Z ins
   await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height))
     .toBeLessThan(before-50)
   await expect(hero).toHaveClass(/cb-geometry-hero-home/)
-  await expect(title.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).resolves.toBe(textBefore)
+  expect(await title.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBe(textBefore)
   const reduced=await hero.evaluate(el=>el.getBoundingClientRect().height)
 
   // Unlike the parent window's handler, this shortcut runs with iframe focus.
