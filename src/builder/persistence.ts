@@ -60,6 +60,23 @@ export function setProjectRepository(repository:ProjectRepository){
   activeRepository=repository
 }
 
+/**
+ * Prefer a local backup only when it is newer than the server copy.
+ * This preserves edits saved to IndexedDB when a cloud sync failed.
+ */
+export function chooseLatestProject(local:BuilderProject|undefined,cloud:BuilderProject|null){
+  if(!cloud)return {project:local||null,needsCloudSync:Boolean(local)}
+  const localTime=Date.parse(local?.updatedAt||'')
+  const cloudTime=Date.parse(cloud.updatedAt||'')
+  const localIsNewer=Boolean(
+    local&&Number.isFinite(localTime)&&(!Number.isFinite(cloudTime)||localTime>cloudTime)
+  )
+  return {
+    project:localIsNewer?local!:cloud,
+    needsCloudSync:localIsNewer,
+  }
+}
+
 export const saveProject=(project:BuilderProject)=>activeRepository.save(project)
 export const loadProject=(id:string)=>activeRepository.load(id)
 export const removeProject=(id:string)=>activeRepository.remove(id)
