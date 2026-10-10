@@ -12,6 +12,7 @@ async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame
 
 test('canvas Move and resize persist into preview, undo, and a reload',async({page})=>{
   await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   let heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
   await expect(frame(page).getByRole('button',{name:'Drag to move the selected element'})).toBeVisible()
@@ -20,7 +21,9 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect(heading).toHaveCSS('translate','80px 40px')
   const initialSize=Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))
-  await frame(page).getByRole('button',{name:'Make text bigger'}).click()
+  const inspectorTextSize=page.getByRole('spinbutton',{name:'Text size'})
+  await inspectorTextSize.fill(String(Math.round(initialSize+4)))
+  await inspectorTextSize.blur()
   await expect.poll(async()=>Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))).toBeGreaterThan(initialSize)
   const initialWidth=await heading.evaluate(el=>el.getBoundingClientRect().width)
   await pointerDrag(page,frame(page).getByRole('button',{name:'Drag to resize the selected element'}),85,35)
