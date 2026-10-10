@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createDefaultProject } from '../src/builder/defaultProject'
-import { indexedDbRepository, loadProject, saveProject, setProjectRepository, type ProjectRepository } from '../src/builder/persistence'
+import { chooseLatestProject, indexedDbRepository, loadProject, saveProject, setProjectRepository, type ProjectRepository } from '../src/builder/persistence'
 import type { BuilderProject } from '../src/builder/types'
 
 const clone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value))
@@ -29,4 +29,28 @@ describe('builder persistence boundary',()=>{
     expect(reopened?.styles.display.mobilePortrait?.none?.fontSize).toBe('30px')
     expect(reopened?.assets[0].name).toBe('hero.png')
   })
+  it('recovers newer IndexedDB edits if cloud save previously failed',()=>{
+    const cloud=createDefaultProject()
+    cloud.id='recover-site'
+    cloud.updatedAt='2026-10-09T10:00:00.000Z'
+    cloud.version=2
+    const local=clone(cloud)
+    local.version=3
+    local.updatedAt='2026-10-09T10:01:00.000Z'
+    local.pages[0].root.children[0].name='Offline edit'
+    const result=chooseLatestProject(local,cloud)
+    expect(result.project).toEqual(local)
+    expect(result.needsCloudSync).toBe(true)
+  })
+
+  it('does not replace newer cloud data with stale local edits',()=>{
+    const cloud=createDefaultProject()
+    cloud.updatedAt='2026-10-09T10:02:00.000Z'
+    const local=clone(cloud)
+    local.updatedAt='2026-10-09T10:01:00.000Z'
+    const result=chooseLatestProject(local,cloud)
+    expect(result.project).toEqual(cloud)
+    expect(result.needsCloudSync).toBe(false)
+  })
+
 })
