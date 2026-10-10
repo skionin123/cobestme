@@ -44,14 +44,14 @@ html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
 .builder-drop-marker.inside{background:rgba(99,102,241,.10);border:2px solid #6d5dfc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
 html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-geometry-handle,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
-.builder-node-label{display:flex;align-items:center;gap:6px;cursor:default;padding:5px 7px;background:#312e81;white-space:nowrap}
-.builder-label-title{font-size:11px;font-weight:650;max-width:150px;overflow:hidden;text-overflow:ellipsis}
-.builder-node-label button{font:650 11px/1 Inter,Arial,sans-serif;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);border-radius:4px;padding:5px 7px;cursor:pointer}
-.builder-node-label button:hover{background:rgba(255,255,255,.3)}
-.builder-node-label button.builder-move-button{background:#6366f1;cursor:grab}
+.builder-node-label{display:flex;align-items:center;gap:2px;cursor:default;padding:4px;background:#21252f;border:1px solid #454958;white-space:nowrap;border-radius:8px;box-shadow:0 8px 24px rgba(10,14,25,.2)}
+.builder-label-title{font:650 10px/1.25 Inter,Arial,sans-serif;color:#e8eaf4;max-width:115px;overflow:hidden;text-overflow:ellipsis;padding:0 9px 0 7px;border-right:1px solid #474b59}
+.builder-node-label button{display:grid;place-items:center;width:27px;height:26px;font:750 15px/1 Inter,Arial,sans-serif;color:#d8daf0;background:transparent;border:0;border-radius:5px;padding:0;cursor:pointer;touch-action:none}
+.builder-node-label button:hover,.builder-node-label button:focus-visible{background:#3d4254;color:#fff}
+.builder-node-label button.builder-move-button{color:#b8b1ff;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
-.builder-node-label button.builder-size-button{background:#4338ca;cursor:nwse-resize}
-.builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:17px;height:17px;background:#fff;border:2px solid #4f46e5;border-radius:4px;cursor:nwse-resize;touch-action:none;box-shadow:0 2px 8px rgba(30,26,75,.25)}
+.builder-node-label button.builder-size-button{color:#b8b1ff;cursor:nwse-resize}
+.builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:10px;height:10px;background:#fff;border:2px solid #6366f1;border-radius:3px;cursor:nwse-resize;touch-action:none;box-shadow:0 1px 5px rgba(30,26,75,.24)}
 .builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
 
 .builder-spacing-handle{position:fixed;z-index:2147483646;width:12px;height:12px;border-radius:3px;display:grid;place-items:center;color:#fff;font:700 7px/1 Arial,sans-serif;cursor:ns-resize;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
@@ -101,8 +101,9 @@ ${body}${emptyState}
     const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.style.left=Math.max(4,Math.min(rect.left+Math.max(0,rect.width/2-85),window.innerWidth-320))+'px'
-    label.style.top=Math.max(4,rect.top-33)+'px'
+    const toolbarWidth=movable?185:110
+    label.style.left=Math.max(6,Math.min(Math.max(6,rect.left),window.innerWidth-toolbarWidth-6))+'px'
+    label.style.top=(rect.top>=44?rect.top-36:Math.min(window.innerHeight-36,rect.bottom+7))+'px'
     const labelName=document.createElement('span')
     labelName.className='builder-label-title'
     labelName.textContent=el.dataset.builderName||el.tagName.toLowerCase()
@@ -176,20 +177,10 @@ ${body}${emptyState}
       }
     }
     if(movable){
-      const moveButton=control('✥ Move','Drag to move the selected element',()=>{},'builder-move-button')
+      const moveButton=control('✥','Drag to move the selected element',()=>{},'builder-move-button')
       liveGeometry('move',moveButton)
-      const sizeButton=control('↘ Size','Drag to resize the selected element',()=>{},'builder-size-button')
+      const sizeButton=control('⤡','Drag to resize the selected element',()=>{},'builder-size-button')
       liveGeometry('resize',sizeButton)
-      const sizeFromStyle=()=>parseFloat(getComputedStyle(el).fontSize)||16
-      if(textElement){
-        for(const [caption,change,title] of [['A−',-2,'Make text smaller'],['A+',2,'Make text bigger']]){
-          control(caption,title,()=>{
-            const size=Math.max(10,Math.min(240,Math.round(sizeFromStyle()+change)))
-            el.style.fontSize=size+'px'
-            send('node-geometry',{id:el.dataset.builderNode,kind:'font-size',fontSize:size})
-          })
-        }
-      }
       control('↺','Reset position and size',()=>send('node-geometry',{id:el.dataset.builderNode,kind:'reset'}))
     }
     document.body.appendChild(label)
@@ -204,8 +195,9 @@ ${body}${emptyState}
       document.body.appendChild(h)
       handles.push(h)
     }
-    handle('resize',rect.right-9,rect.bottom-9,'builder-resize-corner')
-    handle('resize',rect.right-7,rect.top+rect.height/2-11,'builder-width-handle')
+    // One unobtrusive corner handle. The floating size control remains reachable
+    // when the selected element extends beyond the visible canvas.
+    handle('resize',rect.right-5,rect.bottom-5,'builder-resize-corner')
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
   const reportSize=()=>{
