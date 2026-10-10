@@ -12,12 +12,14 @@ async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame
 
 test('canvas Move and resize persist into preview, undo, and a reload',async({page})=>{
   await page.goto('/e2e.html')
+  await page.evaluate(()=>{(window as any).__geometryMessages=[];window.addEventListener('message',event=>{if(event.data?.type==='node-geometry')(window as any).__geometryMessages.push(event.data)})})
   let heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
   await expect(frame(page).getByRole('button',{name:'Drag to move the selected element'})).toBeVisible()
   await expect(frame(page).locator('.builder-resize-corner')).toBeVisible()
   await pointerDrag(page,frame(page).getByRole('button',{name:'Drag to move the selected element'}),80,40)
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
+  console.log('GEOMETRY_DEBUG',JSON.stringify(await page.evaluate(()=>(window as any).__geometryMessages)),JSON.stringify(await heading.evaluate(el=>({style:el.getAttribute('style'),className:el.className,translate:getComputedStyle(el).translate}))))
   await expect(heading).toHaveCSS('translate','80px 40px')
   const initialSize=Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))
   await frame(page).getByRole('button',{name:'Make text bigger'}).click()
