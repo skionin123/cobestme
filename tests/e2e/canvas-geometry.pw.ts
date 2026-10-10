@@ -42,3 +42,26 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   await page.getByRole('button',{name:'Undo'}).click()
   await expect(heading).toHaveCSS('translate','80px 40px')
 })
+
+
+test('dragging a selected element border resizes that element only',async({page})=>{
+  await page.setViewportSize({width:1440,height:900})
+  await page.goto('/e2e.html')
+  const paragraph=frame(page).locator('[data-builder-node="hero-copy-home"]')
+  await paragraph.click()
+  await expect(frame(page).locator('.builder-selected')).toHaveCount(1)
+  await expect(frame(page).locator('.builder-resize-edge')).toHaveCount(4)
+  const initialWidth=await paragraph.evaluate(el=>el.getBoundingClientRect().width)
+  await pointerDrag(page,frame(page).locator('.builder-resize-edge[data-edge="right"]'),44,0)
+  await expect.poll(()=>paragraph.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(initialWidth+25)
+  const grownWidth=await paragraph.evaluate(el=>el.getBoundingClientRect().width)
+
+  await paragraph.click()
+  await pointerDrag(page,frame(page).locator('.builder-resize-edge[data-edge="left"]'),22,0)
+  await expect.poll(()=>paragraph.evaluate(el=>el.getBoundingClientRect().width)).toBeLessThan(grownWidth-8)
+  await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
+  await expect(frame(page).locator('[data-builder-node="hero-title-home"]')).not.toHaveClass(/cb-geometry-hero-copy-home/)
+  await page.getByRole('button',{name:'Save',exact:true}).click()
+  await page.reload()
+  await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
+})
