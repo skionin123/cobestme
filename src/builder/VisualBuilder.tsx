@@ -226,6 +226,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   },[])
 
   useEffect(()=>{
+    // Selecting a deeply nested node introduces a breadcrumb. Recalculate fit
+    // after that layout change rather than retaining the previous stage width.
+    setStageWidth(stageRef.current?.clientWidth||0)
+  },[selectedNodeId,breakpoint])
+
+  useEffect(()=>{
     setCanvasHeight(viewportHeights[breakpoint])
   },[breakpoint,activePage.id])
 
