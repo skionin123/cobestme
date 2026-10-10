@@ -307,11 +307,12 @@ export function StylePanel(){
   const x=String(parseFloat(pos[0])||0)
   const y=String(parseFloat(pos[1])||0)
   const isText=['heading','paragraph','button','link'].includes(node.type)
+  const isFrame=['section','container','div','grid','flex','columns','navbar','footer'].includes(node.type)
   const editable=node.id!==page.root.id&&!node.locked
   const mutateGeometry=(labelText:string,change:Parameters<typeof applyNodeGeometry>[3])=>{
     useBuilderStore.getState().mutate(labelText,draft=>{applyNodeGeometry(draft,node.id,breakpoint,change)})
   }
-  const changeNumber=(property:'x'|'y'|'width'|'fontSize',next:string)=>{
+  const changeNumber=(property:'x'|'y'|'width'|'height'|'fontSize',next:string)=>{
     const amount=next===''?null:Number(next)
     if(amount!==null&&!Number.isFinite(amount))return
     if(property==='x'||property==='y'){
@@ -328,6 +329,24 @@ export function StylePanel(){
         return
       }
       mutateGeometry('Resize element',{kind:'resize',width:amount})
+    }else if(property==='height'){
+      if(amount===null){
+        useBuilderStore.getState().mutate('Reset frame height',draft=>{
+          const properties=draft.styles[geometryName]?.[breakpoint]?.none
+          if(properties){
+            delete properties.height
+            delete properties.minHeight
+            delete properties.paddingTop
+            delete properties.paddingBottom
+          }
+        })
+        return
+      }
+      // Use the content-aware frame geometry for a directly edited height.
+      mutateGeometry('Resize frame',{kind:'resize',width:parseFloat(read('width'))||500,
+        height:Math.max(48,amount),frame:true,
+        paddingTop:Math.max(12,Math.round(Math.min(48,amount*.08))),
+        paddingBottom:Math.max(12,Math.round(Math.min(48,amount*.08)))})
     }else{
       if(amount===null){
         useBuilderStore.getState().mutate('Reset text size',draft=>{
@@ -359,9 +378,10 @@ export function StylePanel(){
       <div className="vb-inspector-heading"><strong>Dimensions</strong><span>px</span></div>
       <div className="vb-inspector-grid">
         <InspectorNumber key={node.id+breakpoint+'width'} name="Width" value={String(parseFloat(read('width'))||'')} onCommit={next=>changeNumber('width',next)}/>
+        {isFrame&&<InspectorNumber key={node.id+breakpoint+'height'} name="Height" value={String(parseFloat(read('height'))||'')} onCommit={next=>changeNumber('height',next)}/>}
         {isText&&<InspectorNumber key={node.id+breakpoint+'font'} name="Text size" value={String(parseFloat(read('fontSize'))||'')} onCommit={next=>changeNumber('fontSize',next)}/>}
       </div>
-      <p className="vb-inspector-hint">Drag the element's toolbar to move or resize it. Use Navigator to change its order.</p>
+      <p className="vb-inspector-hint">{isFrame?'Drag a border to make this section smaller. Text and images inside keep their size.':'Resize the box without changing text size. Use Text size separately.'} Ctrl+Z to undo, Ctrl+Y to redo.</p>
       <button className="vb-inspector-reset" type="button" onClick={()=>mutateGeometry('Reset element position and size',{kind:'reset'})}>Reset position & size</button>
     </section>}
     <button type="button" className={'vb-inspector-advanced-toggle '+(advanced?'is-open':'')}
