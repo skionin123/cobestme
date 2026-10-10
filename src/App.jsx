@@ -1207,7 +1207,8 @@ export default function App() {
       }
       setWorkspace(workspaceData||null)
       if(workspaceData?.onboarding)setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
-      if(workspaceData?.editor)setEditor(prev=>({...prev,...workspaceData.editor}))
+      // Do not carry another site's locally cached builder project into this workspace.
+      setEditor(normalizeEditor(workspaceData?.editor||{}))
       if(Array.isArray(values.products))setProducts(values.products)
       if(Array.isArray(values.customers))setCustomers(values.customers)
       if(Array.isArray(values.orders))setOrders(values.orders)
@@ -1233,7 +1234,11 @@ export default function App() {
 
   useEffect(()=>{
     if(!cloudReady || !isAuthenticated()) return
-    const timer=setTimeout(()=>saveWorkspace({onboarding,editor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
+    // Builder project persistence is managed by VisualBuilder's save queue.
+    // Do not send a stale copy via general dashboard autosave.
+    const ordinaryEditor={...editor}
+    delete ordinaryEditor.visualBuilderProject
+    const timer=setTimeout(()=>saveWorkspace({onboarding,editor:ordinaryEditor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
   },[onboarding,editor,page,cloudReady])
 
@@ -1346,7 +1351,9 @@ export default function App() {
   if(page==='team') content=<TeamManager/>
   if(page==='billing') content=<BillingManager/>
   if(page==='integrations') content=<IntegrationsPanel/>
-  if(page==='editor') content=<React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
+  if(page==='editor') content=!cloudReady
+    ? <div className="page-wrap"><div className="panel">{cloudLoadError||'Loading your website workspace…'}</div></div>
+    : <React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject}/></React.Suspense>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
