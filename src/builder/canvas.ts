@@ -102,7 +102,7 @@ ${body}${emptyState}
     label=document.createElement('div')
     label.className='builder-node-label'
     const toolbarWidth=movable?185:110
-    label.style.left=Math.max(6,Math.min(Math.max(6,rect.left),window.innerWidth-toolbarWidth-6))+'px'
+    label.style.left=Math.max(6,Math.min(rect.left+Math.max(0,rect.width/2-toolbarWidth/2),window.innerWidth-toolbarWidth-6))+'px'
     label.style.top=(rect.top>=44?rect.top-36:Math.min(window.innerHeight-36,rect.bottom+7))+'px'
     const labelName=document.createElement('span')
     labelName.className='builder-label-title'
