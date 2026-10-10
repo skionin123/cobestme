@@ -47,7 +47,7 @@ test('real application shell saves each site and reopens its own builder documen
   await expect(page.getByRole('button',{name:'Products',exact:true})).toBeVisible()
   await expect(page.getByRole('button',{name:'Sales report',exact:true})).toBeVisible()
   await expect(page.locator('.app-nav').getByRole('button',{name:'Categories & subcategories',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'Website themes'}).click()
+  await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await expect(page.getByRole('button',{name:'Use Simple'})).toBeVisible()
   await expect(page.getByRole('button',{name:'Use Professional'})).toBeVisible()
   await page.getByRole('button',{name:'Use Simple'}).click()
@@ -62,14 +62,14 @@ test('real application shell saves each site and reopens its own builder documen
   expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
 
   await page.reload()
-  await page.getByRole('button',{name:'Website themes'}).click()
+  await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
 
   // A site switch loads the other workspace rather than the previous browser cache.
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','42'))
   await page.reload()
-  await page.getByRole('button',{name:'Website themes'}).click()
+  await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await page.getByRole('button',{name:'Use Professional'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).not.toHaveValue('Alpha Website')
   await page.getByRole('textbox',{name:'Project name'}).fill('Beta Website')
@@ -81,7 +81,7 @@ test('real application shell saves each site and reopens its own builder documen
 
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','41'))
   await page.reload()
-  await page.getByRole('button',{name:'Website themes'}).click()
+  await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
 })
