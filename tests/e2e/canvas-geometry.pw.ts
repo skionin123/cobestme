@@ -33,7 +33,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   await frame(page).getByRole('button',{name:'Make text bigger'}).click()
   await expect.poll(async()=>Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))).toBeGreaterThan(initialSize)
   const initialWidth=await heading.evaluate(el=>el.getBoundingClientRect().width)
-  await pointerDrag(page,frame(page).locator('.builder-resize-corner'),85,35)
+  await pointerDrag(page,frame(page).getByRole('button',{name:'Drag to resize the selected element'}),85,35)
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect.poll(async()=>heading.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(initialWidth+40)
   await page.getByRole('button',{name:'Preview',exact:true}).click()
