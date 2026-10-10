@@ -3,7 +3,7 @@ import type { BreakpointId, BuilderProject, CssProperties } from './types'
 
 export type GeometryChange=
   | {kind:'move';x:number;y:number}
-  | {kind:'resize';width:number;height?:number;fontSize?:number}
+  | {kind:'resize';width:number;height?:number;fontSize?:number;x?:number;y?:number}
   | {kind:'font-size';fontSize:number}
   | {kind:'reset'}
 
@@ -43,6 +43,12 @@ export function applyNodeGeometry(
     if(width===null)return false
     props.width=width+'px'
     props.maxWidth='none'
+    if(change.x!=null||change.y!=null){
+      const current=String(props.translate||'0px 0px').split(/\\s+/)
+      const x=bounded(change.x??parseFloat(current[0]),-5000,5000)
+      const y=bounded(change.y??parseFloat(current[1]),-5000,5000)
+      if(x!==null&&y!==null)props.translate=x+'px '+y+'px'
+    }
     if(change.height!=null){
       const height=bounded(change.height,20,4000)
       if(height!==null)props.height=height+'px'
