@@ -273,3 +273,12 @@
   .vb-topbar{grid-template-columns:200px 130px 1fr}
   .vb-top-actions .vb-toolbar-icon:nth-of-type(n+3),.vb-top-actions .vb-preview-action,.vb-top-actions .vb-save-action{display:none}
 }
+
+.vb-canvas-help{
+  align-self:stretch;position:sticky;top:25px;left:0;z-index:3;
+  color:#afb6c7;font-size:10px;line-height:1.5;padding:7px 10px;margin:-7px 0 12px;
+  background:rgba(32,35,44,.95);border:1px solid #353a48;border-radius:7px;
+  max-width:780px;text-align:left
+}
+.vb-canvas-help strong{color:#e5e3ff}
+@media(max-width:800px){.vb-canvas-help{font-size:9px;position:relative;top:auto}}
