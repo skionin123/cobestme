@@ -75,7 +75,7 @@ async function request(path, options = {}, retry = true) {
   const token = getToken()
   if (token) headers.authorization = `Bearer ${token}`
   const siteId=getActiveSiteId()
-  if(siteId) headers['x-cobest-site-id']=siteId
+  if(siteId&&!('x-cobest-site-id' in headers)) headers['x-cobest-site-id']=siteId
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401 && retry && getRefreshToken()) {
     await refreshSession()
@@ -128,14 +128,25 @@ export async function getWorkspace() {
   return Array.isArray(rows) ? rows[0] || null : rows
 }
 
-export async function saveWorkspace(workspace) {
-  const rows = await request('/api/workspace', {
-    method: 'PUT',
-    body: JSON.stringify(workspace)
-  })
-  const result=Array.isArray(rows) ? rows[0] || null : rows
-  if(result?.id)setActiveSiteId(result.id)
-  return result
+// Serialize workspace writes. The server merges fields using its current
+// snapshot, so overlapping PUTs could otherwise overwrite newer editor data.
+let workspaceSaveTail=Promise.resolve()
+
+export function saveWorkspace(workspace) {
+  const siteId=getActiveSiteId()
+  const run=async()=>{
+    const rows=await request('/api/workspace', {
+      method: 'PUT',
+      headers:siteId?{'x-cobest-site-id':siteId}:{},
+      body:JSON.stringify(workspace)
+    })
+    const result=Array.isArray(rows)?rows[0]||null:rows
+    if(result?.id&&getActiveSiteId()===siteId)setActiveSiteId(result.id)
+    return result
+  }
+  const pending=workspaceSaveTail.then(run,run)
+  workspaceSaveTail=pending.then(()=>{},()=>{})
+  return pending
 }
 
 export async function listSites(){ return request('/api/sites') }

@@ -33,6 +33,18 @@ export const elementCatalog=[
   ]},
 ] as const
 
+export const mvpElementCatalog=[
+  {group:'Structure',items:[
+    ['section','Section'],['container','Container'],['div','Box'],
+  ]},
+  {group:'Content',items:[
+    ['heading','Heading'],['paragraph','Paragraph'],['button','Button'],['link','Link'],['image','Image'],
+  ]},
+  {group:'Layout',items:[
+    ['flex','Flex container'],['grid','Grid container'],
+  ]},
+] as const
+
 export const sectionCatalog=[
   {id:'hero',label:'Hero'},
   {id:'features',label:'Features grid'},
@@ -56,7 +68,11 @@ export function createElement(type:BuilderNodeType):BuilderNode{
       n.classes=['container']
       return n
     }
-    case 'div':return base(type,'div','Div Block')
+    case 'div':{
+      const n=base(type,'div','Div Block')
+      n.classes=['box']
+      return n
+    }
     case 'grid':{
       const n=base(type,'div','Grid')
       n.classes=['grid']
@@ -88,6 +104,7 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     case 'link':{
       const n=base(type,'a','Text Link','Learn more')
       n.attributes={href:'#'}
+      n.classes=['link']
       return n
     }
     case 'button':{
@@ -114,6 +131,7 @@ export function createElement(type:BuilderNodeType):BuilderNode{
     case 'image':{
       const n=base(type,'img','Image')
       n.attributes={src:'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=1200&q=80',alt:'Placeholder image'}
+      n.classes=['image']
       return n
     }
     case 'video':{

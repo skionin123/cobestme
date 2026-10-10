@@ -8,6 +8,10 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
     ? rawCss.replace(/(-?[\d.]+)vh\b/g,(_,value)=>String((Number(value)*virtualViewportHeight)/100)+'px')
     : rawCss
   const body=renderPageBody(project,project.activePageId,editing)
+  const activePage=project.pages.find(page=>page.id===project.activePageId)||project.pages[0]
+  const emptyState=editing&&activePage?.root?.children?.length===0
+    ? '<div class="builder-empty-state"><strong>Start building your page</strong><span>Drag a Section onto the canvas.</span></div>'
+    : ''
   const interactionRuntime=compileInteractionRuntime(project)
   return `<!doctype html>
 <html>
@@ -23,6 +27,18 @@ html.builder-editing,html.builder-editing body{overflow:hidden}
 html.builder-editing [data-builder-node]:hover{outline:1px solid rgba(99,102,241,.72);outline-offset:2px}
 html.builder-editing [data-builder-node].builder-hovered{outline:1px solid #818cf8;outline-offset:2px}
 html.builder-editing [data-builder-node].builder-selected{outline:2px solid #6366f1!important;outline-offset:3px}
+html.builder-editing [data-builder-node][data-builder-type="container"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="div"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="grid"]:empty,
+html.builder-editing [data-builder-node][data-builder-type="flex"]:empty{
+  min-height:72px;outline:1px dashed rgba(99,102,241,.38);outline-offset:-1px;background:rgba(99,102,241,.025)
+}
+html.builder-editing [data-builder-node][data-builder-type="container"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="div"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="grid"]:empty::after,
+html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
+  content:"Drop elements here";display:grid;place-items:center;min-height:72px;color:#8b8fa3;font:500 11px/1.3 Inter,Arial,sans-serif;pointer-events:none
+}
 .builder-node-label{position:fixed;z-index:2147483647;pointer-events:auto;cursor:grab;background:#4f46e5;color:#fff;font:600 11px/1.2 Arial,sans-serif;padding:6px 8px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.14);user-select:none}
 .builder-node-label:active{cursor:grabbing}
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
@@ -33,17 +49,20 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-spacing-handle[data-kind="padding"]{background:#10b981}.builder-spacing-handle[data-kind="margin"]{background:#f59e0b}
 .cms-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.cms-card{border:1px solid #e5e7eb;border-radius:12px;padding:18px}.cms-card img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;margin-bottom:14px}
 .html-embed-preview{min-height:40px;outline:1px dashed #a1a1aa}
+.builder-empty-state{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483000;display:grid;gap:7px;min-width:260px;padding:22px 26px;border:1px dashed #a5a9b2;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 14px 40px rgba(15,23,42,.08);color:#4b5563;text-align:center;pointer-events:none;font:500 13px/1.45 Inter,Arial,sans-serif}.builder-empty-state strong{font-size:15px;color:#111827}.builder-empty-state span{font-size:12px;color:#6b7280}
+html:not(.builder-editing) .builder-empty-state{display:none}
 @media(max-width:767px){.cms-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-${body}
+${body}${emptyState}
 <script>
 (() => {
   document.documentElement.classList.toggle('builder-editing',${editing})
   let selected = null
   let hovered = null
   let label = null
+  let nodeDragging = false
   let handles = []
   const clearHandles=()=>{handles.forEach(h=>h.remove());handles=[]}
   const spacingProperty=(kind,edge)=>kind+(edge[0].toUpperCase()+edge.slice(1))
@@ -64,15 +83,8 @@ ${body}
     const rect=el.getBoundingClientRect()
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())+'  ·  drag'
-    label.draggable=true
-    label.title='Drag to move this element'
-    label.ondragstart=event=>{
-      const payload=JSON.stringify({kind:'node',nodeId:el.dataset.builderNode})
-      event.dataTransfer.effectAllowed='move'
-      event.dataTransfer.setData('application/x-cobest-builder',payload)
-      event.dataTransfer.setData('text/plain','cobest:'+payload)
-    }
+    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())
+    label.title='Selected element'
     label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
     label.style.top=Math.max(4,rect.top-25)+'px'
     document.body.appendChild(label)
@@ -129,17 +141,18 @@ ${body}
     return types.includes('application/x-cobest-builder')||types.includes('text/plain')
   }
   const nestingTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
-  const dropIntent=event=>{
-    const el=event.target?.closest?.('[data-builder-node]')
+  const dropIntentFor=(target,clientY)=>{
+    const el=target?.closest?.('[data-builder-node]')
     if(!el)return null
     const rect=el.getBoundingClientRect()
-    const y=(event.clientY-rect.top)/Math.max(rect.height,1)
+    const y=(clientY-rect.top)/Math.max(rect.height,1)
     const canNest=nestingTypes.has(el.dataset.builderType)
     let mode='inside'
     if(!canNest||y<.24)mode='before'
     else if(y>.76)mode='after'
     return {el,rect,mode}
   }
+  const dropIntent=event=>dropIntentFor(event.target,event.clientY)
   const drawDropMarker=intent=>{
     removeDropMarker()
     if(!intent)return
@@ -194,14 +207,18 @@ ${body}
     if(!el)return
     event.preventDefault()
     event.stopPropagation()
-    send('select',{id:el.dataset.builderNode})
+    clearClass(selected,'builder-selected')
+    selected=el.dataset.builderNode||null
+    apply(selected,'builder-selected')
+    drawLabel(el)
+    send('select',{id:selected})
   }, true)
   document.addEventListener('dblclick', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
     const el=event.target.closest?.('[data-builder-node]')
     if(!el)return
-    const tag=el.tagName.toLowerCase()
-    if(['img','input','textarea','select','video','iframe','form'].includes(tag))return
+    const type=el.dataset.builderType||''
+    if(!['heading','paragraph','button','link'].includes(type))return
     event.preventDefault();event.stopPropagation()
     el.contentEditable='true'
     el.focus()
@@ -221,16 +238,32 @@ ${body}
     event.preventDefault()
     send('context',{id:el.dataset.builderNode,x:event.clientX,y:event.clientY})
   })
-  window.addEventListener('scroll',()=>{const el=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null;drawLabel(el)},{passive:true})
+  window.addEventListener('scroll',()=>{if(nodeDragging)return;const el=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null;drawLabel(el)},{passive:true})
   window.addEventListener('message',event=>{
     const msg=event.data||{}
     if(msg.source!=='cobest-editor')return
+    if(msg.type==='external-drag-leave'){
+      removeDropMarker()
+      return
+    }
+    if((msg.type==='external-drag-over'||msg.type==='external-drop')&&Number.isFinite(Number(msg.x))&&Number.isFinite(Number(msg.y))){
+      const x=Number(msg.x),y=Number(msg.y)
+      const target=document.elementFromPoint(x,y)
+      const intent=dropIntentFor(target,y)
+      if(msg.type==='external-drag-over'){
+        drawDropMarker(intent)
+        return
+      }
+      removeDropMarker()
+      if(msg.payload&&intent)send('canvas-drop',{payload:msg.payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
+      return
+    }
     if(msg.type==='selection'){
       clearClass(selected,'builder-selected');clearClass(hovered,'builder-hovered')
       selected=msg.selected||null;hovered=msg.hovered||null
       apply(selected,'builder-selected');apply(hovered,'builder-hovered')
       const selectedEl=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null
-      drawLabel(selectedEl)
+      if(!nodeDragging)drawLabel(selectedEl)
     }
     if(msg.type==='mode'){
       document.documentElement.classList.toggle('builder-editing',msg.editing!==false)

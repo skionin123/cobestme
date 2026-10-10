@@ -6,9 +6,9 @@ import {
 } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { createElement, createPrebuiltSection, elementCatalog, sectionCatalog } from './elements'
+import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
-import { findNode, findParent, slugify, uid, walkNodes } from './tree'
+import { canAcceptChildren, findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
 
@@ -55,47 +55,48 @@ export function AddPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Add elements</span>
+      <strong className="mb-2 block text-[11px] text-zinc-200">MVP building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
     </div>
     <div className="p-3">
-      <div className="mb-4">
-        <span className={label}>Pre-built sections</span>
-        <div className="grid grid-cols-2 gap-2">{sectionCatalog.filter(x=>!q||x.label.toLowerCase().includes(q)).map(x=><DraggablePaletteItem key={x.id} type={x.id} label={x.label} section/>)}</div>
-      </div>
-      {elementCatalog.map(group=>{
+      {mvpElementCatalog.map(group=>{
         const items=group.items.filter(([,name])=>!q||name.toLowerCase().includes(q))
         if(!items.length)return null
         return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="grid grid-cols-2 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Wix-style adding</strong>Click an item to add it to the selected section, or drag it directly onto the exact place on the page. Navigator drag-and-drop still works for precise layer nesting.</p>
+      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Start with structure</strong>Drag a Section onto the page, then add a Container and content inside it. Use Navigator for precise reordering and nesting.</p>
     </div>
   </div>
 }
 
 function DropLine({id}:{id:string}){
   const {setNodeRef,isOver}=useDroppable({id,data:{kind:'drop-line'}})
-  return <div ref={setNodeRef} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
+  return <div ref={setNodeRef} data-drop-id={id} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
 }
 
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
   const selectNode=useBuilderStore(s=>s.selectNode)
+  const duplicateNode=useBuilderStore(s=>s.duplicateNode)
+  const deleteNode=useBuilderStore(s=>s.deleteNode)
   const [open,setOpen]=useState(true)
-  const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id}})
-  const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id}})
+  const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id},disabled:depth===0})
+  const acceptsChildren=canAcceptChildren(node)
+  const {setNodeRef:dropRef,isOver}=useDroppable({id:`inside:${node.id}`,data:{kind:'node-inside',nodeId:node.id},disabled:!acceptsChildren})
   const childCount=node.children?.length||0
   return <div>
-    <DropLine id={`before:${node.id}`}/>
+    {depth>0&&<DropLine id={`before:${node.id}`}/>} 
     <div ref={dropRef} className={'relative '+(isOver?'bg-indigo-500/10':'')}>
       <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
         <button className="vb-nav-toggle grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
         <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
         <button className="vb-nav-name min-w-0 flex-1 truncate text-left" onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
         {node.componentId&&<span title="Component" className="rounded bg-violet-500/15 px-1 text-[8px] text-violet-300">C</span>}
+        {depth>0&&<div className="hidden items-center gap-0.5 group-hover:flex"><button title="Duplicate" className="rounded p-1 text-zinc-500 hover:bg-zinc-700 hover:text-white" onClick={()=>duplicateNode(node.id)}><Copy size={10}/></button><button title="Delete" className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300" onClick={()=>deleteNode(node.id)}><Trash2 size={10}/></button></div>}
       </div>
     </div>
     {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
-    <DropLine id={`after:${node.id}`}/>
+    {depth>0&&<DropLine id={`after:${node.id}`}/>}
   </div>
 }
 
@@ -133,20 +134,22 @@ export function PagesPanel(){
   const duplicatePage=useBuilderStore(s=>s.duplicatePage)
   const deletePage=useBuilderStore(s=>s.deletePage)
   const reorderPage=useBuilderStore(s=>s.reorderPage)
+  const updatePageSeo=useBuilderStore(s=>s.updatePageSeo)
   const [adding,setAdding]=useState(false)
   const [name,setName]=useState('')
   const create=()=>{if(!name.trim())return;addPage(name);setName('');setAdding(false)}
   return <div className="h-full overflow-auto">
-    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Pages</span><strong className="text-xs text-zinc-100">{project.pages.length} pages</strong></div><button className={panelButton} onClick={()=>setAdding(true)}><Plus size={12}/></button></div>
+    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Pages</span><strong className="text-xs text-zinc-100">{project.pages.length} pages</strong></div><button className={panelButton} aria-label="Add page" onClick={()=>setAdding(true)}><Plus size={12}/></button></div>
     {adding&&<div className={panelSection}><input autoFocus className={control} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&create()} placeholder="Page name"/><div className="mt-2 flex gap-2"><button className={panelButton} onClick={create}>Create</button><button className={panelButton} onClick={()=>setAdding(false)}>Cancel</button></div></div>}
     <div className="p-2">{project.pages.map((page,i)=><div className={'group mb-1 rounded-lg border p-2 '+(page.id===project.activePageId?'border-indigo-500/60 bg-indigo-500/10':'border-transparent hover:bg-zinc-900')} key={page.id}>
       <button className="w-full text-left" onClick={()=>setActivePage(page.id)}><strong className="block text-[11px] text-zinc-100">{page.name}</strong><span className="text-[9px] text-zinc-500">{page.slug}</span></button>
       <div className="mt-2 hidden gap-1 group-hover:flex">
         <button className={panelButton} onClick={()=>{const next=prompt('Rename page',page.name);if(next)renamePage(page.id,next)}}>Rename</button>
         <button className={panelButton} onClick={()=>duplicatePage(page.id)}>Duplicate</button>
+        {page.slug!=='/'&&<button className={panelButton} onClick={()=>{const next=prompt('Page path',page.slug);if(next)updatePageSeo(page.id,'slug',next)}}>Path</button>}
         <button className={panelButton} onClick={()=>reorderPage(page.id,-1)} disabled={i===0}>↑</button>
         <button className={panelButton} onClick={()=>reorderPage(page.id,1)} disabled={i===project.pages.length-1}>↓</button>
-        {project.pages.length>1&&<button className={panelButton} onClick={()=>confirm(`Delete ${page.name}?`)&&deletePage(page.id)}><Trash2 size={11}/></button>}
+        {page.slug!=='/'&&project.pages.length>1&&<button className={panelButton} onClick={()=>confirm(`Delete ${page.name}?`)&&deletePage(page.id)}><Trash2 size={11}/></button>}
       </div>
     </div>)}</div>
   </div>
@@ -179,7 +182,7 @@ export function AssetsPanel(){
     }
   }
   return <div className="h-full overflow-auto">
-    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Assets</span><strong className="text-xs text-zinc-100">{project.assets.length} files</strong></div><><input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={e=>upload(e.target.files)}/><button className={panelButton} onClick={()=>fileRef.current?.click()}><Upload size={12}/></button></></div>
+    <div className="flex items-center justify-between border-b border-zinc-800 p-3"><div><span className={label}>Assets</span><strong className="text-xs text-zinc-100">{project.assets.length} files</strong></div><><input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={e=>upload(e.target.files)}/><button className={panelButton} aria-label="Upload image" onClick={()=>fileRef.current?.click()}><Upload size={12}/></button></></div>
     <div className="grid grid-cols-2 gap-2 p-3">{project.assets.map(asset=><div className="group relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900" key={asset.id}><img src={asset.url} alt={asset.alt||''} className="h-24 w-full object-cover"/><div className="p-2"><strong className="block truncate text-[9px] text-zinc-300">{asset.name}</strong></div><button className="absolute right-1 top-1 hidden rounded bg-black/70 p-1 text-white group-hover:block" onClick={()=>removeAsset(asset.id)}><X size={11}/></button></div>)}</div>
     {!project.assets.length&&<div className="p-6 text-center text-[10px] leading-5 text-zinc-500"><ImageIcon className="mx-auto mb-2" size={20}/>Upload images to reuse across pages.</div>}
   </div>
@@ -228,9 +231,10 @@ function StyleInput({className,property,labelText,type='text',options,placeholde
   const removeStyle=useBuilderStore(s=>s.removeStyle)
   const inherited=inheritedStyle(project,className,breakpoint,state,property)
   const direct=project.styles[className]?.[breakpoint]?.[state]?.[property]??''
+  const status=direct?'override':inherited.value?`inherited · ${inherited.source}`:'default'
   return <label className="block">
-    <span className="mb-1 flex items-center justify-between text-[9px] text-zinc-500"><b className="font-medium uppercase tracking-[.08em]">{labelText}</b><em className={direct?'not-italic text-indigo-300':'not-italic text-zinc-600'}>{direct?'override':inherited.source}</em></span>
-    <div className="flex gap-1">{options?<select className={control} value={direct||inherited.value} onChange={e=>setStyle(className,property,e.target.value)}>{options.map(x=><option key={x}>{x}</option>)}</select>:<input className={control} type={type} value={direct} placeholder={placeholder||inherited.value||'—'} onChange={e=>setStyle(className,property,e.target.value)}/>} {direct&&<button title="Reset to inherited" className="rounded border border-zinc-700 px-2 text-zinc-500 hover:text-white" onClick={()=>removeStyle(className,property)}>↺</button>}</div>
+    <span className="mb-1 flex items-center justify-between text-[9px] text-zinc-500"><b className="font-medium uppercase tracking-[.08em]">{labelText}</b><em className={direct?'not-italic text-indigo-300':'not-italic text-zinc-600'}>{status}</em></span>
+    <div className="flex gap-1">{options?<select className={control} value={direct||inherited.value||''} onChange={e=>e.target.value?setStyle(className,property,e.target.value):removeStyle(className,property)}><option value="">Default</option>{options.map(x=><option key={x}>{x}</option>)}</select>:<input className={control} type={type} value={direct} placeholder={placeholder||inherited.value||'—'} onChange={e=>setStyle(className,property,e.target.value)}/>} {direct&&<button type="button" title="Reset to inherited" className="rounded border border-zinc-700 px-2 text-zinc-500 hover:text-white" onClick={()=>removeStyle(className,property)}>↺</button>}</div>
   </label>
 }
 
@@ -239,6 +243,7 @@ function ValueUnitInput({className,property,labelText,defaultUnit='px'}:{classNa
   const breakpoint=useBuilderStore(s=>s.breakpoint)
   const state=useBuilderStore(s=>s.styleState)
   const setStyle=useBuilderStore(s=>s.setStyle)
+  const removeStyle=useBuilderStore(s=>s.removeStyle)
   const inherited=inheritedStyle(project,className,breakpoint,state,property)
   const direct=project.styles[className]?.[breakpoint]?.[state]?.[property]??''
   const source=direct||inherited.value
@@ -249,8 +254,9 @@ function ValueUnitInput({className,property,labelText,defaultUnit='px'}:{classNa
     setValue(match?.[1]||'')
     setUnit(match?.[2]||defaultUnit)
   },[source,defaultUnit])
-  const apply=(v:string,u:string)=>setStyle(className,property,v===''?'':v+u)
-  return <label className="block"><span className={label}>{labelText}</span><div className="flex gap-1"><input className={control} value={value} placeholder={match?.[1]||'auto'} onChange={e=>{setValue(e.target.value);apply(e.target.value,unit)}}/><select className="rounded-md border border-zinc-700 bg-zinc-900 px-1 text-[10px] text-zinc-300" value={unit} onChange={e=>{setUnit(e.target.value);apply(value,e.target.value)}}>{['px','%','em','rem','vw','vh'].map(x=><option key={x}>{x}</option>)}</select><button className="rounded-md border border-zinc-700 px-2 text-[9px] text-zinc-400" onClick={()=>{setValue('');setStyle(className,property,'auto')}}>auto</button></div></label>
+  const apply=(v:string,u:string)=>v===''?removeStyle(className,property):setStyle(className,property,v+u)
+  const status=direct?'override':inherited.value?`inherited · ${inherited.source}`:'default'
+  return <label className="block"><span className="mb-1 flex items-center justify-between text-[9px] text-zinc-500"><b className="font-medium uppercase tracking-[.08em]">{labelText}</b><em className={direct?'not-italic text-indigo-300':'not-italic text-zinc-600'}>{status}</em></span><div className="flex gap-1"><input className={control} value={value} placeholder={match?.[1]||'auto'} onChange={e=>{setValue(e.target.value);apply(e.target.value,unit)}}/><select className="rounded-md border border-zinc-700 bg-zinc-900 px-1 text-[10px] text-zinc-300" value={unit} onChange={e=>{setUnit(e.target.value);if(value)setStyle(className,property,value+e.target.value)}}>{['px','%','em','rem','vw','vh'].map(x=><option key={x}>{x}</option>)}</select><button type="button" className="rounded-md border border-zinc-700 px-2 text-[9px] text-zinc-400" onClick={()=>{setValue('');setStyle(className,property,'auto')}}>auto</button>{direct&&<button type="button" title="Reset to inherited" className="rounded-md border border-zinc-700 px-2 text-[9px] text-zinc-400 hover:text-white" onClick={()=>removeStyle(className,property)}>↺</button>}</div></label>
 }
 
 function BoxModel({className}:{className:string}){
@@ -290,17 +296,12 @@ export function StylePanel(){
       {activeClass&&<button className="mt-2 text-[9px] text-zinc-500 hover:text-zinc-200" onClick={()=>{const next=prompt('Rename class',activeClass);if(next){renameClass(activeClass,slugClass(next));setActiveClass(slugClass(next))}}}>Rename class</button>}
     </div>
     {!activeClass?<EmptyPanel text="Create or select a class to use the visual CSS controls."/>:<>
-      <div className={panelSection}><span className={label}>State · {breakpoint}</span><div className="grid grid-cols-4 gap-1">{['none','hover','pressed','focused'].map(x=><button key={x} className={(styleState===x?'bg-indigo-500 text-white':'bg-zinc-800 text-zinc-400')+' rounded px-1 py-2 text-[9px]'} onClick={()=>setStyleState(x as any)}>{x}</button>)}</div></div>
-      <StyleGroup title="Layout"><StyleInput className={activeClass} property="display" labelText="Display" options={['block','flex','grid','inline-flex','inline-block','none']}/><StyleInput className={activeClass} property="flexDirection" labelText="Flex direction" options={['row','column','row-reverse','column-reverse']}/><StyleInput className={activeClass} property="justifyContent" labelText="Justify" options={['flex-start','center','flex-end','space-between','space-around']}/><StyleInput className={activeClass} property="alignItems" labelText="Align" options={['stretch','flex-start','center','flex-end','baseline']}/><StyleInput className={activeClass} property="flexWrap" labelText="Wrap" options={['nowrap','wrap','wrap-reverse']}/><ValueUnitInput className={activeClass} property="gap" labelText="Gap"/></StyleGroup>
-      <StyleGroup title="Grid"><StyleInput className={activeClass} property="gridTemplateColumns" labelText="Columns" placeholder="repeat(3, minmax(0,1fr))"/><StyleInput className={activeClass} property="gridTemplateRows" labelText="Rows" placeholder="auto"/><ValueUnitInput className={activeClass} property="columnGap" labelText="Column gap"/><ValueUnitInput className={activeClass} property="rowGap" labelText="Row gap"/></StyleGroup>
+      <div className={panelSection}><span className={label}>Responsive value source</span><p className="text-[10px] leading-5 text-zinc-500">Editing <strong className="text-zinc-300">{breakpoint}</strong>. Values marked inherited come from a larger breakpoint; values marked override are specific to this breakpoint.</p></div>
+      <StyleGroup title="Typography"><StyleInput className={activeClass} property="fontFamily" labelText="Font" options={['Inter, Arial, sans-serif','DM Sans, Arial, sans-serif','Manrope, Arial, sans-serif','Playfair Display, Georgia, serif','Georgia, serif','Arial, sans-serif']}/><ValueUnitInput className={activeClass} property="fontSize" labelText="Font size"/><StyleInput className={activeClass} property="fontWeight" labelText="Weight" options={['300','400','500','600','700','800','900']}/><StyleInput className={activeClass} property="fontStyle" labelText="Style" options={['normal','italic']}/><StyleInput className={activeClass} property="lineHeight" labelText="Line height"/><StyleInput className={activeClass} property="textAlign" labelText="Alignment" options={['left','center','right','justify']}/><StyleInput className={activeClass} property="color" labelText="Text color" type="color"/></StyleGroup>
+      <StyleGroup title="Size"><ValueUnitInput className={activeClass} property="width" labelText="Width"/><ValueUnitInput className={activeClass} property="height" labelText="Height"/><ValueUnitInput className={activeClass} property="minWidth" labelText="Min width"/><ValueUnitInput className={activeClass} property="maxWidth" labelText="Max width"/></StyleGroup>
       <div className={panelSection}><BoxModel className={activeClass}/></div>
-      <StyleGroup title="Size"><ValueUnitInput className={activeClass} property="width" labelText="Width"/><ValueUnitInput className={activeClass} property="height" labelText="Height"/><ValueUnitInput className={activeClass} property="minWidth" labelText="Min width"/><ValueUnitInput className={activeClass} property="maxWidth" labelText="Max width"/><ValueUnitInput className={activeClass} property="minHeight" labelText="Min height"/><ValueUnitInput className={activeClass} property="maxHeight" labelText="Max height"/><StyleInput className={activeClass} property="overflow" labelText="Overflow" options={['visible','hidden','auto','scroll']}/><StyleInput className={activeClass} property="objectFit" labelText="Object fit" options={['cover','contain','fill','none']}/></StyleGroup>
-      <StyleGroup title="Position"><StyleInput className={activeClass} property="position" labelText="Position" options={['static','relative','absolute','fixed','sticky']}/><ValueUnitInput className={activeClass} property="top" labelText="Top"/><ValueUnitInput className={activeClass} property="right" labelText="Right"/><ValueUnitInput className={activeClass} property="bottom" labelText="Bottom"/><ValueUnitInput className={activeClass} property="left" labelText="Left"/><StyleInput className={activeClass} property="zIndex" labelText="Z-index"/></StyleGroup>
-      <StyleGroup title="Typography"><StyleInput className={activeClass} property="fontFamily" labelText="Font" options={['Inter, Arial, sans-serif','DM Sans, Arial, sans-serif','Manrope, Arial, sans-serif','Space Grotesk, Arial, sans-serif','Montserrat, Arial, sans-serif','Playfair Display, Georgia, serif','Lora, Georgia, serif','Georgia, serif','Arial, sans-serif','ui-monospace, monospace']}/><StyleInput className={activeClass} property="fontWeight" labelText="Weight" options={['300','400','500','600','700','800','900']}/><StyleInput className={activeClass} property="fontStyle" labelText="Style" options={['normal','italic','oblique']}/><ValueUnitInput className={activeClass} property="fontSize" labelText="Size"/><StyleInput className={activeClass} property="lineHeight" labelText="Line height"/><ValueUnitInput className={activeClass} property="letterSpacing" labelText="Letter spacing"/><StyleInput className={activeClass} property="textAlign" labelText="Alignment" options={['left','center','right','justify']}/><StyleInput className={activeClass} property="textTransform" labelText="Transform" options={['none','uppercase','lowercase','capitalize']}/><StyleInput className={activeClass} property="textDecoration" labelText="Decoration" options={['none','underline','line-through','overline']}/><StyleInput className={activeClass} property="color" labelText="Color" type="color"/></StyleGroup>
-      <StyleGroup title="Background"><StyleInput className={activeClass} property="backgroundColor" labelText="Color" type="color"/><StyleInput className={activeClass} property="backgroundImage" labelText="Image / gradient" placeholder="linear-gradient(...) or url(...)"/><StyleInput className={activeClass} property="backgroundSize" labelText="Size" options={['auto','cover','contain']}/><StyleInput className={activeClass} property="backgroundPosition" labelText="Position" placeholder="center center"/></StyleGroup>
-      <StyleGroup title="Border & effects"><ValueUnitInput className={activeClass} property="borderWidth" labelText="Border width"/><StyleInput className={activeClass} property="borderStyle" labelText="Border style" options={['none','solid','dashed','dotted']}/><StyleInput className={activeClass} property="borderColor" labelText="Border color" type="color"/><ValueUnitInput className={activeClass} property="borderRadius" labelText="Radius"/><StyleInput className={activeClass} property="boxShadow" labelText="Shadow" placeholder="0 10px 30px rgba(0,0,0,.1)"/><StyleInput className={activeClass} property="opacity" labelText="Opacity" placeholder="1"/><StyleInput className={activeClass} property="transform" labelText="Transform" placeholder="translateY(0) scale(1)"/><StyleInput className={activeClass} property="transition" labelText="Transition" placeholder="all .2s ease"/></StyleGroup>
-      <div className={panelSection}><span className={label}>Global color swatches</span><div className="space-y-2">{Object.entries(project.globals.colors).map(([name,value])=><label className="flex items-center gap-2" key={name}><input type="color" value={value} onChange={e=>setGlobalColor(name,e.target.value)}/><span className="flex-1 text-[10px] text-zinc-400">--{name}</span><code className="text-[9px] text-zinc-600">{value}</code></label>)}</div></div>
-      <TextStyleTokens/>
+      <StyleGroup title="Layout"><StyleInput className={activeClass} property="display" labelText="Display" options={['block','flex','grid','inline-flex','inline-block','none']}/><StyleInput className={activeClass} property="flexDirection" labelText="Flex direction" options={['row','column','row-reverse','column-reverse']}/><StyleInput className={activeClass} property="justifyContent" labelText="Justify" options={['flex-start','center','flex-end','space-between','space-around']}/><StyleInput className={activeClass} property="alignItems" labelText="Align" options={['stretch','flex-start','center','flex-end','baseline']}/><ValueUnitInput className={activeClass} property="gap" labelText="Gap"/><StyleInput className={activeClass} property="gridTemplateColumns" labelText="Grid columns" placeholder="repeat(3, minmax(0,1fr))"/></StyleGroup>
+      <StyleGroup title="Appearance"><StyleInput className={activeClass} property="backgroundColor" labelText="Background" type="color"/><ValueUnitInput className={activeClass} property="borderWidth" labelText="Border width"/><StyleInput className={activeClass} property="borderStyle" labelText="Border style" options={['none','solid','dashed','dotted']}/><StyleInput className={activeClass} property="borderColor" labelText="Border color" type="color"/><ValueUnitInput className={activeClass} property="borderRadius" labelText="Radius"/><StyleInput className={activeClass} property="opacity" labelText="Opacity" placeholder="1"/></StyleGroup>
     </>}
   </div>
 }
@@ -321,21 +322,18 @@ export function SettingsPanel(){
   const updateNode=useBuilderStore(s=>s.updateNode)
   const updateAttr=useBuilderStore(s=>s.updateNodeAttribute)
   const removeAttr=useBuilderStore(s=>s.removeNodeAttribute)
-  const updateSeo=useBuilderStore(s=>s.updatePageSeo)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
-  const [attrKey,setAttrKey]=useState('')
-  const [attrValue,setAttrValue]=useState('')
   if(!node)return <EmptyPanel text="Select an element to edit settings."/>
   const linkTypes=['link','button','lightbox']
   return <div className="h-full overflow-auto pb-8">
     <StyleGroup title="Element"><label><span className={label}>Name</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label><label><span className={label}>ID</span><input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}/></label>{node.type==='heading'&&<label><span className={label}>Heading level</span><select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select></label>}</StyleGroup>
+    {['heading','paragraph','button','link'].includes(node.type)&&<StyleGroup title="Content"><label><span className={label}>Text</span>{node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:<input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}</label></StyleGroup>}
     {linkTypes.includes(node.type)&&<StyleGroup title="Link"><label><span className={label}>Destination</span><input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)} placeholder="URL, /page, #section, mailto:, tel:"/></label><label className="flex items-center gap-2 text-[10px] text-zinc-400"><input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in new tab</label></StyleGroup>}
     {node.type==='image'&&<StyleGroup title="Image"><label><span className={label}>Asset library</span><select className={control} value={project.assets.some(a=>a.url===node.attributes.src)?node.attributes.src:''} onChange={e=>{const asset=project.assets.find(a=>a.url===e.target.value);if(asset){updateAttr(node.id,'src',asset.url);if(!node.attributes.alt)updateAttr(node.id,'alt',asset.alt||asset.name)}}}><option value="">Choose uploaded image</option>{project.assets.map(asset=><option value={asset.url} key={asset.id}>{asset.name}</option>)}</select></label><label><span className={label}>Source URL</span><input className={control} value={node.attributes.src||''} onChange={e=>updateAttr(node.id,'src',e.target.value)}/></label><label><span className={label}>Alt text</span><input className={control} value={node.attributes.alt||''} onChange={e=>updateAttr(node.id,'alt',e.target.value)}/></label></StyleGroup>}
     {node.type==='form'&&<StyleGroup title="Form"><label><span className={label}>Action</span><input className={control} value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)}/></label><label><span className={label}>Redirect after success</span><input className={control} value={node.attributes['data-redirect']||''} onChange={e=>updateAttr(node.id,'data-redirect',e.target.value)}/></label></StyleGroup>}
     {node.type==='collectionList'&&<StyleGroup title="CMS binding"><label><span className={label}>Collection</span><select className={control} value={node.attributes.collectionId||''} onChange={e=>updateAttr(node.id,'collectionId',e.target.value)}><option value="">Select collection</option>{project.collections.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label></StyleGroup>}
-    <StyleGroup title="Custom attributes"><div className="space-y-2">{Object.entries(node.attributes).filter(([key])=>!['id','href','target','src','alt','action','data-redirect','collectionId'].includes(key)).map(([key,value])=><div className="flex gap-1" key={key}><input className={control} value={key} readOnly/><input className={control} value={value} onChange={e=>updateAttr(node.id,key,e.target.value)}/><button className={panelButton} onClick={()=>removeAttr(node.id,key)}>×</button></div>)}</div><div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-1"><input className={control} value={attrKey} onChange={e=>setAttrKey(e.target.value)} placeholder="data-name"/><input className={control} value={attrValue} onChange={e=>setAttrValue(e.target.value)} placeholder="value"/><button className={panelButton} onClick={()=>{if(attrKey){updateAttr(node.id,attrKey,attrValue);setAttrKey('');setAttrValue('')}}}><Plus size={11}/></button></div></StyleGroup>
-    <StyleGroup title="Page SEO"><label><span className={label}>SEO title</span><input className={control} value={page.seo.title} onChange={e=>updateSeo(page.id,'title',e.target.value)}/></label><label><span className={label}>Meta description</span><textarea className={control} rows={4} value={page.seo.description} onChange={e=>updateSeo(page.id,'description',e.target.value)}/></label><label><span className={label}>Slug</span><input className={control} value={page.slug} onChange={e=>updateSeo(page.id,'slug',e.target.value)}/></label><label><span className={label}>OG image</span><input className={control} value={page.seo.ogImage||''} onChange={e=>updateSeo(page.id,'ogImage',e.target.value)}/></label></StyleGroup>
+
   </div>
 }
 

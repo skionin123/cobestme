@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
-import { clone, findNode, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
+import { canAcceptChild, clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
   BuilderAsset,
   BuilderComponent,
@@ -176,7 +176,8 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     },
     deletePage:pageId=>{
       const project=get().project
-      if(project.pages.length<=1)return
+      const page=project.pages.find(p=>p.id===pageId)
+      if(!page||page.slug==='/'||project.pages.length<=1)return
       commit('Delete page',draft=>{
         draft.pages=draft.pages.filter(p=>p.id!==pageId)
         if(draft.activePageId===pageId)draft.activePageId=draft.pages[0].id
@@ -195,17 +196,19 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       if(key==='slug'){page.slug=value.startsWith('/')?value:'/'+value;page.seo.slug=page.slug}
     }),
     addNode:(parentId,node,index)=>{
+      const page=currentPage(get().project)
+      const parent=findNode(page.root,parentId)
+      if(!parent||!canAcceptChild(parent,node))return
       commit('Add element',draft=>{
-        const page=currentPage(draft)
-        page.root=insertNode(page.root,parentId,node,index)
+        const draftPage=currentPage(draft)
+        draftPage.root=insertNode(draftPage.root,parentId,node,index)
       })
       set({selectedNodeId:node.id})
     },
     updateNode:(nodeId,patch)=>commit('Edit element',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,...clone(patch)}))
-      let cursor=findNode(page.root,nodeId)
-      let componentRoot:BuilderNode|null=cursor
+      let componentRoot:BuilderNode|null=findNode(page.root,nodeId)
       while(componentRoot&&!componentRoot.componentId){
         componentRoot=findParent(page.root,componentRoot.id)
       }
@@ -238,7 +241,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       let copy:BuilderNode|null=null
       commit('Duplicate element',draft=>{
         const page=currentPage(draft)
-        const node=findNode(page.root,nodeId);const parent=findNode(page.root,nodeId) ? null : null
+        const node=findNode(page.root,nodeId)
         if(!node)return
         const findParentLocal=(root:BuilderNode,id:string):BuilderNode|null=>{
           for(const child of root.children){if(child.id===id)return root;const hit=findParentLocal(child,id);if(hit)return hit}return null
@@ -250,10 +253,19 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       })
       if(copy)set({selectedNodeId:(copy as BuilderNode).id})
     },
-    moveNode:(nodeId,parentId,index)=>commit('Move element',draft=>{
-      const page=currentPage(draft)
-      page.root=moveNode(page.root,nodeId,parentId,index)
-    }),
+    moveNode:(nodeId,parentId,index)=>{
+      const page=currentPage(get().project)
+      const moving=findNode(page.root,nodeId)
+      const parent=findNode(page.root,parentId)
+      if(!moving||!parent||!canAcceptChild(parent,moving))return
+      let containsParent=false
+      walkNodes(moving,node=>{if(node.id===parentId)containsParent=true})
+      if(containsParent)return
+      commit('Move element',draft=>{
+        const draftPage=currentPage(draft)
+        draftPage.root=moveNode(draftPage.root,nodeId,parentId,index)
+      })
+    },
     addClass:(nodeId,className)=>commit('Add class',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,classes:Array.from(new Set([...(node.classes||[]),className]))}))
@@ -272,10 +284,12 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     setStyle:(className,property,value,breakpoint,state)=>commit('Edit style',draft=>{
       const bp=breakpoint||get().breakpoint
       const st=state||get().styleState
-      draft.styles[className]=draft.styles[className]||{}
-      draft.styles[className][bp]=draft.styles[className][bp]||{}
-      draft.styles[className][bp]![st]=draft.styles[className][bp]![st]||{}
-      draft.styles[className][bp]![st]![property]=value
+      const style=draft.styles[className]||(draft.styles[className]={desktop:{none:{}}})
+      if(bp==='desktop')style.desktop=style.desktop||{none:{}}
+      else style[bp]=style[bp]||{}
+      const breakpointStyle=style[bp]!
+      breakpointStyle[st]=breakpointStyle[st]||{}
+      breakpointStyle[st]![property]=value
     }),
     removeStyle:(className,property,breakpoint,state)=>commit('Reset style',draft=>{
       const bp=breakpoint||get().breakpoint
@@ -347,11 +361,17 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     importProject:project=>set({project:clone(project),history:[],future:[],selectedNodeId:project.pages.find(p=>p.id===project.activePageId)?.root.id||null,saveStatus:'dirty'}),
     undo:()=>{
       const state=get();const previous=state.history.at(-1);if(!previous)return
-      set({project:clone(previous),history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty'})
+      const restored=clone(previous)
+      const page=currentPage(restored)
+      const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
+      set({project:restored,history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
     },
     redo:()=>{
       const state=get();const next=state.future[0];if(!next)return
-      set({project:clone(next),history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty'})
+      const restored=clone(next)
+      const page=currentPage(restored)
+      const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
+      set({project:restored,history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
     },
   }
 })

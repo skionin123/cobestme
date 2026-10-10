@@ -37,6 +37,46 @@ describe('builder tree',()=>{
     expect(findNode(attempted,root.id)?.children.some(x=>x.id===section.id)).toBe(true)
   })
 
+  it('rejects inserting children into content-only elements',()=>{
+    const project=createDefaultProject()
+    const root=project.pages[0].root
+    const paragraph=createElement('paragraph')
+    const next=insertNode(root,root.id,paragraph)
+    const heading=createElement('heading')
+    const attempted=insertNode(next,paragraph.id,heading)
+    expect(findNode(attempted,heading.id)).toBeNull()
+    expect(findNode(attempted,paragraph.id)?.children).toHaveLength(0)
+  })
+
+  it('reorders siblings correctly when moving forward in the same parent',()=>{
+    const project=createDefaultProject()
+    const root=project.pages[0].root
+    const section=createElement('section')
+    let next=insertNode(root,root.id,section)
+    const a=createElement('heading');a.content='A'
+    const b=createElement('paragraph');b.content='B'
+    const c=createElement('button');c.content='C'
+    next=insertNode(next,section.id,a)
+    next=insertNode(next,section.id,b)
+    next=insertNode(next,section.id,c)
+    next=moveNode(next,a.id,section.id,2)
+    expect(findNode(next,section.id)?.children.map(x=>x.content)).toEqual(['B','A','C'])
+  })
+
+  it('rejects moving an element into an invalid parent',()=>{
+    const project=createDefaultProject()
+    const root=project.pages[0].root
+    const section=createElement('section')
+    const paragraph=createElement('paragraph')
+    const button=createElement('button')
+    let next=insertNode(root,root.id,section)
+    next=insertNode(next,section.id,paragraph)
+    next=insertNode(next,section.id,button)
+    const attempted=moveNode(next,button.id,paragraph.id)
+    expect(findNode(attempted,section.id)?.children.map(x=>x.id)).toContain(button.id)
+    expect(findNode(attempted,paragraph.id)?.children).toHaveLength(0)
+  })
+
   it('regenerates IDs for duplicated subtrees',()=>{
     const node=createElement('form')
     const copy=regenerateNodeIds(node,'copy')

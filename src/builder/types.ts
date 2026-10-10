@@ -25,7 +25,11 @@ export interface BuilderNode {
 
 export type CssProperties = Record<string,string>
 export type NodeState = 'none' | 'hover' | 'pressed' | 'focused'
-export type StyleMap = Record<string,Partial<Record<BreakpointId,Partial<Record<NodeState,CssProperties>>>>>
+export type BreakpointStyles = Partial<Record<NodeState,CssProperties>>
+export type ClassStyles = Partial<Record<BreakpointId,BreakpointStyles>> & {
+  desktop: BreakpointStyles & { none: CssProperties }
+}
+export type StyleMap = Record<string,ClassStyles>
 
 export interface PageSeo {
   title: string

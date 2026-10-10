@@ -47,12 +47,30 @@ export function removeNode(root:BuilderNode,id:string):{root:BuilderNode;removed
   return {root:next(root),removed}
 }
 
+const containerTypes=new Set([
+  'div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList','dropdown','list','select'
+])
+
+export function canAcceptChildren(parent:BuilderNode){
+  return containerTypes.has(parent.type)
+}
+
+export function canAcceptChild(parent:BuilderNode,child:BuilderNode){
+  if(!canAcceptChildren(parent))return false
+  if(parent.type==='list')return child.tag==='li'
+  if(parent.type==='select')return child.tag==='option'
+  if(parent.type==='navbar')return ['link','button','div','dropdown'].includes(child.type)
+  return true
+}
+
 export function insertNode(root:BuilderNode,parentId:string,node:BuilderNode,index?:number):BuilderNode{
-  return updateNode(root,parentId,parent=>{
-    const children=[...(parent.children||[])]
+  const parent=findNode(root,parentId)
+  if(!parent||!canAcceptChild(parent,node))return root
+  return updateNode(root,parentId,current=>{
+    const children=[...(current.children||[])]
     const at=index==null?children.length:Math.max(0,Math.min(index,children.length))
     children.splice(at,0,node)
-    return {...parent,children}
+    return {...current,children}
   })
 }
 
@@ -60,7 +78,7 @@ export function moveNode(root:BuilderNode,nodeId:string,newParentId:string,index
   if(nodeId===root.id||nodeId===newParentId)return root
   const newParent=findNode(root,newParentId)
   const moving=findNode(root,nodeId)
-  if(!newParent||!moving)return root
+  if(!newParent||!moving||!canAcceptChild(newParent,moving))return root
   let invalid=false
   walkNodes(moving,n=>{if(n.id===newParentId)invalid=true})
   if(invalid)return root
