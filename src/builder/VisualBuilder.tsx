@@ -217,7 +217,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(recovered){
         replaceProject(recovered,false)
         // A newer local revision must not be reported as cloud-saved.
-        if(needsCloudSync&&cloudProject)setSaveStatus('dirty')
+        if(needsCloudSync)setSaveStatus('dirty')
         try{await saveProject(recovered)}catch{}
       }else{
         const seeded={...clone(useBuilderStore.getState().project),id:projectKey}
