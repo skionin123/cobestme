@@ -343,7 +343,7 @@ export function StylePanel(){
         return
       }
       // Use the content-aware frame geometry for a directly edited height.
-      mutateGeometry('Resize frame',{kind:'resize',width:parseFloat(read('width'))||500,
+      mutateGeometry('Resize frame',{kind:'resize',
         height:Math.max(48,amount),frame:true,
         paddingTop:Math.max(12,Math.round(Math.min(48,amount*.08))),
         paddingBottom:Math.max(12,Math.round(Math.min(48,amount*.08)))})
