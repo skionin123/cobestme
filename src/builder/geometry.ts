@@ -3,7 +3,7 @@ import type { BreakpointId, BuilderProject, CssProperties } from './types'
 
 export type GeometryChange=
   | {kind:'move';x:number;y:number}
-  | {kind:'resize';width:number;height?:number;fontSize?:number;x?:number;y?:number}
+  | {kind:'resize';width?:number;height?:number;fontSize?:number;x?:number;y?:number;frame?:boolean;paddingTop?:number;paddingBottom?:number}
   | {kind:'font-size';fontSize:number}
   | {kind:'reset'}
 
@@ -39,10 +39,25 @@ export function applyNodeGeometry(
     if(x===null||y===null)return false
     props.translate=x+'px '+y+'px'
   }else if(change.kind==='resize'){
-    const width=bounded(change.width,32,4000)
-    if(width===null)return false
-    props.width=width+'px'
-    props.maxWidth='none'
+    if(change.width!=null){
+      const width=bounded(change.width,32,4000)
+      if(width===null)return false
+      props.width=width+'px'
+      props.maxWidth='none'
+    }
+    // A section/frame is a layout box. Removing its theme's fixed minimum
+    // height lets the user reduce blank space without scaling child content.
+    if(change.frame&&change.height!=null){
+      props.minHeight='0px'
+      if(change.paddingTop!=null){
+        const top=bounded(change.paddingTop,0,2000)
+        if(top!==null)props.paddingTop=top+'px'
+      }
+      if(change.paddingBottom!=null){
+        const bottom=bounded(change.paddingBottom,0,2000)
+        if(bottom!==null)props.paddingBottom=bottom+'px'
+      }
+    }
     if(change.x!=null||change.y!=null){
       const current=String(props.translate||'0px 0px').split(/\\s+/)
       const x=bounded(change.x??parseFloat(current[0]),-5000,5000)
@@ -62,7 +77,7 @@ export function applyNodeGeometry(
     if(size===null)return false
     props.fontSize=size+'px'
   }else{
-    for(const key of ['translate','width','height','fontSize','maxWidth'])delete props[key]
+    for(const key of ['translate','width','height','fontSize','maxWidth','minHeight','paddingTop','paddingBottom'])delete props[key]
   }
   return true
 }

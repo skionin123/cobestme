@@ -265,6 +265,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       const msg=event.data||{}
       if(msg.source!=='cobest-builder')return
       if(event.source!==iframeRef.current?.contentWindow)return
+      if(msg.type==='history-shortcut'&&['undo','redo'].includes(msg.action)){
+        useBuilderStore.getState()[msg.action as 'undo'|'redo']()
+        return
+      }
       if(msg.type==='select')selectNode(msg.id||null)
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
@@ -347,7 +351,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       const target=event.target as HTMLElement
       if(['INPUT','TEXTAREA','SELECT'].includes(target.tagName)||target.isContentEditable)return
       const mod=event.metaKey||event.ctrlKey
-      if(mod&&event.key.toLowerCase()==='z'){event.preventDefault();if(event.shiftKey)redo();else undo();return}
+      if(mod&&!event.altKey&&['z','y'].includes(event.key.toLowerCase())){
+        event.preventDefault()
+        if(event.key.toLowerCase()==='y'||event.shiftKey)redo()
+        else undo()
+        return
+      }
       if(mod&&event.key.toLowerCase()==='c'&&selectedNode){event.preventDefault();copiedNodeRef.current=clone(selectedNode);return}
       if(mod&&event.key.toLowerCase()==='d'&&selectedNodeId){event.preventDefault();duplicateNode(selectedNodeId);return}
       if(mod&&event.key.toLowerCase()==='v'&&copiedNodeRef.current){
@@ -465,8 +474,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
-          <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo" aria-label="Undo"><Undo2 size={16}/></button>
-          <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo" aria-label="Redo"><Redo2 size={16}/></button>
+          <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/></button>
+          <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>

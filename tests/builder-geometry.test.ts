@@ -35,6 +35,28 @@ describe('on-canvas element geometry',()=>{
     expect(p.styles[cls].mobilePortrait?.none?.translate).toBeUndefined()
     expect(p.styles[cls].desktop.none.translate).toBe('95px 25px')
   })
+  it('shrinks only the frame, overrides the theme minimum, and leaves text untouched',()=>{
+    const p=createDefaultProject()
+    const initialHero=JSON.stringify(p.styles.hero)
+    const initialTitle=JSON.stringify(p.styles.display)
+    const ok=applyNodeGeometry(p,'hero-home','desktop',{
+      kind:'resize',height:365,frame:true,paddingTop:22,paddingBottom:22,
+    })
+    expect(ok).toBe(true)
+    const name=geometryClass('hero-home')
+    expect(p.styles[name].desktop.none).toMatchObject({
+      minHeight:'0px',height:'365px',paddingTop:'22px',paddingBottom:'22px',
+    })
+    expect(p.styles[name].desktop.none.width).toBeUndefined()
+    expect(p.styles[name].desktop.none.fontSize).toBeUndefined()
+    expect(JSON.stringify(p.styles.hero)).toBe(initialHero)
+    expect(JSON.stringify(p.styles.display)).toBe(initialTitle)
+    expect(compileProjectCss(p)).toContain('min-height:0px')
+    applyNodeGeometry(p,'hero-home','desktop',{kind:'reset'})
+    expect(p.styles[name].desktop.none.height).toBeUndefined()
+    expect(p.styles[name].desktop.none.paddingTop).toBeUndefined()
+    expect(p.styles[name].desktop.none.minHeight).toBeUndefined()
+  })
   it('refuses to edit the root or missing elements',()=>{
     const p=createDefaultProject()
     expect(applyNodeGeometry(p,'root-home','desktop',{kind:'move',x:40,y:20})).toBe(false)
