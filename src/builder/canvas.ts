@@ -149,8 +149,12 @@ ${body}${emptyState}
         const startWidth=initialRect.width,startHeight=initialRect.height
         let newX=initialTranslate[0],newY=initialTranslate[1]
         let newWidth=startWidth,newHeight=startHeight,newFont=initialSize
+        let dragChanged=false
+        let finished=false
         const move=event=>{
+          if(finished)return
           const dx=event.clientX-startX,dy=event.clientY-startY
+          if(Math.abs(dx)+Math.abs(dy)>2)dragChanged=true
           if(mode==='move'){
             newX=Math.round(initialTranslate[0]+dx)
             newY=Math.round(initialTranslate[1]+dy)
@@ -179,13 +183,21 @@ ${body}${emptyState}
           }
         }
         const up=event=>{
+          // The canvas runs inside a scaled iframe. A pointer can be released
+          // outside its visual edge. Listen on the grip and for capture loss,
+          // so the last previewed resize is committed exactly once.
+          if(finished)return
+          finished=true
           window.removeEventListener('pointermove',move)
           window.removeEventListener('pointerup',up)
           window.removeEventListener('pointercancel',up)
+          window.removeEventListener('mouseup',up)
+          window.removeEventListener('blur',up)
+          handle.removeEventListener('pointerup',up)
+          handle.removeEventListener('lostpointercapture',up)
           nodeDragging=false
           handle.classList.remove('is-resizing')
-          const wasMoved=event?.type!=='pointercancel'
-          if(wasMoved){
+          if(dragChanged){
             if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
             else{
               const horizontal=['left','right','corner','toolbar'].includes(edge)
@@ -201,8 +213,12 @@ ${body}${emptyState}
           requestAnimationFrame(()=>{drawLabel(el);reportSize()})
         }
         window.addEventListener('pointermove',move)
-        window.addEventListener('pointerup',up,{once:true})
-        window.addEventListener('pointercancel',up,{once:true})
+        window.addEventListener('pointerup',up)
+        window.addEventListener('pointercancel',up)
+        window.addEventListener('mouseup',up)
+        window.addEventListener('blur',up)
+        handle.addEventListener('pointerup',up)
+        handle.addEventListener('lostpointercapture',up)
       }
     }
     if(movable){
