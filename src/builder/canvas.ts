@@ -100,7 +100,7 @@ ${body}${emptyState}
     const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-320))+'px'
+    label.style.left=Math.max(4,Math.min(rect.left+Math.max(0,rect.width/2-85),window.innerWidth-320))+'px'
     label.style.top=Math.max(4,rect.top-33)+'px'
     const labelName=document.createElement('span')
     labelName.className='builder-label-title'
