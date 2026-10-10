@@ -347,3 +347,18 @@
   .vb-workspace{grid-template-columns:210px minmax(0,1fr)}
   .vb-stage-meta{flex-wrap:wrap}
 }
+
+/* Clear navigation and selection hierarchy for nested containers. */
+.vb-project-copy{min-width:0;flex:1;display:flex;flex-direction:column}
+.vb-back-dashboard{display:flex;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;min-height:32px;padding:0 9px;border-radius:7px;border:1px solid #3b4051;background:#242832;color:#e5e6f1;font-size:10px;font-weight:720;white-space:nowrap}
+.vb-back-dashboard:hover{background:#353b4a;color:white;border-color:#7272b3}
+.vb-project .vb-project-copy input{min-width:0;width:100%}
+.vb-selection-path{position:relative;z-index:5;align-self:stretch;display:flex;align-items:center;min-height:35px;gap:3px;margin:0 0 12px;padding:4px 8px;background:#191c23;border:1px solid #333946;border-radius:9px;overflow-x:auto;scrollbar-width:thin;white-space:nowrap}
+.vb-selection-caption{font-size:9px;text-transform:uppercase;letter-spacing:.09em;font-weight:750;color:#858d9d;margin:0 8px 0 3px}
+.vb-selection-separator{font-size:15px;color:#6f7583;margin:0 2px}
+.vb-selection-path button{flex:0 0 auto;background:transparent;border:0;padding:6px 9px;border-radius:6px;color:#acb2c2;font-size:10px;font-weight:650;max-width:185px;overflow:hidden;text-overflow:ellipsis}
+.vb-selection-path button:hover{color:#fff;background:#343946}
+.vb-selection-path button.active{color:#f3f1ff;background:#453f83;box-shadow:inset 0 0 0 1px #6860aa}
+.vb-selection-path button:focus-visible{outline:2px solid #9890ff;outline-offset:1px}
+@media(max-width:1500px){.vb-back-dashboard{padding:0 7px}.vb-back-dashboard span{display:none}.vb-project-copy small{font-size:7.5px}}
+@media(max-width:900px){.vb-selection-caption{display:none}.vb-selection-path{padding:3px 5px}.vb-selection-path button{max-width:105px}}
