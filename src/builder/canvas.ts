@@ -50,6 +50,7 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-node-label button:hover{background:rgba(255,255,255,.3)}
 .builder-node-label button.builder-move-button{background:#6366f1;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
+.builder-node-label button.builder-size-button{background:#4338ca;cursor:nwse-resize}
 .builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:17px;height:17px;background:#fff;border:2px solid #4f46e5;border-radius:4px;cursor:nwse-resize;touch-action:none;box-shadow:0 2px 8px rgba(30,26,75,.25)}
 .builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
 
@@ -177,6 +178,8 @@ ${body}${emptyState}
     if(movable){
       const moveButton=control('✥ Move','Drag to move the selected element',()=>{},'builder-move-button')
       liveGeometry('move',moveButton)
+      const sizeButton=control('↘ Size','Drag to resize the selected element',()=>{},'builder-size-button')
+      liveGeometry('resize',sizeButton)
       const sizeFromStyle=()=>parseFloat(getComputedStyle(el).fontSize)||16
       if(textElement){
         for(const [caption,change,title] of [['A−',-2,'Make text smaller'],['A+',2,'Make text bigger']]){
