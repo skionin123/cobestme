@@ -4,7 +4,7 @@ import {
   useDroppable, useSensor, useSensors
 } from '@dnd-kit/core'
 import {
-  ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
+  ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
   Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
   Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
@@ -150,9 +150,10 @@ type VisualBuilderProps={
   initialProject?:BuilderProject|null
   onCloudSave?:(project:BuilderProject)=>Promise<unknown>|unknown
   onPublish?:(project:BuilderProject)=>Promise<any>|any
+  onBack?:()=>void
 }
 
-export default function VisualBuilder({projectKey='local-default',initialProject=null,onCloudSave,onPublish}:VisualBuilderProps){
+export default function VisualBuilder({projectKey='local-default',initialProject=null,onCloudSave,onPublish,onBack}:VisualBuilderProps){
   const iframeRef=useRef<HTMLIFrameElement>(null)
   const stageRef=useRef<HTMLElement>(null)
   const project=useBuilderStore(s=>s.project)
@@ -198,6 +199,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const selectedNode=findNode(activePage.root,selectedNodeId)
+  const selectionPath:BuilderNode[]=[]
+  if(selectedNode){
+    let pointer:BuilderNode|null=selectedNode
+    while(pointer){
+      selectionPath.unshift(pointer)
+      pointer=findParent(activePage.root,pointer.id)
+    }
+  }
   const editorDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,true),[project,breakpoint])
   const previewDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,false),[project,breakpoint])
   const frameWidth=Math.min(widths[breakpoint],1440)
@@ -215,6 +224,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     observer.observe(stage)
     return()=>observer.disconnect()
   },[])
+
+  useEffect(()=>{
+    // Selecting a deeply nested node introduces a breadcrumb. Recalculate fit
+    // after that layout change rather than retaining the previous stage width.
+    setStageWidth(stageRef.current?.clientWidth||0)
+  },[selectedNodeId,breakpoint])
 
   useEffect(()=>{
     setCanvasHeight(viewportHeights[breakpoint])
@@ -363,6 +378,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
+  const returnToDashboard=async()=>{
+    if(!onBack)return
+    if(saveStatus!=='saved'){
+      const saved=await manualSave()
+      if(!saved)return
+    }
+    onBack()
+  }
+
   const dropTarget=(overId:string)=>resolveDropTarget(activePage.root,overId)
 
   const onDragStart=(event:DragStartEvent)=>{
@@ -432,7 +456,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={()=>{setDragging(false);setDragLabel('')}}>
     <div className="vb-shell" onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
       <header className="vb-topbar">
-        <div className="vb-project"><div className="vb-brand">C</div><div><small>COBEST DESIGNER</small><input value={project.name} onChange={e=>renameProject(e.target.value)} aria-label="Project name"/></div></div>
+        <div className="vb-project">
+          {onBack&&<button type="button" className="vb-back-dashboard" title="Back to dashboard" aria-label="Back to dashboard" onClick={returnToDashboard}>
+            <ArrowLeft size={16}/><span>Dashboard</span>
+          </button>}
+          <div className="vb-project-copy"><small>COBEST DESIGNER</small><input value={project.name} onChange={e=>renameProject(e.target.value)} aria-label="Project name"/></div>
+        </div>
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
@@ -463,6 +492,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <button type="button" className={zoomMode==='actual'?'active':''} onClick={()=>setZoomMode('actual')} aria-label="Show canvas at actual size">100%</button>
             </div>
           </div>
+          {selectionPath.length>0&&<nav className="vb-selection-path" aria-label="Selected element hierarchy">
+            <span className="vb-selection-caption">Selected</span>
+            {selectionPath.map((node,index)=><React.Fragment key={node.id}>
+              {index>0&&<span className="vb-selection-separator">›</span>}
+              <button type="button" className={selectedNodeId===node.id?'active':''}
+                aria-label={'Select '+node.name} aria-current={selectedNodeId===node.id?'true':undefined}
+                onClick={()=>selectNode(node.id)} title={'Select '+node.name}>{node.name}</button>
+            </React.Fragment>)}
+          </nav>}
           <CanvasDropZone dragging={dragging||!!nativeDragPayload} nativePayload={nativeDragPayload} iframeRef={iframeRef} scale={scale} onNativeDropEnd={endNativeDrag}>
             <div className="vb-canvas-scaler" style={{width:frameWidth*scale,height:canvasHeight*scale}}>
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>

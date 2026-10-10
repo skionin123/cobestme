@@ -24,9 +24,14 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
 <style>
 ${css}
 html.builder-editing,html.builder-editing body{overflow:hidden}
-html.builder-editing [data-builder-node]:hover{outline:1px solid rgba(99,102,241,.72);outline-offset:2px}
-html.builder-editing [data-builder-node].builder-hovered{outline:1px solid #818cf8;outline-offset:2px}
-html.builder-editing [data-builder-node].builder-selected{outline:2px solid #6366f1!important;outline-offset:3px}
+/* Only the exact hovered node gets a preview outline. :hover on all
+   ancestors previously made nested headings and containers look selected. */
+html.builder-editing [data-builder-node].builder-hovered:not(.builder-selected){
+  outline:1px dashed rgba(99,102,241,.44);outline-offset:2px
+}
+html.builder-editing [data-builder-node].builder-selected{
+  outline:2px solid #6366f1!important;outline-offset:2px
+}
 html.builder-editing [data-builder-node][data-builder-type="container"]:empty,
 html.builder-editing [data-builder-node][data-builder-type="div"]:empty,
 html.builder-editing [data-builder-node][data-builder-type="grid"]:empty,
@@ -53,6 +58,12 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-node-label button.builder-size-button{color:#b8b1ff;cursor:nwse-resize}
 .builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:10px;height:10px;background:#fff;border:2px solid #6366f1;border-radius:3px;cursor:nwse-resize;touch-action:none;box-shadow:0 1px 5px rgba(30,26,75,.24)}
 .builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
+.builder-resize-edge{position:fixed;z-index:2147483645;display:block;touch-action:none;background:transparent;border:0;border-radius:2px}
+.builder-resize-edge[data-edge="left"],.builder-resize-edge[data-edge="right"]{cursor:ew-resize}
+.builder-resize-edge[data-edge="top"],.builder-resize-edge[data-edge="bottom"]{cursor:ns-resize}
+.builder-resize-edge:hover,.builder-resize-edge:focus-visible{background:rgba(99,102,241,.34)}
+html:not(.builder-editing) .builder-resize-edge{display:none}
+
 
 .builder-spacing-handle{position:fixed;z-index:2147483646;width:12px;height:12px;border-radius:3px;display:grid;place-items:center;color:#fff;font:700 7px/1 Arial,sans-serif;cursor:ns-resize;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .builder-spacing-handle[data-edge="left"],.builder-spacing-handle[data-edge="right"]{cursor:ew-resize}
@@ -119,7 +130,7 @@ ${body}${emptyState}
       label.appendChild(button)
       return button
     }
-    const liveGeometry=(mode,handle)=>{
+    const liveGeometry=(mode,handle,edge='corner')=>{
       if(!movable)return
       handle.onpointerdown=startEvent=>{
         if(startEvent.button!==0)return
@@ -141,19 +152,26 @@ ${body}${emptyState}
             newY=Math.round(initialTranslate[1]+dy)
             el.style.translate=newX+'px '+newY+'px'
           }else{
-            newWidth=Math.max(32,Math.round(startWidth+dx))
-            newHeight=Math.max(20,Math.round(startHeight+dy))
-            el.style.width=newWidth+'px'
-            el.style.maxWidth='none'
-            if(textElement){
-              // Dragging the corner scales visible text as well as its box.
+            const horizontal=['left','right','corner','toolbar'].includes(edge)
+            const vertical=['top','bottom','corner','toolbar'].includes(edge)
+            if(horizontal){
+              newWidth=Math.max(32,Math.round(startWidth+(edge==='left'?-dx:dx)))
+              el.style.width=newWidth+'px'
+              el.style.maxWidth='none'
+              if(edge==='left')newX=Math.round(initialTranslate[0]+startWidth-newWidth)
+            }
+            if(vertical){
+              newHeight=Math.max(20,Math.round(startHeight+(edge==='top'?-dy:dy)))
+              if(edge==='top')newY=Math.round(initialTranslate[1]+startHeight-newHeight)
+              if(!textElement||edge==='top'||edge==='bottom')el.style.height=newHeight+'px'
+            }
+            if(edge==='left'||edge==='top')el.style.translate=newX+'px '+newY+'px'
+            if(textElement&&horizontal){
               const factor=Math.max(.25,newWidth/Math.max(32,startWidth))
               newFont=Math.max(10,Math.min(240,Math.round(initialSize*factor)))
               el.style.fontSize=newFont+'px'
-            }else{
-              el.style.height=newHeight+'px'
-              if(el.tagName==='IMG')el.style.objectFit='cover'
             }
+            if(el.tagName==='IMG')el.style.objectFit='cover'
           }
         }
         const up=event=>{
@@ -164,8 +182,14 @@ ${body}${emptyState}
           const wasMoved=event?.type!=='pointercancel'
           if(wasMoved){
             if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
-            else send('node-geometry',{id:el.dataset.builderNode,kind:'resize',width:newWidth,
-              ...(textElement?{fontSize:newFont}:{height:newHeight})})
+            else{
+              const horizontal=['left','right','corner','toolbar'].includes(edge)
+              const vertical=['top','bottom','corner','toolbar'].includes(edge)
+              send('node-geometry',{id:el.dataset.builderNode,kind:'resize',width:newWidth,
+                ...((!textElement&&vertical)||edge==='top'||edge==='bottom'?{height:newHeight}:{}),
+                ...(textElement&&horizontal?{fontSize:newFont}:{}),
+                ...(['left','top'].includes(edge)?{x:newX,y:newY}:{})})
+            }
           }else{
             el.style.translate='';el.style.width='';el.style.height='';el.style.maxWidth='';el.style.fontSize=''
           }
@@ -185,19 +209,29 @@ ${body}${emptyState}
     }
     document.body.appendChild(label)
     if(!movable)return
-    const handle=(kind,left,top,cssClass)=>{
+    const handle=(kind,left,top,cssClass,edge='corner',width=10,height=10)=>{
       const h=document.createElement('div')
-      h.className='builder-geometry-handle '+(cssClass||'')
-      h.title=kind==='resize'?'Drag to resize the selected element':'Drag to move'
+      h.className=(cssClass.includes('builder-resize-edge')?'':'builder-geometry-handle ')+cssClass
+      h.dataset.edge=edge
+      h.title='Drag the '+edge+' border to resize '+(el.dataset.builderName||'element')
       h.setAttribute('aria-label',h.title)
       h.style.left=left+'px';h.style.top=top+'px'
-      liveGeometry(kind,h)
+      h.style.width=width+'px';h.style.height=height+'px'
+      liveGeometry(kind,h,edge)
       document.body.appendChild(h)
       handles.push(h)
     }
-    // One unobtrusive corner handle. The floating size control remains reachable
-    // when the selected element extends beyond the visible canvas.
-    handle('resize',rect.right-5,rect.bottom-5,'builder-resize-corner')
+    // All four edges have generous invisible hit targets. The selected outline
+    // stays visually slim, with only one small visible corner grip.
+    const sideHeight=Math.max(8,rect.height-24)
+    const sideTop=rect.top+Math.max(0,(rect.height-sideHeight)/2)
+    const horizontalWidth=Math.max(8,rect.width-24)
+    const horizontalLeft=rect.left+Math.max(0,(rect.width-horizontalWidth)/2)
+    handle('resize',rect.left-5,sideTop,'builder-resize-edge','left',10,sideHeight)
+    handle('resize',rect.right-5,sideTop,'builder-resize-edge','right',10,sideHeight)
+    handle('resize',horizontalLeft,rect.top-5,'builder-resize-edge','top',horizontalWidth,10)
+    handle('resize',horizontalLeft,rect.bottom-5,'builder-resize-edge','bottom',horizontalWidth,10)
+    handle('resize',rect.right-5,rect.bottom-5,'builder-resize-corner','corner',10,10)
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
   const reportSize=()=>{
