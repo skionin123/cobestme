@@ -112,6 +112,7 @@ ${body}${emptyState}
     if(!el||!document.documentElement.classList.contains('builder-editing'))return
     const rect=el.getBoundingClientRect()
     const textElement=['heading','paragraph','button','link'].includes(el.dataset.builderType)
+    const frameElement=['section','container','div','grid','flex','columns','navbar','footer'].includes(el.dataset.builderType)
     const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
@@ -147,6 +148,15 @@ ${body}${emptyState}
         const initialTranslate=readTranslation(el)
         const initialSize=parseFloat(computed.fontSize)||16
         const startWidth=initialRect.width,startHeight=initialRect.height
+        const initialPaddingTop=parseFloat(computed.paddingTop)||0
+        const initialPaddingBottom=parseFloat(computed.paddingBottom)||0
+        // Intrinsic child size, not the section's themed 70vh minimum. Keep
+        // the content visible while the user trims the large empty frame.
+        const contentHeight=frameElement?Math.max(0,...Array.from(el.children)
+          .filter(child=>!child.classList.contains('builder-node-label'))
+          .map(child=>child.getBoundingClientRect().height)):0
+        const minimumFrameHeight=Math.max(56,Math.ceil(contentHeight+24))
+        let newPaddingTop=initialPaddingTop,newPaddingBottom=initialPaddingBottom
         let newX=initialTranslate[0],newY=initialTranslate[1]
         let newWidth=startWidth,newHeight=startHeight,newFont=initialSize
         let dragChanged=false
@@ -169,16 +179,24 @@ ${body}${emptyState}
               if(edge==='left')newX=Math.round(initialTranslate[0]+startWidth-newWidth)
             }
             if(vertical){
-              newHeight=Math.max(20,Math.round(startHeight+(edge==='top'?-dy:dy)))
+              newHeight=Math.max(frameElement?minimumFrameHeight:20,Math.round(startHeight+(edge==='top'?-dy:dy)))
               if(edge==='top')newY=Math.round(initialTranslate[1]+startHeight-newHeight)
               if(!textElement||edge==='top'||edge==='bottom')el.style.height=newHeight+'px'
+              if(frameElement){
+                // Theme padding/minHeight cause the huge, unshrinkable Hero.
+                // Reduce extra vertical padding as the frame gets smaller.
+                const room=Math.max(24,newHeight-contentHeight)
+                const paddingScale=Math.min(1,room/Math.max(1,initialPaddingTop+initialPaddingBottom))
+                newPaddingTop=Math.max(12,Math.round(initialPaddingTop*paddingScale))
+                newPaddingBottom=Math.max(12,Math.round(initialPaddingBottom*paddingScale))
+                el.style.minHeight='0px'
+                el.style.paddingTop=newPaddingTop+'px'
+                el.style.paddingBottom=newPaddingBottom+'px'
+              }
             }
             if(edge==='left'||edge==='top')el.style.translate=newX+'px '+newY+'px'
-            if(textElement&&horizontal){
-              const factor=Math.max(.25,newWidth/Math.max(32,startWidth))
-              newFont=Math.max(10,Math.min(240,Math.round(initialSize*factor)))
-              el.style.fontSize=newFont+'px'
-            }
+            // Resizing a text box changes its wrapping width, not font size.
+            // Typography has its own explicit control in the right inspector.
             if(el.tagName==='IMG')el.style.objectFit='cover'
           }
         }
@@ -204,11 +222,11 @@ ${body}${emptyState}
               const vertical=['top','bottom','corner','toolbar'].includes(edge)
               send('node-geometry',{id:el.dataset.builderNode,kind:'resize',width:newWidth,
                 ...((!textElement&&vertical)||edge==='top'||edge==='bottom'?{height:newHeight}:{}),
-                ...(textElement&&horizontal?{fontSize:newFont}:{}),
+                ...(frameElement&&vertical?{frame:true,paddingTop:newPaddingTop,paddingBottom:newPaddingBottom}:{}),
                 ...(['left','top'].includes(edge)?{x:newX,y:newY}:{})})
             }
           }else{
-            el.style.translate='';el.style.width='';el.style.height='';el.style.maxWidth='';el.style.fontSize=''
+            el.style.translate='';el.style.width='';el.style.height='';el.style.maxWidth='';el.style.fontSize='';el.style.minHeight='';el.style.paddingTop='';el.style.paddingBottom=''
           }
           requestAnimationFrame(()=>{drawLabel(el);reportSize()})
         }
@@ -331,6 +349,17 @@ ${body}${emptyState}
     document.fonts?.ready?.then(reportSize).catch?.(()=>{})
     new ResizeObserver(()=>requestAnimationFrame(reportSize)).observe(document.body)
   }
+  document.addEventListener('keydown',event=>{
+    if(!document.documentElement.classList.contains('builder-editing'))return
+    if(!(event.ctrlKey||event.metaKey)||event.altKey)return
+    const target=event.target
+    if(target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target?.tagName))return
+    const key=String(event.key||'').toLowerCase()
+    if(key==='z'||key==='y'){
+      event.preventDefault();event.stopPropagation()
+      send('history-shortcut',{action:(key==='y'||event.shiftKey)?'redo':'undo'})
+    }
+  },true)
   document.addEventListener('mousemove', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
     const el=event.target.closest?.('[data-builder-node]')
