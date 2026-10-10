@@ -10,8 +10,11 @@ test('professional editor fits canvas, keeps tools compact and reveals advanced 
   const iframe=await page.locator('iframe[title="CoBest visual builder canvas"]').boundingBox()
   expect(stage).toBeTruthy()
   expect(iframe).toBeTruthy()
-  expect(iframe!.x).toBeGreaterThanOrEqual(stage!.x-2)
-  expect(iframe!.x+iframe!.width).toBeLessThanOrEqual(stage!.x+stage!.width+2)
+  await expect.poll(async()=>{
+    const stageBounds=await page.locator('.vb-stage').boundingBox()
+    const canvasBounds=await page.locator('iframe[title="CoBest visual builder canvas"]').boundingBox()
+    return Boolean(stageBounds&&canvasBounds&&canvasBounds.x>=stageBounds.x-2&&canvasBounds.x+canvasBounds.width<=stageBounds.x+stageBounds.width+2)
+  },{message:'Canvas fits after layout settles'}).toBe(true)
 
   const frame=page.frameLocator('iframe[title="CoBest visual builder canvas"]')
   await frame.locator('[data-builder-node="hero-title-home"]').click()
