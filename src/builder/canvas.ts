@@ -213,6 +213,7 @@ ${body}${emptyState}
           window.removeEventListener('blur',up)
           handle.removeEventListener('pointerup',up)
           handle.removeEventListener('lostpointercapture',up)
+          document.removeEventListener('mouseleave',up)
           nodeDragging=false
           handle.classList.remove('is-resizing')
           if(dragChanged){
@@ -237,6 +238,8 @@ ${body}${emptyState}
         window.addEventListener('blur',up)
         handle.addEventListener('pointerup',up)
         handle.addEventListener('lostpointercapture',up)
+        // Browser mouse release can occur outside this iframe (especially at Fit zoom).
+        document.addEventListener('mouseleave',up)
       }
     }
     if(movable){
