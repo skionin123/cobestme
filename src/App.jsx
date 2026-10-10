@@ -9,6 +9,9 @@ import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, de
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
+const StoreOverview = React.lazy(()=>import('./StoreOverview'))
+const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
+const SalesReport = React.lazy(()=>import('./SalesReport'))
 import { loadProject } from './builder/persistence'
 
 const APP_NAME = 'CoBest'
@@ -565,10 +568,13 @@ function Review({data}) {
   return <><p className="overline">REVIEW</p><h1>Your website direction is ready.</h1><p className="lead">This becomes the working project brief and stays connected to the website, content, and commerce workspace.</p><div className="review-grid">{groups.map(g=><div className="review-card" key={g[0]}><span>{g[0]}</span><strong>{g[1]}</strong><p>{g[2]}</p></div>)}</div><div className="review-colors"><span>Brand colors</span><div>{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}} title={c}/>)}</div></div></>
 }
 
-// Website-first MVP: retain the advanced pages in code, but keep navigation focused.
+// Shopify-style store MVP: restore commerce operations without advanced feature clutter.
 const navGroups = [
-  {label:'',items:[['website','My website',LayoutDashboard],['editor','Website editor',Pencil]]},
-  {label:'Website',items:[['settings','Publish & domain',Settings],['sites','My websites',Store]]},
+  {label:'',items:[['dashboard','Overview',LayoutDashboard]]},
+  {label:'Sales',items:[['orders','Orders',ShoppingBag],['customers','Customers',Users],['sales-report','Sales report',BarChart3]]},
+  {label:'Catalog',items:[['products','Products',Package],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
+  {label:'Online store',items:[['website','Website themes',Palette],['editor','Website editor',Pencil],['settings','Publish & domain',Settings]]},
+  {label:'Workspace',items:[['sites','My websites',Store]]},
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -1132,7 +1138,7 @@ export default function App() {
   const [bookings,setBookings] = useState([])
   const [reviews,setReviews] = useState([])
   const [events,setEvents] = useState([])
-  const [page,setPage] = useState('website')
+  const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
   const [cloudLoadError,setCloudLoadError] = useState('')
   const safeOnboarding = normalizeOnboarding(onboarding)
@@ -1254,10 +1260,10 @@ export default function App() {
     const nextPages=Array.from(new Set(['Home',...safeOnboarding.pages,...featurePages]))
     setOnboarding(prev=>({...prev,pages:nextPages}))
     setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),...Object.fromEntries(nextPages.filter(p=>p!=='Home'&&!prev.pageContent?.[p]).map(p=>[p,{title:p,body:'',blocks:[]}]))}}))
-    setMode('app'); setPage('website'); window.scrollTo(0,0)
+    setMode('app'); setPage('dashboard'); window.scrollTo(0,0)
   }
   const start = () => {if(isAuthenticated()){setMode('app');setPage('website')}else setMode('signup');window.scrollTo(0,0)}
-  const authSuccess=async()=>{const invite=localStorage.getItem('cobest-pending-invite');if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/')}catch{}}setMode('app');setPage('website');window.scrollTo(0,0)}
+  const authSuccess=async()=>{const invite=localStorage.getItem('cobest-pending-invite');if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/')}catch{}}setMode('app');setPage('dashboard');window.scrollTo(0,0)}
   const signOut=async()=>{ await logout(); setMode('landing'); setPage('website') }
   const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
   const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('app');setPage('website');window.location.reload()}}catch(err){alert(err.message)}}
@@ -1366,11 +1372,11 @@ export default function App() {
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('app')}/>
   let content = null
   if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
-  if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
+  if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
-  if(page==='taxonomy') content=<TaxonomyManager items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/>
+  if(page==='taxonomy') content=<React.Suspense fallback={<div className="page-wrap">Loading categories…</div>}><CatalogCategories items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/></React.Suspense>
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='themes') content=<ThemeLibrary editor={safeEditor} setEditor={setEditor} setPage={setPage}/>
   if(page==='navigation') content=<NavigationManager pages={safeOnboarding.pages} editor={safeEditor} setEditor={setEditor}/>
@@ -1379,6 +1385,7 @@ export default function App() {
   if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers}/>
   if(page==='collections') content=<CollectionsManager items={collections} setItems={setCollections} products={products}/>
   if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders}/>
+  if(page==='sales-report') content=<React.Suspense fallback={<div className="page-wrap">Loading sales report…</div>}><SalesReport orders={orders} products={products} currency={workspace?.currency||'PHP'}/></React.Suspense>
   if(page==='analytics') content=<AnalyticsAdvanced orders={orders} customers={customers} events={events} products={products}/>
   if(page==='marketing') content=<CampaignsManager items={campaigns} setItems={setCampaigns} subscribers={subscribers}/>
   if(page==='discounts') content=<DiscountsManager items={discounts} setItems={setDiscounts} currency={workspace?.currency||'PHP'}/>
