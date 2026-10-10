@@ -3,7 +3,7 @@ import type { BreakpointId, BuilderProject, CssProperties } from './types'
 
 export type GeometryChange=
   | {kind:'move';x:number;y:number}
-  | {kind:'resize';width:number;height?:number;fontSize?:number;x?:number;y?:number;frame?:boolean;paddingTop?:number;paddingBottom?:number}
+  | {kind:'resize';width?:number;height?:number;fontSize?:number;x?:number;y?:number;frame?:boolean;paddingTop?:number;paddingBottom?:number}
   | {kind:'font-size';fontSize:number}
   | {kind:'reset'}
 
@@ -39,10 +39,12 @@ export function applyNodeGeometry(
     if(x===null||y===null)return false
     props.translate=x+'px '+y+'px'
   }else if(change.kind==='resize'){
-    const width=bounded(change.width,32,4000)
-    if(width===null)return false
-    props.width=width+'px'
-    props.maxWidth='none'
+    if(change.width!=null){
+      const width=bounded(change.width,32,4000)
+      if(width===null)return false
+      props.width=width+'px'
+      props.maxWidth='none'
+    }
     // A section/frame is a layout box. Removing its theme's fixed minimum
     // height lets the user reduce blank space without scaling child content.
     if(change.frame&&change.height!=null){
