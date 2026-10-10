@@ -11,7 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
-import { loadProject, saveProject } from './persistence'
+import { chooseLatestProject, loadProject, saveProject } from './persistence'
 import { createSaveQueue } from './saveQueue'
 import {
   AddPanel, AssetsPanel, CmsPanel, ComponentsPanel, InteractionsPanel, NavigatorPanel,
@@ -207,23 +207,23 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   useEffect(()=>{
     let alive=true
     const hydrate=async()=>{
-      if(initialProject?.pages?.length){
-        const cloudProject={...clone(initialProject),id:projectKey||initialProject.id}
-        if(!alive)return
-        replaceProject(cloudProject,false)
-        try{await saveProject(cloudProject)}catch{}
-        return
+      const cloudProject=initialProject?.pages?.length
+        ? {...clone(initialProject),id:projectKey||initialProject.id}
+        : null
+      let localProject:BuilderProject|undefined
+      try{localProject=await loadProject(projectKey)}catch{}
+      if(!alive)return
+      const {project:recovered,needsCloudSync}=chooseLatestProject(localProject,cloudProject)
+      if(recovered){
+        replaceProject(recovered,false)
+        // A newer local revision must not be reported as cloud-saved.
+        if(needsCloudSync&&cloudProject)setSaveStatus('dirty')
+        try{await saveProject(recovered)}catch{}
+      }else{
+        const seeded={...clone(useBuilderStore.getState().project),id:projectKey}
+        replaceProject(seeded,false)
+        try{await saveProject(seeded)}catch{}
       }
-      try{
-        const saved=await loadProject(projectKey)
-        if(!alive)return
-        if(saved)replaceProject(saved,false)
-        else{
-          const seeded={...clone(useBuilderStore.getState().project),id:projectKey}
-          replaceProject(seeded,false)
-          await saveProject(seeded)
-        }
-      }catch{}
     }
     hydrate()
     return()=>{alive=false}
