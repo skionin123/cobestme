@@ -154,6 +154,7 @@ type VisualBuilderProps={
 
 export default function VisualBuilder({projectKey='local-default',initialProject=null,onCloudSave,onPublish}:VisualBuilderProps){
   const iframeRef=useRef<HTMLIFrameElement>(null)
+  const stageRef=useRef<HTMLElement>(null)
   const project=useBuilderStore(s=>s.project)
   const selectedNodeId=useBuilderStore(s=>s.selectedNodeId)
   const hoveredNodeId=useBuilderStore(s=>s.hoveredNodeId)
@@ -182,7 +183,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [leftTab,setLeftTab]=useState<LeftTab>('add')
   const [rightTab,setRightTab]=useState<RightTab>('style')
   const [preview,setPreview]=useState(false)
-  const [zoom]=useState(100)
+  const [zoomMode,setZoomMode]=useState<'fit'|'actual'>('fit')
+  const [stageWidth,setStageWidth]=useState(0)
   const [canvasHeight,setCanvasHeight]=useState(viewportHeights.desktop)
   const [dragLabel,setDragLabel]=useState('')
   const [dragging,setDragging]=useState(false)
@@ -199,7 +201,20 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const editorDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,true),[project,breakpoint])
   const previewDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,false),[project,breakpoint])
   const frameWidth=Math.min(widths[breakpoint],1440)
-  const scale=zoom/100
+  const scale=zoomMode==='fit'&&stageWidth>0
+    ?Math.min(1,Math.max(.3,(stageWidth-42)/frameWidth))
+    :1
+  const zoom=Math.round(scale*100)
+
+  useEffect(()=>{
+    const stage=stageRef.current
+    if(!stage)return
+    const measure=()=>setStageWidth(stage.clientWidth)
+    measure()
+    const observer=new ResizeObserver(measure)
+    observer.observe(stage)
+    return()=>observer.disconnect()
+  },[])
 
   useEffect(()=>{
     setCanvasHeight(viewportHeights[breakpoint])
@@ -439,9 +454,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
         </aside>
-        <main className="vb-stage">
-          <div className="vb-stage-meta"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong><em>{activePage.slug}</em></div>
-          <div className="vb-canvas-help" aria-label="Canvas editing tips">Select an element, drag <strong>✥ Move</strong> to reposition, drag the purple corner to resize, or use <strong>A− / A+</strong> for text.</div>
+        <main className="vb-stage" ref={stageRef}>
+          <div className="vb-stage-meta">
+            <div className="vb-stage-crumb"><span>{activePage.name}</span><strong>{breakpointLabels[breakpoint]}</strong></div>
+            <div className="vb-stage-view" aria-label="Canvas zoom controls">
+              <button type="button" className={zoomMode==='fit'?'active':''} onClick={()=>setZoomMode('fit')} aria-label="Fit canvas to workspace">Fit</button>
+              <span data-testid="canvas-zoom">{zoom}%</span>
+              <button type="button" className={zoomMode==='actual'?'active':''} onClick={()=>setZoomMode('actual')} aria-label="Show canvas at actual size">100%</button>
+            </div>
+          </div>
           <CanvasDropZone dragging={dragging||!!nativeDragPayload} nativePayload={nativeDragPayload} iframeRef={iframeRef} scale={scale} onNativeDropEnd={endNativeDrag}>
             <div className="vb-canvas-scaler" style={{width:frameWidth*scale,height:canvasHeight*scale}}>
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>

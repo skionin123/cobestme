@@ -8,6 +8,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
+import { applyNodeGeometry, geometryClass } from './geometry'
 import { canAcceptChildren, findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
@@ -55,16 +56,16 @@ export function AddPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Add elements</span>
-      <strong className="mb-2 block text-[11px] text-zinc-200">MVP building blocks</strong>
+      <strong className="mb-2 block text-[11px] text-zinc-200">Building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
     </div>
     <div className="p-3">
       {mvpElementCatalog.map(group=>{
         const items=group.items.filter(([,name])=>!q||name.toLowerCase().includes(q))
         if(!items.length)return null
-        return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="grid grid-cols-2 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
+        return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="vb-palette-grid grid grid-cols-1 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Start with structure</strong>Drag a Section onto the page, then add a Container and content inside it. Use Navigator for precise reordering and nesting.</p>
+
     </div>
   </div>
 }
@@ -268,6 +269,18 @@ function BoxModel({className}:{className:string}){
   </div>
 }
 
+function InspectorNumber({name,value,onCommit,placeholder='Auto'}:{
+  name:string;value:string;placeholder?:string;onCommit:(next:string)=>void
+}){
+  return <label className="vb-inspector-field">
+    <span>{name}</span>
+    <input key={value+'-'+name} type="number" aria-label={name} defaultValue={value}
+      placeholder={placeholder} step="1"
+      onKeyDown={e=>{if(e.key==='Enter')(e.currentTarget as HTMLInputElement).blur()}}
+      onBlur={e=>{const next=e.currentTarget.value.trim();if(next!==value)onCommit(next)}}/>
+  </label>
+}
+
 export function StylePanel(){
   const project=useBuilderStore(s=>s.project)
   const selectedId=useBuilderStore(s=>s.selectedNodeId)
@@ -277,32 +290,108 @@ export function StylePanel(){
   const addClass=useBuilderStore(s=>s.addClass)
   const removeClass=useBuilderStore(s=>s.removeClass)
   const renameClass=useBuilderStore(s=>s.renameClass)
-  const setGlobalColor=useBuilderStore(s=>s.setGlobalColor)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
-  const [activeClass,setActiveClass]=useState(node?.classes?.at(-1)||'')
-  React.useEffect(()=>setActiveClass(node?.classes?.at(-1)||''),[selectedId,node?.classes?.join('|')])
-  if(!node)return <EmptyPanel text="Select an element to style it."/>
+  const [advanced,setAdvanced]=useState(false)
+  const editableClasses=(node?.classes||[]).filter(x=>!x.startsWith('cb-geometry-'))
+  const [activeClass,setActiveClass]=useState(editableClasses.at(-1)||'')
+  React.useEffect(()=>setActiveClass(editableClasses.at(-1)||''),[selectedId,node?.classes?.join('|')])
+  React.useEffect(()=>setAdvanced(false),[selectedId])
+  if(!node)return <EmptyPanel text="Select an element to edit it."/>
+  const geometryName=geometryClass(node.id)
+  const geometry=project.styles[geometryName]
+  const atBreakpoint=geometry?.[breakpoint]?.none||{}
+  const fallback=geometry?.desktop?.none||{}
+  const read=(key:string)=>atBreakpoint[key]||fallback[key]||''
+  const pos=String(read('translate')).split(/\\s+/)
+  const x=String(parseFloat(pos[0])||0)
+  const y=String(parseFloat(pos[1])||0)
+  const isText=['heading','paragraph','button','link'].includes(node.type)
+  const editable=node.id!==page.root.id&&!node.locked
+  const mutateGeometry=(labelText:string,change:Parameters<typeof applyNodeGeometry>[3])=>{
+    useBuilderStore.getState().mutate(labelText,draft=>{applyNodeGeometry(draft,node.id,breakpoint,change)})
+  }
+  const changeNumber=(property:'x'|'y'|'width'|'fontSize',next:string)=>{
+    const amount=next===''?null:Number(next)
+    if(amount!==null&&!Number.isFinite(amount))return
+    if(property==='x'||property==='y'){
+      mutateGeometry('Move element', {
+        kind:'move',x:property==='x'?(amount||0):Number(x),
+        y:property==='y'?(amount||0):Number(y)
+      })
+    }else if(property==='width'){
+      if(amount===null){
+        useBuilderStore.getState().mutate('Reset width',draft=>{
+          const properties=draft.styles[geometryName]?.[breakpoint]?.none
+          if(properties){delete properties.width;delete properties.maxWidth}
+        })
+        return
+      }
+      mutateGeometry('Resize element',{kind:'resize',width:amount})
+    }else{
+      if(amount===null){
+        useBuilderStore.getState().mutate('Reset text size',draft=>{
+          const properties=draft.styles[geometryName]?.[breakpoint]?.none
+          if(properties)delete properties.fontSize
+        })
+        return
+      }
+      mutateGeometry('Resize text',{kind:'font-size',fontSize:amount})
+    }
+  }
   const createClass=()=>{
     const name=prompt('Class name',slugClass(node.name))
     if(!name)return
     addClass(node.id,slugClass(name));setActiveClass(slugClass(name))
   }
-  return <div className="h-full overflow-auto pb-8">
-    <div className={panelSection}>
-      <span className={label}>Selector</span>
-      <div className="flex gap-1"><select className={control} value={activeClass} onChange={e=>setActiveClass(e.target.value)}><option value="">Select class</option>{node.classes.map(x=><option key={x}>{x}</option>)}</select><button className={panelButton} onClick={createClass}><Plus size={11}/></button></div>
-      {activeClass&&<div className="mt-2 flex flex-wrap gap-1">{node.classes.map(x=><button key={x} onClick={()=>setActiveClass(x)} className={'rounded px-2 py-1 text-[9px] '+(activeClass===x?'bg-indigo-500 text-white':'bg-zinc-800 text-zinc-400')}>{x} <span onClick={e=>{e.stopPropagation();removeClass(node.id,x)}}>×</span></button>)}</div>}
-      {activeClass&&<button className="mt-2 text-[9px] text-zinc-500 hover:text-zinc-200" onClick={()=>{const next=prompt('Rename class',activeClass);if(next){renameClass(activeClass,slugClass(next));setActiveClass(slugClass(next))}}}>Rename class</button>}
-    </div>
-    {!activeClass?<EmptyPanel text="Create or select a class to use the visual CSS controls."/>:<>
-      <div className={panelSection}><span className={label}>Responsive value source</span><p className="text-[10px] leading-5 text-zinc-500">Editing <strong className="text-zinc-300">{breakpoint}</strong>. Values marked inherited come from a larger breakpoint; values marked override are specific to this breakpoint.</p></div>
-      <StyleGroup title="Typography"><StyleInput className={activeClass} property="fontFamily" labelText="Font" options={['Inter, Arial, sans-serif','DM Sans, Arial, sans-serif','Manrope, Arial, sans-serif','Playfair Display, Georgia, serif','Georgia, serif','Arial, sans-serif']}/><ValueUnitInput className={activeClass} property="fontSize" labelText="Font size"/><StyleInput className={activeClass} property="fontWeight" labelText="Weight" options={['300','400','500','600','700','800','900']}/><StyleInput className={activeClass} property="fontStyle" labelText="Style" options={['normal','italic']}/><StyleInput className={activeClass} property="lineHeight" labelText="Line height"/><StyleInput className={activeClass} property="textAlign" labelText="Alignment" options={['left','center','right','justify']}/><StyleInput className={activeClass} property="color" labelText="Text color" type="color"/></StyleGroup>
-      <StyleGroup title="Size"><ValueUnitInput className={activeClass} property="width" labelText="Width"/><ValueUnitInput className={activeClass} property="height" labelText="Height"/><ValueUnitInput className={activeClass} property="minWidth" labelText="Min width"/><ValueUnitInput className={activeClass} property="maxWidth" labelText="Max width"/></StyleGroup>
-      <div className={panelSection}><BoxModel className={activeClass}/></div>
-      <StyleGroup title="Layout"><StyleInput className={activeClass} property="display" labelText="Display" options={['block','flex','grid','inline-flex','inline-block','none']}/><StyleInput className={activeClass} property="flexDirection" labelText="Flex direction" options={['row','column','row-reverse','column-reverse']}/><StyleInput className={activeClass} property="justifyContent" labelText="Justify" options={['flex-start','center','flex-end','space-between','space-around']}/><StyleInput className={activeClass} property="alignItems" labelText="Align" options={['stretch','flex-start','center','flex-end','baseline']}/><ValueUnitInput className={activeClass} property="gap" labelText="Gap"/><StyleInput className={activeClass} property="gridTemplateColumns" labelText="Grid columns" placeholder="repeat(3, minmax(0,1fr))"/></StyleGroup>
-      <StyleGroup title="Appearance"><StyleInput className={activeClass} property="backgroundColor" labelText="Background" type="color"/><ValueUnitInput className={activeClass} property="borderWidth" labelText="Border width"/><StyleInput className={activeClass} property="borderStyle" labelText="Border style" options={['none','solid','dashed','dotted']}/><StyleInput className={activeClass} property="borderColor" labelText="Border color" type="color"/><ValueUnitInput className={activeClass} property="borderRadius" labelText="Radius"/><StyleInput className={activeClass} property="opacity" labelText="Opacity" placeholder="1"/></StyleGroup>
-    </>}
+  return <div className="vb-inspector-scroll h-full overflow-auto pb-8">
+    <section className="vb-inspector-identity">
+      <span className="vb-inspector-eyebrow">Selected element</span>
+      <div className="vb-inspector-name"><strong>{node.name}</strong><span>{node.type}</span></div>
+      <p>Edit directly on the page or refine its layout here.</p>
+    </section>
+    {editable&&<section className="vb-inspector-quick">
+      <div className="vb-inspector-heading"><strong>Position</strong><span>{breakpoint.replace('mobilePortrait','Mobile').replace('mobileLandscape','Landscape')}</span></div>
+      <div className="vb-inspector-grid">
+        <InspectorNumber key={node.id+breakpoint+'x'} name="X" value={x} onCommit={next=>changeNumber('x',next)}/>
+        <InspectorNumber key={node.id+breakpoint+'y'} name="Y" value={y} onCommit={next=>changeNumber('y',next)}/>
+      </div>
+      <div className="vb-inspector-heading"><strong>Dimensions</strong><span>px</span></div>
+      <div className="vb-inspector-grid">
+        <InspectorNumber key={node.id+breakpoint+'width'} name="Width" value={String(parseFloat(read('width'))||'')} onCommit={next=>changeNumber('width',next)}/>
+        {isText&&<InspectorNumber key={node.id+breakpoint+'font'} name="Text size" value={String(parseFloat(read('fontSize'))||'')} onCommit={next=>changeNumber('fontSize',next)}/>}
+      </div>
+      <p className="vb-inspector-hint">Drag the element's toolbar to move or resize it. Use Navigator to change its order.</p>
+      <button className="vb-inspector-reset" type="button" onClick={()=>mutateGeometry('Reset element position and size',{kind:'reset'})}>Reset position & size</button>
+    </section>}
+    <button type="button" className={'vb-inspector-advanced-toggle '+(advanced?'is-open':'')}
+      aria-expanded={advanced} onClick={()=>setAdvanced(open=>!open)}>
+      <span>Advanced styling</span><ChevronDown size={15}/>
+    </button>
+    {advanced&&<div className="vb-inspector-advanced">
+      <div className={panelSection}>
+        <span className={label}>CSS class</span>
+        <div className="flex gap-1">
+          <select className={control} value={activeClass} onChange={e=>setActiveClass(e.target.value)}>
+            <option value="">Choose a class</option>{editableClasses.map(x=><option key={x}>{x}</option>)}
+          </select>
+          <button className={panelButton} onClick={createClass} title="Add CSS class" aria-label="Add CSS class"><Plus size={12}/></button>
+        </div>
+        {activeClass&&<div className="mt-2 flex flex-wrap gap-1">{editableClasses.map(x=>
+          <button key={x} onClick={()=>setActiveClass(x)} className={'rounded px-2 py-1 text-[9px] '+(activeClass===x?'bg-indigo-500 text-white':'bg-zinc-800 text-zinc-400')}>
+            {x} <span onClick={e=>{e.stopPropagation();removeClass(node.id,x)}}>×</span>
+          </button>)}</div>}
+        {activeClass&&<button className="mt-2 text-[9px] text-zinc-500 hover:text-zinc-200" onClick={()=>{const next=prompt('Rename class',activeClass);if(next){renameClass(activeClass,slugClass(next));setActiveClass(slugClass(next))}}}>Rename class</button>}
+      </div>
+      {!activeClass?<EmptyPanel text="Choose or create a CSS class to use advanced styles."/>:<>
+        <div className={panelSection}><span className={label}>Responsive inheritance</span><p className="text-[10px] leading-5 text-zinc-500">Editing <strong className="text-zinc-300">{breakpoint}</strong>. Overrides apply to the active breakpoint and smaller viewports.</p></div>
+        <StyleGroup title="Typography"><StyleInput className={activeClass} property="fontFamily" labelText="Font" options={['Inter, Arial, sans-serif','DM Sans, Arial, sans-serif','Manrope, Arial, sans-serif','Playfair Display, Georgia, serif','Georgia, serif','Arial, sans-serif']}/><ValueUnitInput className={activeClass} property="fontSize" labelText="Font size"/><StyleInput className={activeClass} property="fontWeight" labelText="Weight" options={['300','400','500','600','700','800','900']}/><StyleInput className={activeClass} property="fontStyle" labelText="Style" options={['normal','italic']}/><ValueUnitInput className={activeClass} property="lineHeight" labelText="Line height"/><StyleInput className={activeClass} property="textAlign" labelText="Alignment" options={['left','center','right','justify']}/><StyleInput className={activeClass} property="color" labelText="Text color" type="color"/></StyleGroup>
+        <StyleGroup title="Size"><ValueUnitInput className={activeClass} property="width" labelText="Width"/><ValueUnitInput className={activeClass} property="height" labelText="Height"/><ValueUnitInput className={activeClass} property="minWidth" labelText="Min width"/><ValueUnitInput className={activeClass} property="maxWidth" labelText="Max width"/></StyleGroup>
+        <div className={panelSection}><BoxModel className={activeClass}/></div>
+        <StyleGroup title="Layout"><StyleInput className={activeClass} property="display" labelText="Display" options={['block','flex','grid','inline-flex','inline-block','none']}/><StyleInput className={activeClass} property="flexDirection" labelText="Flex direction" options={['row','column','row-reverse','column-reverse']}/><StyleInput className={activeClass} property="justifyContent" labelText="Justify" options={['flex-start','center','flex-end','space-between','space-around']}/><StyleInput className={activeClass} property="alignItems" labelText="Align" options={['stretch','flex-start','center','flex-end','baseline']}/><ValueUnitInput className={activeClass} property="gap" labelText="Gap"/><StyleInput className={activeClass} property="gridTemplateColumns" labelText="Grid columns" placeholder="repeat(3, minmax(0,1fr))"/></StyleGroup>
+        <StyleGroup title="Appearance"><StyleInput className={activeClass} property="backgroundColor" labelText="Background" type="color"/><ValueUnitInput className={activeClass} property="borderWidth" labelText="Border width"/><StyleInput className={activeClass} property="borderStyle" labelText="Border style" options={['none','solid','dashed','dotted']}/><StyleInput className={activeClass} property="borderColor" labelText="Border color" type="color"/><ValueUnitInput className={activeClass} property="borderRadius" labelText="Radius"/><StyleInput className={activeClass} property="opacity" labelText="Opacity" placeholder="1"/></StyleGroup>
+      </>}
+    </div>}
   </div>
 }
 
