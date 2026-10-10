@@ -57,6 +57,7 @@ test('dragging a selected element border resizes that element only',async({page}
   const grownWidth=await paragraph.evaluate(el=>el.getBoundingClientRect().width)
 
   await paragraph.click()
+  await expect(frame(page).locator('.builder-resize-edge[data-edge="left"]')).toBeVisible()
   await pointerDrag(page,frame(page).locator('.builder-resize-edge[data-edge="left"]'),22,0)
   await expect.poll(()=>paragraph.evaluate(el=>el.getBoundingClientRect().width)).toBeLessThan(grownWidth-8)
   await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
