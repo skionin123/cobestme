@@ -122,6 +122,7 @@ ${body}${emptyState}
       handle.onpointerdown=startEvent=>{
         if(startEvent.button!==0)return
         startEvent.preventDefault();startEvent.stopPropagation()
+        try{handle.setPointerCapture(startEvent.pointerId)}catch{}
         nodeDragging=true
         const startX=startEvent.clientX,startY=startEvent.clientY
         const initialRect=el.getBoundingClientRect()
