@@ -1300,7 +1300,8 @@ export default function App() {
     setEditor(prev=>({...prev,visualBuilderProject:project}))
     if(!isAuthenticated())return null
     const saved=await saveWorkspace({editor:{visualBuilderProject:project}})
-    if(saved)setWorkspace(prev=>({...prev,...saved}))
+    if(!saved?.id)throw new Error('Website save was not confirmed by the server. Please retry.')
+    setWorkspace(prev=>({...prev,...saved}))
     return saved
   }
 

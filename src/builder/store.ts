@@ -96,13 +96,20 @@ const updateAllNodes=(project:BuilderProject,updater:(node:BuilderNode)=>Builder
 })
 
 export const useBuilderStore=create<BuilderState>((set,get)=>{
+  // Undo and redo are new edits for persistence, even when their content is old.
+  // A monotonic timestamp and revision prevent an earlier cloud copy winning on reload.
+  const advanceRevision=(current:BuilderProject,next:BuilderProject)=>{
+    const previousTime=Date.parse(current.updatedAt||'')
+    next.updatedAt=new Date(Math.max(Date.now(),(Number.isFinite(previousTime)?previousTime:0)+1)).toISOString()
+    next.version=Math.max(current.version||0,next.version||0)+1
+  }
+
   const commit=(label:string,mutation:(draft:BuilderProject)=>void)=>{
     const state=get()
     const previous=clone(state.project)
     const draft=clone(state.project)
     mutation(draft)
-    draft.updatedAt=new Date().toISOString()
-    draft.version=(draft.version||0)+1
+    advanceRevision(state.project,draft)
     const version=makeVersion(previous,label)
     draft.versions=[version,...(draft.versions||[])].slice(0,20)
     set({
@@ -362,6 +369,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     undo:()=>{
       const state=get();const previous=state.history.at(-1);if(!previous)return
       const restored=clone(previous)
+      advanceRevision(state.project,restored)
       const page=currentPage(restored)
       const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
       set({project:restored,history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
@@ -369,6 +377,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     redo:()=>{
       const state=get();const next=state.future[0];if(!next)return
       const restored=clone(next)
+      advanceRevision(state.project,restored)
       const page=currentPage(restored)
       const selected=state.selectedNodeId&&findNode(page.root,state.selectedNodeId)?state.selectedNodeId:page.root.id
       set({project:restored,history:[...state.history,clone(state.project)],future:state.future.slice(1),saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
