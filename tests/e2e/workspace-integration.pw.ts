@@ -8,6 +8,7 @@ test('real application shell saves each site and reopens its own builder documen
     [42,{id:42,site_name:'Beta Studio',slug:'beta-studio',editor:{},onboarding:{businessName:'Beta Studio',pages:['Home'],styles:[],features:[]},settings:{}}],
   ])
   const writes:number[]=[]
+  const published:any[]=[]
   await page.addInitScript(()=>{
     localStorage.setItem('cobest-auth-token','mvp-e2e-token')
     localStorage.setItem('cobest-active-site-id',localStorage.getItem('cobest-active-site-id')||'41')
@@ -35,26 +36,35 @@ test('real application shell saves each site and reopens its own builder documen
         return reply([updated])
       }
     }
+    if(path==='/api/publish'){published.push(request.postDataJSON());return reply({ok:true,slug:'alpha-studio',store_url:'/store/alpha-studio'})}
     if(path.startsWith('/api/data/'))return reply([])
     return reply([])
   })
 
   await page.goto('/')
-  await page.getByRole('button',{name:'Edit website',exact:true}).click()
+  await expect(page.getByRole('heading',{name:'Choose a starting point.'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Use Simple'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Use Professional'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Orders'})).toHaveCount(0)
+  await page.getByRole('button',{name:'Use Simple'}).click()
   const projectName=page.getByRole('textbox',{name:'Project name'})
   await expect(projectName).toBeVisible()
   await projectName.fill('Alpha Website')
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect.poll(()=>workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Website')
+  page.on('dialog',dialog=>dialog.accept())
+  await page.getByRole('button',{name:'Publish',exact:true}).click()
+  await expect.poll(()=>published.length).toBe(1)
+  expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
 
   await page.reload()
-  await page.getByRole('button',{name:'Edit website',exact:true}).click()
+  await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
 
   // A site switch loads the other workspace rather than the previous browser cache.
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','42'))
   await page.reload()
-  await page.getByRole('button',{name:'Edit website',exact:true}).click()
+  await page.getByRole('button',{name:'Use Professional'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).not.toHaveValue('Alpha Website')
   await page.getByRole('textbox',{name:'Project name'}).fill('Beta Website')
   await page.getByRole('button',{name:'Save',exact:true}).click()
@@ -65,6 +75,6 @@ test('real application shell saves each site and reopens its own builder documen
 
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','41'))
   await page.reload()
-  await page.getByRole('button',{name:'Edit website',exact:true}).click()
+  await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
 })

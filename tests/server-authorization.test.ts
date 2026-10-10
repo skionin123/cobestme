@@ -45,7 +45,7 @@ describe('server authorization guards',()=>{
   it('protects autosave when critical cloud startup fails',()=>{
     expect(app).toContain('Promise.allSettled')
     expect(app).toContain("Workspace sync failed. Editing autosave is paused")
-    expect(app).toContain('if(!cloudReady || !isAuthenticated()) return')
+    expect(app).toContain('if(!cloudReady || !isAuthenticated() || !workspace?.id) return')
     expect(app).not.toContain('.catch(()=>setCloudReady(true))')
   })
 

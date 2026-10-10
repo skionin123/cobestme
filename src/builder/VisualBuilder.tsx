@@ -417,6 +417,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
+          {onPublish&&<button className="vb-publish" onClick={publish}>Publish</button>}
         </div>
       </header>
       <div className="vb-workspace">
