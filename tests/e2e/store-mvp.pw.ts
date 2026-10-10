@@ -50,7 +50,7 @@ test('store MVP: primary category, subcategory, product, and paid sales',async({
   await page.getByRole('button',{name:'Add',exact:true}).click()
   await expect.poll(()=>catalog.map(x=>x.name)).toContain('Home')
 
-  await page.getByRole('button',{name:'Subcategories'}).click()
+  await page.getByRole('button',{name:'Subcategories',exact:true}).click()
   await page.getByRole('combobox',{name:'Primary category for subcategory'}).selectOption('Home')
   await page.getByRole('textbox',{name:'Category or brand name'}).fill('Lighting')
   await page.getByRole('button',{name:'Add',exact:true}).click()
