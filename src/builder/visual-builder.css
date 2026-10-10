@@ -362,3 +362,7 @@
 .vb-selection-path button:focus-visible{outline:2px solid #9890ff;outline-offset:1px}
 @media(max-width:1500px){.vb-back-dashboard{padding:0 7px}.vb-back-dashboard span{display:none}.vb-project-copy small{font-size:7.5px}}
 @media(max-width:900px){.vb-selection-caption{display:none}.vb-selection-path{padding:3px 5px}.vb-selection-path button{max-width:105px}}
+
+/* The selection breadcrumb may never expand the grid track or canvas stage. */
+.vb-selection-path{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.vb-stage .vb-canvas-drop{width:100%;min-width:0;max-width:100%}
