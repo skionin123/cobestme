@@ -43,7 +43,16 @@ html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
 .builder-node-label:active{cursor:grabbing}
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
 .builder-drop-marker.inside{background:rgba(99,102,241,.10);border:2px solid #6d5dfc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
-html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
+html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-geometry-handle,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
+.builder-node-label{display:flex;align-items:center;gap:6px;cursor:default;padding:5px 7px;background:#312e81;white-space:nowrap}
+.builder-label-title{font-size:11px;font-weight:650;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.builder-node-label button{font:650 11px/1 Inter,Arial,sans-serif;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);border-radius:4px;padding:5px 7px;cursor:pointer}
+.builder-node-label button:hover{background:rgba(255,255,255,.3)}
+.builder-node-label button.builder-move-button{background:#6366f1;cursor:grab}
+.builder-node-label button.builder-move-button:active{cursor:grabbing}
+.builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:17px;height:17px;background:#fff;border:2px solid #4f46e5;border-radius:4px;cursor:nwse-resize;touch-action:none;box-shadow:0 2px 8px rgba(30,26,75,.25)}
+.builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
+
 .builder-spacing-handle{position:fixed;z-index:2147483646;width:12px;height:12px;border-radius:3px;display:grid;place-items:center;color:#fff;font:700 7px/1 Arial,sans-serif;cursor:ns-resize;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .builder-spacing-handle[data-edge="left"],.builder-spacing-handle[data-edge="right"]{cursor:ew-resize}
 .builder-spacing-handle[data-kind="padding"]{background:#10b981}.builder-spacing-handle[data-kind="margin"]{background:#f59e0b}
@@ -77,55 +86,128 @@ ${body}${emptyState}
     if(el) el.classList.add(cls)
   }
   const removeLabel=()=>{ if(label){label.remove();label=null} }
+  const readTranslation=el=>{
+    const value=getComputedStyle(el).translate
+    if(!value||value==='none')return [0,0]
+    const parts=value.split(/\\s+/)
+    return [parseFloat(parts[0])||0,parseFloat(parts[1])||0]
+  }
   const drawLabel=(el)=>{
     removeLabel();clearHandles()
     if(!el||!document.documentElement.classList.contains('builder-editing'))return
     const rect=el.getBoundingClientRect()
+    const textElement=['heading','paragraph','button','link'].includes(el.dataset.builderType)
+    const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
-    label.textContent=(el.dataset.builderName||el.tagName.toLowerCase())
-    label.title='Selected element'
-    label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-180))+'px'
-    label.style.top=Math.max(4,rect.top-25)+'px'
-    document.body.appendChild(label)
-    const computed=getComputedStyle(el)
-    const positions={
-      top:{padding:[rect.left+rect.width/2,rect.top+9],margin:[rect.left+rect.width/2,rect.top-9]},
-      bottom:{padding:[rect.left+rect.width/2,rect.bottom-9],margin:[rect.left+rect.width/2,rect.bottom+9]},
-      left:{padding:[rect.left+9,rect.top+rect.height/2],margin:[rect.left-9,rect.top+rect.height/2]},
-      right:{padding:[rect.right-9,rect.top+rect.height/2],margin:[rect.right+9,rect.top+rect.height/2]}
+    label.style.left=Math.max(4,Math.min(rect.left,window.innerWidth-320))+'px'
+    label.style.top=Math.max(4,rect.top-33)+'px'
+    const labelName=document.createElement('span')
+    labelName.className='builder-label-title'
+    labelName.textContent=el.dataset.builderName||el.tagName.toLowerCase()
+    label.appendChild(labelName)
+    const control=(caption,title,action,extraClass)=>{
+      const button=document.createElement('button')
+      button.type='button'
+      button.textContent=caption
+      button.title=title
+      button.setAttribute('aria-label',title)
+      if(extraClass)button.className=extraClass
+      button.onclick=event=>{event.preventDefault();event.stopPropagation();action()}
+      label.appendChild(button)
+      return button
     }
-    ;['margin','padding'].forEach(kind=>['top','right','bottom','left'].forEach(edge=>{
-      const h=document.createElement('div');h.className='builder-spacing-handle';h.dataset.kind=kind;h.dataset.edge=edge;h.textContent=kind==='padding'?'P':'M'
-      const pos=positions[edge][kind];h.style.left=(pos[0]-6)+'px';h.style.top=(pos[1]-6)+'px'
-      h.onpointerdown=startEvent=>{
-        startEvent.preventDefault();startEvent.stopPropagation();h.setPointerCapture?.(startEvent.pointerId)
-        const prop=spacingProperty(kind,edge)
-        const base=parseFloat(computed[prop])||0
+    const liveGeometry=(mode,handle)=>{
+      if(!movable)return
+      handle.onpointerdown=startEvent=>{
+        if(startEvent.button!==0)return
+        startEvent.preventDefault();startEvent.stopPropagation()
+        nodeDragging=true
         const startX=startEvent.clientX,startY=startEvent.clientY
-        let finalValue=base
+        const initialRect=el.getBoundingClientRect()
+        const computed=getComputedStyle(el)
+        const initialTranslate=readTranslation(el)
+        const initialSize=parseFloat(computed.fontSize)||16
+        const startWidth=initialRect.width,startHeight=initialRect.height
+        let newX=initialTranslate[0],newY=initialTranslate[1]
+        let newWidth=startWidth,newHeight=startHeight,newFont=initialSize
         const move=event=>{
           const dx=event.clientX-startX,dy=event.clientY-startY
-          const factor=edge==='top'||edge==='left'?-1:1
-          const delta=(edge==='left'||edge==='right'?dx:dy)*factor*(kind==='padding'?-1:1)
-          finalValue=Math.max(kind==='padding'?0:-500,Math.round(base+delta))
-          el.style[prop]=finalValue+'px'
-          drawLabel(el)
+          if(mode==='move'){
+            newX=Math.round(initialTranslate[0]+dx)
+            newY=Math.round(initialTranslate[1]+dy)
+            el.style.translate=newX+'px '+newY+'px'
+          }else{
+            newWidth=Math.max(32,Math.round(startWidth+dx))
+            newHeight=Math.max(20,Math.round(startHeight+dy))
+            el.style.width=newWidth+'px'
+            el.style.maxWidth='none'
+            if(textElement){
+              // Dragging the corner scales visible text as well as its box.
+              const factor=Math.max(.25,newWidth/Math.max(32,startWidth))
+              newFont=Math.max(10,Math.min(240,Math.round(initialSize*factor)))
+              el.style.fontSize=newFont+'px'
+            }else{
+              el.style.height=newHeight+'px'
+              if(el.tagName==='IMG')el.style.objectFit='cover'
+            }
+          }
         }
-        const up=()=>{
-          window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)
-          send('spacing-change',{id:el.dataset.builderNode,property:prop,value:finalValue+'px'})
-          requestAnimationFrame(reportSize)
+        const up=event=>{
+          window.removeEventListener('pointermove',move)
+          window.removeEventListener('pointerup',up)
+          window.removeEventListener('pointercancel',up)
+          nodeDragging=false
+          const wasMoved=event?.type!=='pointercancel'
+          if(wasMoved){
+            if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
+            else send('node-geometry',{id:el.dataset.builderNode,kind:'resize',width:newWidth,
+              ...(textElement?{fontSize:newFont}:{height:newHeight})})
+          }else{
+            el.style.translate='';el.style.width='';el.style.height='';el.style.maxWidth='';el.style.fontSize=''
+          }
+          requestAnimationFrame(()=>{drawLabel(el);reportSize()})
         }
-        window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true})
+        window.addEventListener('pointermove',move)
+        window.addEventListener('pointerup',up,{once:true})
+        window.addEventListener('pointercancel',up,{once:true})
       }
-      document.body.appendChild(h);handles.push(h)
-    }))
+    }
+    if(movable){
+      const moveButton=control('✥ Move','Drag to move the selected element',()=>{},'builder-move-button')
+      liveGeometry('move',moveButton)
+      const sizeFromStyle=()=>parseFloat(getComputedStyle(el).fontSize)||16
+      if(textElement){
+        for(const [caption,change,title] of [['A−',-2,'Make text smaller'],['A+',2,'Make text bigger']]){
+          control(caption,title,()=>{
+            const size=Math.max(10,Math.min(240,Math.round(sizeFromStyle()+change)))
+            el.style.fontSize=size+'px'
+            send('node-geometry',{id:el.dataset.builderNode,kind:'font-size',fontSize:size})
+          })
+        }
+      }
+      control('↺','Reset position and size',()=>send('node-geometry',{id:el.dataset.builderNode,kind:'reset'}))
+    }
+    document.body.appendChild(label)
+    if(!movable)return
+    const handle=(kind,left,top,cssClass)=>{
+      const h=document.createElement('div')
+      h.className='builder-geometry-handle '+(cssClass||'')
+      h.title=kind==='resize'?'Drag to resize the selected element':'Drag to move'
+      h.setAttribute('aria-label',h.title)
+      h.style.left=left+'px';h.style.top=top+'px'
+      liveGeometry(kind,h)
+      document.body.appendChild(h)
+      handles.push(h)
+    }
+    handle('resize',rect.right-9,rect.bottom-9,'builder-resize-corner')
+    handle('resize',rect.right-7,rect.top+rect.height/2-11,'builder-width-handle')
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
   const reportSize=()=>{
     if(!document.documentElement.classList.contains('builder-editing'))return
-    const height=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,120)
+    const bottoms=Array.from(document.querySelectorAll('[data-builder-node]')).map(el=>el.getBoundingClientRect().bottom+window.scrollY+40)
+    const height=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,...bottoms,120)
     send('canvas-resize',{height})
   }
   let dropMarker=null
