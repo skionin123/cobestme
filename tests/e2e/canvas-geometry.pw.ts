@@ -12,22 +12,12 @@ async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame
 
 test('canvas Move and resize persist into preview, undo, and a reload',async({page})=>{
   await page.goto('/e2e.html')
-  await page.evaluate(()=>{(window as any).__geometryMessages=[];window.addEventListener('message',event=>{if(event.data?.type==='node-geometry')(window as any).__geometryMessages.push(event.data)})})
   let heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
   await expect(frame(page).getByRole('button',{name:'Drag to move the selected element'})).toBeVisible()
-  await frame(page).locator('html').evaluate(()=>{
-    (window as any).__pointerTrace=[]
-    document.addEventListener('pointerdown',event=>{(window as any).__pointerTrace.push(['down',(event.target as HTMLElement).outerHTML.slice(0,120)])},true)
-    document.addEventListener('pointerup',event=>{(window as any).__pointerTrace.push(['up',(event.target as HTMLElement).outerHTML.slice(0,120)])},true)
-  })
-  console.log('GEOM_BOXES',JSON.stringify(await frame(page).getByRole('button',{name:'Drag to move the selected element'}).boundingBox()),JSON.stringify(await page.locator('iframe[title="CoBest visual builder canvas"]').boundingBox()))
-
   await expect(frame(page).locator('.builder-resize-corner')).toBeVisible()
   await pointerDrag(page,frame(page).getByRole('button',{name:'Drag to move the selected element'}),80,40)
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
-  console.log('POINTER_TRACE',JSON.stringify(await frame(page).locator('html').evaluate(()=>(window as any).__pointerTrace)))
-  console.log('GEOMETRY_DEBUG',JSON.stringify(await page.evaluate(()=>(window as any).__geometryMessages)),JSON.stringify(await heading.evaluate(el=>({style:el.getAttribute('style'),className:el.className,translate:getComputedStyle(el).translate}))))
   await expect(heading).toHaveCSS('translate','80px 40px')
   const initialSize=Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))
   await frame(page).getByRole('button',{name:'Make text bigger'}).click()
@@ -37,7 +27,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect.poll(async()=>heading.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(initialWidth+40)
   await page.getByRole('button',{name:'Preview',exact:true}).click()
-  await expect(page.frameLocator('iframe[title="CoBest preview"]').locator('.'+ 'cb-geometry-hero-title-home')).toHaveCSS('translate','80px 40px')
+  await expect(page.frameLocator('iframe[title="CoBest preview"]').locator('.cb-geometry-hero-title-home')).toHaveCSS('translate','80px 40px')
   await page.getByRole('button',{name:'Exit preview'}).click()
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await page.reload()
