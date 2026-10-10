@@ -56,16 +56,16 @@ export function AddPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Add elements</span>
-      <strong className="mb-2 block text-[11px] text-zinc-200">MVP building blocks</strong>
+      <strong className="mb-2 block text-[11px] text-zinc-200">Building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
     </div>
     <div className="p-3">
       {mvpElementCatalog.map(group=>{
         const items=group.items.filter(([,name])=>!q||name.toLowerCase().includes(q))
         if(!items.length)return null
-        return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="grid grid-cols-2 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
+        return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="vb-palette-grid grid grid-cols-1 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-      <p className="rounded-lg bg-zinc-900 p-3 text-[10px] leading-5 text-zinc-500"><strong className="block text-zinc-300">Start with structure</strong>Drag a Section onto the page, then add a Container and content inside it. Use Navigator for precise reordering and nesting.</p>
+
     </div>
   </div>
 }
