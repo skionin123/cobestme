@@ -66,3 +66,32 @@ test('dragging a selected element border resizes that element only',async({page}
   await page.reload()
   await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
 })
+
+test('corner grip is large enough at Fit zoom and actually resizes a heading',async({page})=>{
+  await page.setViewportSize({width:1440,height:900})
+  await page.goto('/e2e.html')
+  // Default Fit zoom reproduces the smaller target in the supplied screenshot.
+  await expect(page.getByRole('button',{name:'Fit canvas to workspace'})).toHaveClass(/active/)
+  const heading=frame(page).locator('[data-builder-node="hero-title-home"]')
+  await heading.click()
+  const corner=frame(page).locator('.builder-resize-corner')
+  await expect(corner).toBeVisible()
+  const bounds=await corner.boundingBox()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.width).toBeGreaterThanOrEqual(15)
+  expect(bounds!.height).toBeGreaterThanOrEqual(15)
+
+  const before=await heading.evaluate(el=>({
+    width:el.getBoundingClientRect().width,
+    fontSize:parseFloat(getComputedStyle(el).fontSize),
+  }))
+  await pointerDrag(page,corner,-85,-16)
+  await expect.poll(()=>heading.evaluate(el=>el.getBoundingClientRect().width)).toBeLessThan(before.width-40)
+  await expect.poll(()=>heading.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeLessThan(before.fontSize)
+  await expect(heading).toHaveClass(/cb-geometry-hero-title-home/)
+  await expect(frame(page).locator('[data-builder-node="hero-copy-home"]')).not.toHaveClass(/cb-geometry-hero-title-home/)
+
+  await page.getByRole('button',{name:'Save',exact:true}).click()
+  await page.reload()
+  await expect(frame(page).locator('[data-builder-node="hero-title-home"]')).toHaveClass(/cb-geometry-hero-title-home/)
+})

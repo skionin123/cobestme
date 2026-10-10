@@ -56,7 +56,10 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-node-label button.builder-move-button{color:#b8b1ff;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
 .builder-node-label button.builder-size-button{color:#b8b1ff;cursor:nwse-resize}
-.builder-geometry-handle{position:fixed;z-index:2147483647;display:block;width:10px;height:10px;background:#fff;border:2px solid #6366f1;border-radius:3px;cursor:nwse-resize;touch-action:none;box-shadow:0 1px 5px rgba(30,26,75,.24)}
+.builder-geometry-handle{position:fixed;z-index:2147483647;display:grid;place-items:center;width:30px;height:30px;background:transparent;border:0;border-radius:7px;cursor:nwse-resize;touch-action:none;box-shadow:none;user-select:none}
+.builder-geometry-handle.builder-resize-corner::after{content:"";display:block;width:12px;height:12px;border:2px solid #fff;background:#6255ec;border-radius:4px;box-shadow:0 0 0 2px #6255ec,0 2px 9px rgba(31,28,77,.32);pointer-events:none;transition:width .12s,height .12s,background .12s}
+.builder-geometry-handle.builder-resize-corner:hover::after,.builder-geometry-handle.builder-resize-corner:focus-visible::after,.builder-geometry-handle.builder-resize-corner.is-resizing::after{width:16px;height:16px;background:#4f46e5}
+.builder-geometry-handle.builder-resize-corner:focus-visible{outline:2px solid #818cf8;outline-offset:2px}
 .builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
 .builder-resize-edge{position:fixed;z-index:2147483645;display:block;touch-action:none;background:transparent;border:0;border-radius:2px}
 .builder-resize-edge[data-edge="left"],.builder-resize-edge[data-edge="right"]{cursor:ew-resize}
@@ -136,6 +139,7 @@ ${body}${emptyState}
         if(startEvent.button!==0)return
         startEvent.preventDefault();startEvent.stopPropagation()
         try{handle.setPointerCapture(startEvent.pointerId)}catch{}
+        handle.classList.add('is-resizing')
         nodeDragging=true
         const startX=startEvent.clientX,startY=startEvent.clientY
         const initialRect=el.getBoundingClientRect()
@@ -145,8 +149,12 @@ ${body}${emptyState}
         const startWidth=initialRect.width,startHeight=initialRect.height
         let newX=initialTranslate[0],newY=initialTranslate[1]
         let newWidth=startWidth,newHeight=startHeight,newFont=initialSize
+        let dragChanged=false
+        let finished=false
         const move=event=>{
+          if(finished)return
           const dx=event.clientX-startX,dy=event.clientY-startY
+          if(Math.abs(dx)+Math.abs(dy)>2)dragChanged=true
           if(mode==='move'){
             newX=Math.round(initialTranslate[0]+dx)
             newY=Math.round(initialTranslate[1]+dy)
@@ -175,12 +183,21 @@ ${body}${emptyState}
           }
         }
         const up=event=>{
+          // The canvas runs inside a scaled iframe. A pointer can be released
+          // outside its visual edge. Listen on the grip and for capture loss,
+          // so the last previewed resize is committed exactly once.
+          if(finished)return
+          finished=true
           window.removeEventListener('pointermove',move)
           window.removeEventListener('pointerup',up)
           window.removeEventListener('pointercancel',up)
+          window.removeEventListener('mouseup',up)
+          window.removeEventListener('blur',up)
+          handle.removeEventListener('pointerup',up)
+          handle.removeEventListener('lostpointercapture',up)
           nodeDragging=false
-          const wasMoved=event?.type!=='pointercancel'
-          if(wasMoved){
+          handle.classList.remove('is-resizing')
+          if(dragChanged){
             if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
             else{
               const horizontal=['left','right','corner','toolbar'].includes(edge)
@@ -196,8 +213,12 @@ ${body}${emptyState}
           requestAnimationFrame(()=>{drawLabel(el);reportSize()})
         }
         window.addEventListener('pointermove',move)
-        window.addEventListener('pointerup',up,{once:true})
-        window.addEventListener('pointercancel',up,{once:true})
+        window.addEventListener('pointerup',up)
+        window.addEventListener('pointercancel',up)
+        window.addEventListener('mouseup',up)
+        window.addEventListener('blur',up)
+        handle.addEventListener('pointerup',up)
+        handle.addEventListener('lostpointercapture',up)
       }
     }
     if(movable){
@@ -213,7 +234,7 @@ ${body}${emptyState}
       const h=document.createElement('div')
       h.className=(cssClass.includes('builder-resize-edge')?'':'builder-geometry-handle ')+cssClass
       h.dataset.edge=edge
-      h.title='Drag the '+edge+' border to resize '+(el.dataset.builderName||'element')
+      h.title=edge==='corner'?'Drag this corner to resize '+(el.dataset.builderName||'element'):'Drag the '+edge+' border to resize '+(el.dataset.builderName||'element')
       h.setAttribute('aria-label',h.title)
       h.style.left=left+'px';h.style.top=top+'px'
       h.style.width=width+'px';h.style.height=height+'px'
@@ -231,7 +252,13 @@ ${body}${emptyState}
     handle('resize',rect.right-5,sideTop,'builder-resize-edge','right',10,sideHeight)
     handle('resize',horizontalLeft,rect.top-5,'builder-resize-edge','top',horizontalWidth,10)
     handle('resize',horizontalLeft,rect.bottom-5,'builder-resize-edge','bottom',horizontalWidth,10)
-    handle('resize',rect.right-5,rect.bottom-5,'builder-resize-corner','corner',10,10)
+    // The visible 12px knob sits inside a 30px hit target. At Fit zoom the
+    // entire iframe scales down, so a 10px target became only 5-7 screen pixels.
+    // Keep the complete draggable area inside the iframe whenever possible.
+    const gripSize=30
+    const cornerX=Math.max(0,Math.min(rect.right-gripSize/2,window.innerWidth-gripSize))
+    const cornerY=Math.max(0,Math.min(rect.bottom-gripSize/2,window.innerHeight-gripSize))
+    handle('resize',cornerX,cornerY,'builder-resize-corner','corner',gripSize,gripSize)
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
   const reportSize=()=>{
