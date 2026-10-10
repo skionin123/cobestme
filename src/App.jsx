@@ -8,6 +8,8 @@ import {
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
+const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
+import { loadProject } from './builder/persistence'
 
 const APP_NAME = 'CoBest'
 
@@ -383,10 +385,10 @@ function Landing({ onStart, onLogin }) {
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
-          <h1>Build a store people trust. Run it from one place.</h1>
-          <p>CoBest gives growing businesses one home for website design, products, orders, customers, content, and the business context behind every decision.</p>
+          <h1>Build your website, your way.</h1>
+          <p>Pick one of two beautiful starting templates, then customize every detail in a simple visual website editor. No coding required.</p>
           <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
-          <div className="trust-row"><span><Check size={15}/> Guided onboarding</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Commerce workspace</span></div>
+          <div className="trust-row"><span><Check size={15}/> Two starting templates</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
         </div>
         <div className="hero-product-shell">
           <div className="mini-window-bar"><span/><span/><span/><b>app.cobest.me</b></div>
@@ -403,7 +405,7 @@ function Landing({ onStart, onLogin }) {
       </main>
 
       <section className="audience-strip container">
-        <span>One platform for the whole website business</span><div><b>Website</b><b>Products</b><b>Orders</b><b>Customers</b><b>Content</b><b>Analytics</b></div>
+        <span>Start with the website. Keep everything simple.</span><div><b>Website</b><b>Products</b><b>Orders</b><b>Customers</b><b>Content</b><b>Analytics</b></div>
       </section>
 
       <section className="landing-section container" id="features">
@@ -563,12 +565,10 @@ function Review({data}) {
   return <><p className="overline">REVIEW</p><h1>Your website direction is ready.</h1><p className="lead">This becomes the working project brief and stays connected to the website, content, and commerce workspace.</p><div className="review-grid">{groups.map(g=><div className="review-card" key={g[0]}><span>{g[0]}</span><strong>{g[1]}</strong><p>{g[2]}</p></div>)}</div><div className="review-colors"><span>Brand colors</span><div>{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}} title={c}/>)}</div></div></>
 }
 
+// Website-first MVP: retain the advanced pages in code, but keep navigation focused.
 const navGroups = [
-  { label: '', items: [['dashboard','Home',LayoutDashboard],['processes','Setup & workflow',Sparkles],['orders','Orders',ShoppingBag],['products','Products',Package],['taxonomy','Categories & brands',FileText],['collections','Collections',Store],['customers','Customers',Users]] },
-  { label: 'Online store', items: [['pages','Overview & pages',Store],['themes','Themes',Palette],['navigation','Navigation',Menu],['editor','Website editor',Pencil],['storefront','Preview store',Eye]] },
-  { label: 'Content', items: [['media','Media',ImageIcon],['blog','Blog',FileText],['brief','Website brief',FileText],['inbox','Inbox',FileText]] },
-  { label: 'Growth', items: [['analytics','Analytics',BarChart3],['marketing','Marketing',Sparkles],['discounts','Discounts',BriefcaseBusiness]] },
-  { label: 'Workspace', items: [['sites','Sites',Store],['team','Team',Users]] },
+  {label:'',items:[['website','My website',LayoutDashboard],['editor','Website editor',Pencil]]},
+  {label:'Website',items:[['settings','Publish & domain',Settings],['sites','My websites',Store]]},
 ]
 const navItems = navGroups.flatMap(group => group.items)
 
@@ -582,7 +582,7 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
       <div className="site-switcher">
         <div className="site-switcher-head">
           <div className="store-avatar">{String(activeSiteName||'C').charAt(0).toUpperCase()}</div>
-          <div className="site-switcher-copy"><span>Current store</span><strong>{activeSiteName}</strong></div>
+          <div className="site-switcher-copy"><span>Current website</span><strong>{activeSiteName}</strong></div>
           <button className="site-add-button" title="Create another site" onClick={onCreateSite} aria-label="Create another site"><Plus size={16}/></button>
         </div>
         <label className="site-switcher-control">
@@ -594,9 +594,9 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
         </label>
       </div>
       <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
-      <div className="sidebar-bottom"><button onClick={()=>setPage('settings')}><Settings size={18}/> Settings</button><button onClick={()=>setPage('help')}><CircleHelp size={18}/> Help</button><button onClick={onRestart}><Sparkles size={18}/> Store setup</button>{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
+      <div className="sidebar-bottom">{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
     </aside>
-    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><button title="Search products" onClick={()=>setPage('products')}><Search size={18}/></button><div className="header-avatar">CO</div></div></header>{cloudError&&<div className="app-sync-warning auth-message auth-error">{cloudError}</div>}{children}</main>
+    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><div className="header-avatar">CO</div></div></header>{cloudError&&<div className="app-sync-warning auth-message auth-error">{cloudError}</div>}{children}</main>
   </div>
 }
 
@@ -1097,7 +1097,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch,onForgot}) {
       if(signup && !result?.access_token) {
         setMessage('Check your email to continue. If this email is already registered, use Log in or Forgot password instead.')
       } else {
-        onSuccess(signup ? 'onboarding' : 'app')
+        onSuccess('app')
       }
     } catch(err) {
       const raw=String(err.message||'')
@@ -1132,7 +1132,7 @@ export default function App() {
   const [bookings,setBookings] = useState([])
   const [reviews,setReviews] = useState([])
   const [events,setEvents] = useState([])
-  const [page,setPage] = useState('dashboard')
+  const [page,setPage] = useState('website')
   const [cloudReady,setCloudReady] = useState(false)
   const [cloudLoadError,setCloudLoadError] = useState('')
   const safeOnboarding = normalizeOnboarding(onboarding)
@@ -1169,6 +1169,9 @@ export default function App() {
       return
     }
     if(['app','onboarding'].includes(mode) && !isAuthenticated()) setMode('landing')
+    // Previous sign-ups may have been left in the old eight-step onboarding.
+    // The website-first MVP starts at the two-template selection instead.
+    if(mode==='onboarding'&&isAuthenticated())setMode('app')
   },[])
 
   useEffect(()=>{
@@ -1206,7 +1209,8 @@ export default function App() {
         else if(!activeId&&siteList[0]?.id)setActiveSiteId(siteList[0].id)
       }
       setWorkspace(workspaceData||null)
-      if(workspaceData?.onboarding)setOnboarding(prev=>({...prev,...workspaceData.onboarding}))
+      // Do not carry one website's business details into a different site.
+      setOnboarding(normalizeOnboarding(workspaceData?.onboarding||{}))
       // Do not carry another site's locally cached builder project into this workspace.
       setEditor(normalizeEditor(workspaceData?.editor||{}))
       if(Array.isArray(values.products))setProducts(values.products)
@@ -1233,7 +1237,7 @@ export default function App() {
   },[mode])
 
   useEffect(()=>{
-    if(!cloudReady || !isAuthenticated()) return
+    if(!cloudReady || !isAuthenticated() || !workspace?.id) return
     // Builder project persistence is managed by VisualBuilder's save queue.
     // Do not send a stale copy via general dashboard autosave.
     const ordinaryEditor={...editor}
@@ -1250,13 +1254,13 @@ export default function App() {
     const nextPages=Array.from(new Set(['Home',...safeOnboarding.pages,...featurePages]))
     setOnboarding(prev=>({...prev,pages:nextPages}))
     setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),...Object.fromEntries(nextPages.filter(p=>p!=='Home'&&!prev.pageContent?.[p]).map(p=>[p,{title:p,body:'',blocks:[]}]))}}))
-    setMode('app'); setPage('dashboard'); window.scrollTo(0,0)
+    setMode('app'); setPage('website'); window.scrollTo(0,0)
   }
-  const start = () => { setMode(isAuthenticated()?'onboarding':'signup'); window.scrollTo(0,0) }
-  const authSuccess=async(next)=>{ const invite=localStorage.getItem('cobest-pending-invite'); if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/');setMode('app')}catch{setMode(next)}}else setMode(next); setPage('dashboard'); window.scrollTo(0,0) }
-  const signOut=async()=>{ await logout(); setMode('landing'); setPage('dashboard') }
+  const start = () => {if(isAuthenticated()){setMode('app');setPage('website')}else setMode('signup');window.scrollTo(0,0)}
+  const authSuccess=async()=>{const invite=localStorage.getItem('cobest-pending-invite');if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/')}catch{}}setMode('app');setPage('website');window.scrollTo(0,0)}
+  const signOut=async()=>{ await logout(); setMode('landing'); setPage('website') }
   const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
-  const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('onboarding');window.location.reload()}}catch(err){alert(err.message)}}
+  const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('app');setPage('website');window.location.reload()}}catch(err){alert(err.message)}}
   const removeSite=async id=>{if(!window.confirm('Delete this site and its site-scoped data? This cannot be undone.'))return;try{await deleteSite(id);if(String(id)===String(getActiveSiteId()))setActiveSiteId('');window.location.reload()}catch(err){alert(err.message)}}
   const addProduct=async(draft)=>{
     const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
@@ -1296,6 +1300,35 @@ export default function App() {
     return created
   }
 
+  // Choose from the actual visual-builder templates, not the legacy store themes.
+  const chooseWebsiteTemplate=async template=>{
+    if(!cloudReady)throw new Error('Your website is still loading. Please try again.')
+    let activeSite=workspace
+    if(!activeSite?.id){
+      activeSite=await createSite({site_name:'My website'})
+      if(!activeSite?.id)throw new Error('Could not create your website. Please try again.')
+      setWorkspace(activeSite)
+      setSites(prev=>prev.some(s=>s.id===activeSite.id)?prev:[...prev,activeSite])
+    }
+    const projectId=String(activeSite.id)
+    let cached=null
+    try{cached=await loadProject(projectId)}catch{}
+    if((safeEditor.visualBuilderProject?.pages?.length||cached?.pages?.length)&&
+      !window.confirm('Switching templates will replace this website’s current design. Continue?'))return
+    const next=template.build()
+    next.id=projectId
+    next.name=activeSite.site_name||'My website'
+    const previous=safeEditor.visualBuilderProject||cached
+    next.version=Math.max(previous?.version||0,next.version||0)+1
+    const previousTime=Date.parse(previous?.updatedAt||'')
+    next.updatedAt=new Date(Math.max(Date.now(),Number.isFinite(previousTime)?previousTime+1:0)).toISOString()
+    const saved=await saveWorkspace({editor:{visualBuilderProject:next}})
+    if(!saved?.id)throw new Error('Could not save your template. Please try again.')
+    setWorkspace(prev=>({...prev,...saved}))
+    setEditor(prev=>({...prev,visualBuilderProject:next}))
+    setPage('editor')
+  }
+
   const persistVisualProject=async project=>{
     setEditor(prev=>({...prev,visualBuilderProject:project}))
     if(!isAuthenticated())return null
@@ -1330,8 +1363,9 @@ export default function App() {
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
   if(mode==='reset-request') return <ResetRequest onBack={()=>{window.history.replaceState({},document.title,'/');setMode('login')}}/>
   if(mode==='recovery') return <Recovery onDone={()=>{setMode('login');window.history.replaceState({},document.title,'/')}}/>
-  if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('landing')}/>
+  if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('app')}/>
   let content = null
+  if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
   if(page==='dashboard') content=<Dashboard data={safeOnboarding} products={products} customers={customers} orders={orders} setPage={setPage}/>
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
