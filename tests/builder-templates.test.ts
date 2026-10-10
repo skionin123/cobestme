@@ -14,9 +14,13 @@ describe('builder templates',()=>{
       const project=template.build()
       const sections=project.pages[0].root.children
       expect(sections.length).toBeGreaterThanOrEqual(4)
-      expect(sections.length).toBeLessThanOrEqual(5)
+      expect(sections.length).toBeLessThanOrEqual(6)
       expect(sections[0].type).toBe('navbar')
       expect(sections.at(-1)?.type).toBe('footer')
+      const hero=sections.find(n=>n.name==='Hero')
+      expect(hero?.children?.[0]?.children?.some(n=>n.name==='Hero eyebrow')).toBe(true)
+      expect(sections.some(n=>n.name==='Features')).toBe(true)
+      expect(sections.some(n=>n.name==='CTA')).toBe(true)
     }
   })
 
