@@ -69,7 +69,7 @@ export function chooseLatestProject(local:BuilderProject|undefined,cloud:Builder
   const localTime=Date.parse(local?.updatedAt||'')
   const cloudTime=Date.parse(cloud.updatedAt||'')
   const localIsNewer=Boolean(
-    local&&Number.isFinite(localTime)&&(!Number.isFinite(cloudTime)||localTime>cloudTime)
+    local&&Number.isFinite(localTime)&&(!Number.isFinite(cloudTime)||localTime>cloudTime||(localTime===cloudTime&&(local.version||0)>(cloud.version||0)))
   )
   return {
     project:localIsNewer?local!:cloud,
