@@ -396,3 +396,11 @@
 .vb-image-empty,.vb-image-tip{font-size:10px;color:#969eae;line-height:1.55;margin:0}
 .vb-image-field{display:flex;flex-direction:column;gap:5px}
 .vb-image-field>span{font-size:10px;color:#c5cbd6}
+
+.vb-publish-notice{position:fixed;right:26px;top:72px;z-index:200;max-width:min(390px,calc(100vw - 36px));display:flex;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid #5873a5;border-radius:10px;background:#242c3d;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:12px 14px;color:#eef4ff}
+.vb-publish-notice strong{flex:1 1 170px;font-size:11px;line-height:1.5;font-weight:650}
+.vb-publish-notice a{font-size:11px;color:#c5c1ff;font-weight:750;text-decoration:underline}
+.vb-publish-notice>a:hover{color:white}
+.vb-publish-notice button{font-size:18px;line-height:1;color:#c4cad7;background:transparent;border:0;padding:2px 5px}
+.vb-publish-notice.is-error{border-color:#914b5d;background:#3b2730}
+.vb-publish:disabled{opacity:.6;cursor:wait}
