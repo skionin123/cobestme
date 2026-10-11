@@ -1,5 +1,6 @@
 import {describe,it,expect} from 'vitest'
-import {stripeOrderTransition} from '../server-payment-safety.mjs'
+import {createHmac} from 'node:crypto'
+import {stripeOrderTransition,verifyStripeSignature} from '../server-payment-safety.mjs'
 
 const event=(type:string,payment_status:string,metadata:Record<string,string>={order_id:'123'})=>({
  type,data:{object:{id:'cs_123',mode:'payment',payment_status,metadata}}
@@ -20,4 +21,25 @@ describe('stripe signed event settlement rules',()=>{
   expect(stripeOrderTransition(event('checkout.session.completed','paid',{}))).toBe(null)
   expect(stripeOrderTransition(event('checkout.session.completed','paid',{order_id:'NaN'}))).toBe(null)
  })
+})
+
+describe('Stripe raw-body webhook authentication',()=>{
+  const secret='whsec_test_only'
+  const raw=Buffer.from('{"id":"evt_test","type":"checkout.session.completed"}')
+  const ts=1700000000
+  const hash=createHmac('sha256',secret).update(`${ts}.`).update(raw).digest('hex')
+  it('accepts exact raw body with a correct v1 signature',()=>{
+    expect(verifyStripeSignature(raw,`t=${ts},v1=${hash}`,secret,ts*1000)).toBe(true)
+  })
+  it('supports rotated signatures without accepting malformed ones',()=>{
+    const multiple=`t=${ts},v1=${'0'.repeat(64)},v1=${hash}`
+    expect(verifyStripeSignature(raw,multiple,secret,ts*1000)).toBe(true)
+    expect(verifyStripeSignature(raw,`t=${ts},v1=invalid`,secret,ts*1000)).toBe(false)
+  })
+  it('rejects altered content, expired signatures and missing configuration',()=>{
+    expect(verifyStripeSignature(Buffer.from('changed'),`t=${ts},v1=${hash}`,secret,ts*1000)).toBe(false)
+    expect(verifyStripeSignature(raw,`t=${ts},v1=${hash}`,secret,(ts+301)*1000)).toBe(false)
+    expect(verifyStripeSignature(raw,`t=${ts},v1=${hash}`,'',ts*1000)).toBe(false)
+    expect(verifyStripeSignature(raw,`t=1e9,v1=${hash}`,secret,ts*1000)).toBe(false)
+  })
 })
