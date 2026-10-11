@@ -9,7 +9,10 @@ export function productSupplier(product) {
   const key=String(value).slice('supplier:'.length).trim().toLowerCase()
   if(key==='doba')return {key,name:'Doba'}
   if(key==='cj')return {key,name:'CJ Dropshipping'}
-  return {key:'unassigned',name:'Not assigned'}
+  // Custom supplier names can be assigned manually without introducing
+  // database schema changes or external supplier integrations.
+  const label=key.replace(/[-_]+/g,' ').replace(/\b\w/g,letter=>letter.toUpperCase()).slice(0,80)
+  return {key,name:label||'Not assigned'}
 }
 
 export function orderSupplierItems(items=[],products=[]) {
