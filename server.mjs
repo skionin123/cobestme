@@ -331,6 +331,9 @@ function validateResourceMutation(table, body, method='POST') {
       next.usage_limit = value
     }
   }
+  if (table === 'orders' && method === 'POST' && next.payment_status && next.payment_status !== 'Pending') {
+    return { error: 'New orders must start Pending until payment is verified by the provider.' }
+  }
   if (table === 'orders' && method === 'PATCH') {
     // Payment state is provider-owned. Merchant updates may only change fulfillment details.
     if (Object.hasOwn(next,'payment_status')) return { error: 'Payment status cannot be manually changed. Confirm it with the payment provider.' }
