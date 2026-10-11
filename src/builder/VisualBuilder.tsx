@@ -228,6 +228,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
+  const [publishNotice,setPublishNotice]=useState<{url?:string;message:string;error?:boolean}|null>(null)
+  const [publishing,setPublishing]=useState(false)
   const copiedNodeRef=useRef<{node:BuilderNode;styles:StyleMap}|null>(null)
   const saveQueueRef=useRef(createSaveQueue())
 
@@ -533,18 +535,19 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   }
 
   const publish=async()=>{
-    const saved=await manualSave()
-    if(!saved)return
-    if(!onPublish){
-      alert('Project saved locally. Connect a publishing provider to publish this site.')
-      return
-    }
+    if(publishing)return
+    setPublishNotice(null)
+    setPublishing(true)
     try{
-      const result=await onPublish(project)
-      alert(result?.store_url?`Published successfully: ${result.store_url}`:'Published successfully.')
+      const saved=await manualSave()
+      if(!saved)return
+      if(!onPublish)throw new Error('Publishing is not available for this website.')
+      const result=await onPublish(clone(useBuilderStore.getState().project))
+      if(!result?.ok||!result?.store_url)throw new Error('The live website was not confirmed. Please try again.')
+      setPublishNotice({message:'Website published successfully.',url:new URL(result.store_url,window.location.origin).href})
     }catch(error:any){
-      alert(error?.message||'Publishing failed. Your saved project was not lost.')
-    }
+      setPublishNotice({error:true,message:error?.message||'Publishing failed. Your saved design is safe.'})
+    }finally{setPublishing(false)}
   }
 
   const breakpoints:[BreakpointId,string,LucideIcon][]=[
@@ -591,7 +594,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
-          {onPublish&&<button className="vb-publish" onClick={publish}>Publish</button>}
+          {onPublish&&<button className="vb-publish" onClick={publish} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
       </header>
       <div className="vb-workspace">
@@ -638,6 +641,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
+      {publishNotice&&<div className={'vb-publish-notice '+(publishNotice.error?'is-error':'')} role={publishNotice.error?'alert':'status'}>
+        <strong>{publishNotice.message}</strong>
+        {publishNotice.url&&<a href={publishNotice.url} target="_blank" rel="noopener noreferrer">Open live website ↗</a>}
+        <button type="button" aria-label="Dismiss publishing notification" onClick={()=>setPublishNotice(null)}>×</button>
+      </div>}
       {context&&<ContextMenu {...context} onClose={()=>setContext(null)}
         onSettings={()=>setRightTab('settings')} onStyle={()=>setRightTab('style')}
         onNavigator={()=>setLeftTab('navigator')}
