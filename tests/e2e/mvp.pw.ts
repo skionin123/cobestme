@@ -66,7 +66,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     await heading.click()
     await expect(heading).toHaveClass(/builder-selected/)
     await page.getByRole('button',{name:'Advanced styling'}).click()
-    const fontSize=page.locator('.vb-right-content label',{hasText:'Font size'}).first()
+    const fontSize=page.locator('.vb-inspector-advanced label',{hasText:'Font size'}).first()
     await fontSize.locator('input').fill('52')
 
     const textColor=page.locator('.vb-right-content label',{hasText:'Text color'}).first().locator('input[type="color"]')
