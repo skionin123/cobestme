@@ -18,11 +18,11 @@ test('copy, paste, duplicate, nudge, undo, delete and save work with canvas keyb
   expect(insertedId).not.toBe('hero-title-home')
 
   await page.keyboard.press('ArrowRight')
-  await expect(selected).toHaveCSS('translate','1px 0px')
+  await expect(selected).toHaveCSS('translate','1px')
   await page.keyboard.press('Control+z')
   await expect(selected).toHaveCSS('translate','none')
   await page.keyboard.press('Control+y')
-  await expect(selected).toHaveCSS('translate','1px 0px')
+  await expect(selected).toHaveCSS('translate','1px')
 
   await page.keyboard.press('Control+d')
   await expect(headings).toHaveCount(before+2)
