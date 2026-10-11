@@ -8,6 +8,7 @@ import {
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 import { getStoreReadiness } from './storeReadiness.js'
+import SuppliersManager from './SuppliersManager.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
 const StoreOverview = React.lazy(()=>import('./StoreOverview'))
@@ -573,7 +574,7 @@ function Review({data}) {
 const navGroups = [
   {label:'',items:[['dashboard','Overview',LayoutDashboard]]},
   {label:'Sales',items:[['orders','Orders',ShoppingBag],['customers','Customers',Users],['sales-report','Sales report',BarChart3]]},
-  {label:'Catalog',items:[['products','Products',Package],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
+  {label:'Catalog',items:[['products','Products',Package],['suppliers','Suppliers',BriefcaseBusiness],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
   {label:'Online store',items:[['website','Website themes',Palette],['editor','Website editor',Pencil],['settings','Publish & domain',Settings]]},
   {label:'Workspace',items:[['sites','My websites',Store]]},
 ]
@@ -1369,6 +1370,7 @@ export default function App() {
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
+  if(page==='suppliers') content=<SuppliersManager products={products} setProducts={setProducts}/>
   if(page==='taxonomy') content=<React.Suspense fallback={<div className="page-wrap">Loading categories…</div>}><CatalogCategories items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/></React.Suspense>
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='themes') content=<ThemeLibrary editor={safeEditor} setEditor={setEditor} setPage={setPage}/>
