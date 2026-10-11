@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 
 const frame=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
 async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame>['locator']>,dx:number,dy:number){
+  // The selected canvas iframe rerenders after each edit. Wait until its
+  // contextual handles are mounted before measuring their screen position.
+  await expect(selector).toBeVisible()
   const box=await selector.boundingBox()
   expect(box).toBeTruthy()
   await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2)
