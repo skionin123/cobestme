@@ -1345,8 +1345,9 @@ export default function App() {
   }
 
   const publishVisualProject=async project=>{
+    if(!isAuthenticated())throw new Error('Please sign in to publish your website.')
+    if(!workspace?.id)throw new Error('Create or select a website before publishing.')
     await persistVisualProject(project)
-    if(!isAuthenticated())return {ok:true,local:true}
     const settings={...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}
     const snapshot={
       onboarding:safeOnboarding,
@@ -1361,7 +1362,9 @@ export default function App() {
       pages:project.pages.filter(p=>!p.isCollectionTemplate).map(p=>p.name),
       settings
     }
-    return publishStore({slug:workspace?.slug,custom_domain:workspace?.custom_domain,snapshot})
+    const result=await publishStore({slug:workspace?.slug,custom_domain:workspace?.custom_domain,snapshot})
+    if(!result?.ok||!result?.store_url)throw new Error('Publishing was not confirmed. Check your site settings and try again.')
+    return result
   }
 
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>

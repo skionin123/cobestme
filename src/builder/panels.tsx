@@ -425,6 +425,84 @@ function StyleGroup({title,children}:{title:string;children:React.ReactNode}){
   return <section className={panelSection+" vb-style-group"}><span className={label}>{title}</span><div className="space-y-3">{children}</div></section>
 }
 
+/** Image tools live beside the selection, not hidden behind the Assets tab. */
+function ImageSettings({node}:{node:BuilderNode}){
+  const assets=useBuilderStore(s=>s.project.assets)
+  const mutate=useBuilderStore(s=>s.mutate)
+  const addAsset=useBuilderStore(s=>s.addAsset)
+  const fileRef=useRef<HTMLInputElement>(null)
+  const [uploading,setUploading]=useState(false)
+  const [error,setError]=useState('')
+  const select=(src:string,alt?:string)=>{
+    mutate('Change image',draft=>{
+      const page=draft.pages.find(p=>p.id===draft.activePageId)||draft.pages[0]
+      const target=findNode(page.root,node.id)
+      if(!target)return
+      target.attributes.src=src
+      if(alt!==undefined)target.attributes.alt=alt
+    })
+  }
+  const upload=async(file?:File)=>{
+    if(!file)return
+    setError('')
+    if(!file.type.startsWith('image/')){setError('Choose an image file.');return}
+    if(file.size>10*1024*1024){setError('Use an image smaller than 10 MB.');return}
+    if(!isAuthenticated()&&file.size>1024*1024){
+      setError('Local images must be under 1 MB. Sign in to upload larger files.');return
+    }
+    setUploading(true)
+    try{
+      let asset:BuilderAsset
+      if(isAuthenticated()){
+        const uploaded=await uploadMedia(file)
+        if(!uploaded?.url)throw new Error('Upload did not return an image URL.')
+        asset={id:String(uploaded.id||uid('asset')),name:uploaded.name||file.name,
+          mimeType:uploaded.mime_type||file.type,url:uploaded.url,
+          alt:file.name.replace(/\.[^.]+$/,''),createdAt:uploaded.created_at||new Date().toISOString()}
+      }else{
+        const url=await new Promise<string>((resolve,reject)=>{
+          const reader=new FileReader()
+          reader.onload=()=>resolve(String(reader.result))
+          reader.onerror=()=>reject(reader.error)
+          reader.readAsDataURL(file)
+        })
+        asset={id:uid('asset'),name:file.name,mimeType:file.type,url,
+          alt:file.name.replace(/\.[^.]+$/,''),createdAt:new Date().toISOString()}
+      }
+      addAsset(asset)
+      select(asset.url,asset.alt)
+    }catch(e:any){setError(e?.message||'Image upload failed.')}
+    finally{setUploading(false);if(fileRef.current)fileRef.current.value=''}
+  }
+  return <section className="vb-image-settings" aria-label="Image settings">
+    <div className="vb-image-settings-heading"><strong>Image</strong><span>Replace & edit</span></div>
+    <div className="vb-image-preview">{node.attributes.src
+      ?<img src={node.attributes.src} alt={node.attributes.alt||'Selected image preview'}/>
+      :<div>No image selected</div>}</div>
+    <input ref={fileRef} className="sr-only" aria-label="Upload replacement image"
+      type="file" accept="image/*" onChange={e=>void upload(e.target.files?.[0])}/>
+    <button type="button" className="vb-image-upload" onClick={()=>fileRef.current?.click()}
+      disabled={uploading}>{uploading?'Uploading image…':'Upload / Replace image'}</button>
+    {error&&<p role="alert" className="vb-image-error">{error}</p>}
+    <label className={label}>Choose from library ({assets.length})</label>
+    {assets.length?<div className="vb-image-library">
+      {assets.map(asset=><button type="button" key={asset.id}
+        className={node.attributes.src===asset.url?'active':''} title={asset.name}
+        aria-label={'Use image '+asset.name} aria-pressed={node.attributes.src===asset.url}
+        onClick={()=>select(asset.url,asset.alt||asset.name)}>
+        <img src={asset.url} alt=""/><span>{asset.name}</span>
+      </button>)}
+    </div>:<p className="vb-image-empty">No images uploaded yet. Upload an image above or paste a URL below.</p>}
+    <label className="vb-image-field"><span>Image URL</span><input className={control}
+      aria-label="Image URL" value={node.attributes.src||''}
+      onChange={e=>select(e.target.value)}/></label>
+    <label className="vb-image-field"><span>Alt text (accessibility)</span><input className={control}
+      aria-label="Image alt text" value={node.attributes.alt||''}
+      onChange={e=>select(node.attributes.src||'',e.target.value)}/></label>
+    <p className="vb-image-tip">Click an image in the library to replace the selected image. Drag its borders on the canvas to resize.</p>
+  </section>
+}
+
 export function SettingsPanel(){
   const project=useBuilderStore(s=>s.project)
   const selectedId=useBuilderStore(s=>s.selectedNodeId)
@@ -439,7 +517,7 @@ export function SettingsPanel(){
     <StyleGroup title="Element"><label><span className={label}>Name</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label><label><span className={label}>ID</span><input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}/></label>{node.type==='heading'&&<label><span className={label}>Heading level</span><select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select></label>}</StyleGroup>
     {['heading','paragraph','button','link'].includes(node.type)&&<StyleGroup title="Content"><label><span className={label}>Text</span>{node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:<input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}</label></StyleGroup>}
     {linkTypes.includes(node.type)&&<StyleGroup title="Link"><label><span className={label}>Destination</span><input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)} placeholder="URL, /page, #section, mailto:, tel:"/></label><label className="flex items-center gap-2 text-[10px] text-zinc-400"><input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in new tab</label></StyleGroup>}
-    {node.type==='image'&&<StyleGroup title="Image"><label><span className={label}>Asset library</span><select className={control} value={project.assets.some(a=>a.url===node.attributes.src)?node.attributes.src:''} onChange={e=>{const asset=project.assets.find(a=>a.url===e.target.value);if(asset){updateAttr(node.id,'src',asset.url);if(!node.attributes.alt)updateAttr(node.id,'alt',asset.alt||asset.name)}}}><option value="">Choose uploaded image</option>{project.assets.map(asset=><option value={asset.url} key={asset.id}>{asset.name}</option>)}</select></label><label><span className={label}>Source URL</span><input className={control} value={node.attributes.src||''} onChange={e=>updateAttr(node.id,'src',e.target.value)}/></label><label><span className={label}>Alt text</span><input className={control} value={node.attributes.alt||''} onChange={e=>updateAttr(node.id,'alt',e.target.value)}/></label></StyleGroup>}
+    {node.type==='image'&&<ImageSettings node={node}/>}
     {node.type==='form'&&<StyleGroup title="Form"><label><span className={label}>Action</span><input className={control} value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)}/></label><label><span className={label}>Redirect after success</span><input className={control} value={node.attributes['data-redirect']||''} onChange={e=>updateAttr(node.id,'data-redirect',e.target.value)}/></label></StyleGroup>}
     {node.type==='collectionList'&&<StyleGroup title="CMS binding"><label><span className={label}>Collection</span><select className={control} value={node.attributes.collectionId||''} onChange={e=>updateAttr(node.id,'collectionId',e.target.value)}><option value="">Select collection</option>{project.collections.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label></StyleGroup>}
 

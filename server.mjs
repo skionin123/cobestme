@@ -786,11 +786,14 @@ async function handleApi(req, res, url) {
       body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
-    await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
+    const publishedWorkspace=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'PATCH',
-      headers: apiHeaders(token, { Prefer: 'return=minimal' }),
+      headers: apiHeaders(token, { Prefer: 'return=representation' }),
       body: JSON.stringify({ slug, custom_domain: customDomain, is_published: true, published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     })
+    if(!publishedWorkspace.ok||!Array.isArray(publishedWorkspace.data)||!publishedWorkspace.data.length){
+      return sendJson(res, 502, { error: 'The published design was stored, but the site status could not be confirmed. Please try publishing again.' })
+    }
     return sendJson(res, 200, { ok: true, slug, custom_domain: customDomain, store_url: `/store/${slug}` })
   }
 

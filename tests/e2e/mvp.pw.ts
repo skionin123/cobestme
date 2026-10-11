@@ -134,8 +134,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     image=frame.locator('[data-builder-type="image"]').first()
     await image.click()
     await page.getByRole('button',{name:'Settings',exact:true}).click()
-    const assetSelect=page.locator('.vb-right-content label',{hasText:'Asset library'}).locator('select')
-    await assetSelect.selectOption({label:'hero.png'})
+    await page.getByRole('button',{name:'Use image hero.png'}).click()
     await expect(frame.locator('[data-builder-type="image"]').first()).toHaveAttribute('src',/data:image\/png;base64/)
 
     await page.getByRole('button',{name:'Save',exact:true}).click()

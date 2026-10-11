@@ -60,11 +60,37 @@ test('real application shell saves each site and reopens its own builder documen
   await page.getByRole('button',{name:'Publish',exact:true}).click()
   await expect.poll(()=>published.length).toBe(1)
   expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
+  const liveLink=page.getByRole('link',{name:/Open live website/})
+  await expect(liveLink).toHaveAttribute('href',/\/store\/alpha-studio$/)
+
+  // Public pages use the published snapshot, not later unsent draft edits.
+  const live=await page.context().newPage()
+  await live.route('**/api/public/**',route=>{
+    const path=new URL(route.request().url()).pathname
+    if(path==='/api/public/store/alpha-studio'){
+      return route.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({slug:'alpha-studio',...published[0].snapshot})})
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'})
+  })
+  await live.goto('/store/alpha-studio')
+  await expect(live.frameLocator('iframe.visual-published-frame').locator('body'))
+    .toContainText('Your business deserves a strong first impression.')
+  await live.close()
+
+  await projectName.fill('Alpha Draft Only')
+  await expect(projectName).toHaveValue('Alpha Draft Only')
+  await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect.poll(()=>workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Draft Only')
+  expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
+  await page.getByRole('button',{name:'Publish',exact:true}).click()
+  await expect.poll(()=>published.length).toBe(2)
+  expect(published[1].snapshot.visual_project.name).toBe('Alpha Draft Only')
 
   await page.reload()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
-  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
+  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
 
   // A site switch loads the other workspace rather than the previous browser cache.
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','42'))
@@ -75,7 +101,7 @@ test('real application shell saves each site and reopens its own builder documen
   await page.getByRole('textbox',{name:'Project name'}).fill('Beta Website')
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect.poll(()=>workspaces.get(42)?.editor?.visualBuilderProject?.name).toBe('Beta Website')
-  expect(workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Website')
+  expect(workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Draft Only')
   expect(writes).toContain(41)
   expect(writes).toContain(42)
 
@@ -83,10 +109,10 @@ test('real application shell saves each site and reopens its own builder documen
   await page.reload()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
-  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
+  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
   await expect(page.getByRole('button',{name:'Back to dashboard'})).toBeVisible()
   await page.getByRole('button',{name:'Back to dashboard'}).click()
   await expect(page.getByRole('heading',{name:'Store overview'})).toBeVisible()
   await page.locator('.app-nav').getByRole('button',{name:'Website editor',exact:true}).click()
-  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Website')
+  await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
 })

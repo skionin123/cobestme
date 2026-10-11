@@ -366,3 +366,41 @@
 /* The selection breadcrumb may never expand the grid track or canvas stage. */
 .vb-selection-path{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .vb-stage .vb-canvas-drop{width:100%;min-width:0;max-width:100%}
+
+/* Element context tools: compact like a professional site designer. */
+.vb-context-menu{position:fixed;z-index:9999;width:244px;max-width:calc(100vw - 12px);max-height:calc(100vh - 16px);overflow:auto;background:#20232b;border:1px solid #474c5b;border-radius:10px;box-shadow:0 16px 50px rgba(0,0,0,.48);padding:5px;color:#e8eaf2}
+.vb-context-title{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 10px 9px;border-bottom:1px solid #333844;margin:0 0 4px}
+.vb-context-title span{font-size:11px;font-weight:750;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vb-context-title small{font-size:10px;color:#a1a9bd;text-transform:capitalize}
+.vb-context-option{display:block;width:100%;padding:9px 10px;border:0;border-radius:6px;text-align:left;background:transparent;color:#e3e6ed;font-size:11px;line-height:1.3;cursor:pointer}
+.vb-context-option:hover,.vb-context-option:focus-visible{background:#383f50;color:white;outline:0}
+.vb-context-option:disabled{opacity:.35;cursor:not-allowed}
+.vb-context-option.danger{color:#ffb7bd}
+.vb-context-option.danger:hover{background:#56313b}
+.vb-context-separator{height:1px;background:#373c47;margin:4px 6px}
+.vb-image-settings{padding:15px 14px 18px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid #343843}
+.vb-image-settings-heading{display:flex;align-items:center;justify-content:space-between}
+.vb-image-settings-heading strong{font-size:12px;color:#f1f2f6}
+.vb-image-settings-heading span{font-size:10px;color:#949bad}
+.vb-image-preview{width:100%;height:155px;border:1px solid #3d4350;border-radius:8px;overflow:hidden;background:#252a33;display:grid;place-items:center;color:#8d96a9;font-size:11px}
+.vb-image-preview img{width:100%;height:100%;object-fit:contain}
+.vb-image-upload{width:100%;background:#594de0;color:white;padding:10px 12px;border-radius:7px;font-size:11px;font-weight:750}
+.vb-image-upload:hover{background:#7065f3}
+.vb-image-upload:disabled{opacity:.6;cursor:wait}
+.vb-image-library{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-height:220px;overflow-y:auto}
+.vb-image-library button{position:relative;border:2px solid #393f4e;border-radius:7px;background:#252a33;overflow:hidden;padding:0;min-width:0}
+.vb-image-library button.active,.vb-image-library button:hover{border-color:#897fff}
+.vb-image-library img{width:100%;height:68px;object-fit:cover}
+.vb-image-library span{display:block;padding:4px;color:#b7becd;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vb-image-error{font-size:10px;color:#ffafb3;line-height:1.4}
+.vb-image-empty,.vb-image-tip{font-size:10px;color:#969eae;line-height:1.55;margin:0}
+.vb-image-field{display:flex;flex-direction:column;gap:5px}
+.vb-image-field>span{font-size:10px;color:#c5cbd6}
+
+.vb-publish-notice{position:fixed;right:26px;top:72px;z-index:200;max-width:min(390px,calc(100vw - 36px));display:flex;align-items:center;flex-wrap:wrap;gap:10px;border:1px solid #5873a5;border-radius:10px;background:#242c3d;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:12px 14px;color:#eef4ff}
+.vb-publish-notice strong{flex:1 1 170px;font-size:11px;line-height:1.5;font-weight:650}
+.vb-publish-notice a{font-size:11px;color:#c5c1ff;font-weight:750;text-decoration:underline}
+.vb-publish-notice>a:hover{color:white}
+.vb-publish-notice button{font-size:18px;line-height:1;color:#c4cad7;background:transparent;border:0;padding:2px 5px}
+.vb-publish-notice.is-error{border-color:#914b5d;background:#3b2730}
+.vb-publish:disabled{opacity:.6;cursor:wait}
