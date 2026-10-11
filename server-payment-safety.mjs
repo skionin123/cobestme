@@ -42,3 +42,28 @@ export function stripeOrderTransition(event) {
   }
   return null
 }
+
+/**
+ * PayPal capture responses must report a completed capture, not merely a
+ * completed approval/redirect. The supplier order's DB amount must still be
+ * reconciled separately before enabling live multi-merchant payments.
+ */
+export function paypalCapturedOrder(data,requestedOrderId) {
+  if(!data||data.status!=='COMPLETED'||!data.id||String(data.id)!==String(requestedOrderId))return null
+  const units=Array.isArray(data.purchase_units)?data.purchase_units:[]
+  if(units.length!==1)return null
+  const unit=units[0]
+  const orderId=Number(unit?.custom_id)
+  if(!Number.isSafeInteger(orderId)||orderId<1)return null
+  const captures=Array.isArray(unit?.payments?.captures)?unit.payments.captures:[]
+  if(captures.length!==1||captures[0]?.status!=='COMPLETED'||!captures[0]?.id)return null
+  const amount=captures[0]?.amount
+  if(!amount||!/^[A-Z]{3}$/.test(String(amount.currency_code||'')))return null
+  const paid=Number(amount.value)
+  if(!Number.isFinite(paid)||paid<=0)return null
+  if(unit.amount){
+    if(unit.amount.currency_code!==amount.currency_code)return null
+    if(Math.abs(Number(unit.amount.value)-paid)>0.001)return null
+  }
+  return {orderId,status:'Paid',provider:'paypal',reference:data.id,captureId:captures[0].id,amount:paid,currency:amount.currency_code}
+}
