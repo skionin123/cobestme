@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest'
 import {createHmac} from 'node:crypto'
-import {stripeOrderTransition,verifyStripeSignature} from '../server-payment-safety.mjs'
+import {stripeOrderTransition,verifyStripeSignature,paypalCapturedOrder} from '../server-payment-safety.mjs'
 
 const event=(type:string,payment_status:string,metadata:Record<string,string>={order_id:'123'})=>({
  type,data:{object:{id:'cs_123',mode:'payment',payment_status,metadata}}
@@ -41,5 +41,25 @@ describe('Stripe raw-body webhook authentication',()=>{
     expect(verifyStripeSignature(raw,`t=${ts},v1=${hash}`,secret,(ts+301)*1000)).toBe(false)
     expect(verifyStripeSignature(raw,`t=${ts},v1=${hash}`,'',ts*1000)).toBe(false)
     expect(verifyStripeSignature(raw,`t=1e9,v1=${hash}`,secret,ts*1000)).toBe(false)
+  })
+})
+
+describe('PayPal capture settlement rules',()=>{
+  const valid={
+    id:'PAYPAL-ORDER-1',status:'COMPLETED',
+    purchase_units:[{custom_id:'52',amount:{currency_code:'PHP',value:'125.00'},
+      payments:{captures:[{id:'CAPTURE-1',status:'COMPLETED',amount:{currency_code:'PHP',value:'125.00'}}]}}]
+  }
+  it('confirms a completed matching order and captured amount',()=>{
+    expect(paypalCapturedOrder(valid,'PAYPAL-ORDER-1')).toMatchObject({
+      orderId:52,status:'Paid',amount:125,currency:'PHP'
+    })
+  })
+  it('does not settle approved-only, mismatched, or incomplete captures',()=>{
+    expect(paypalCapturedOrder({...valid,status:'APPROVED'},valid.id)).toBe(null)
+    expect(paypalCapturedOrder(valid,'WRONG-ID')).toBe(null)
+    expect(paypalCapturedOrder({...valid,purchase_units:[{...valid.purchase_units[0],payments:{captures:[{status:'PENDING',id:'CAP'}]}}]},valid.id)).toBe(null)
+    expect(paypalCapturedOrder({...valid,purchase_units:[{...valid.purchase_units[0],amount:{currency_code:'PHP',value:'200.00'}}]},valid.id)).toBe(null)
+    expect(paypalCapturedOrder({...valid,purchase_units:[{...valid.purchase_units[0],custom_id:'not-an-id'}]},valid.id)).toBe(null)
   })
 })
