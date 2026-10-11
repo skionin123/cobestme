@@ -31,13 +31,13 @@ describe('supplier-aware product import', () => {
   it('does not confuse supplier collisions or variant SKUs with products', () => {
     const product={id:10,sku:'ROOT',name:'Shirt',price:300,inventory:5,
       tags:['supplier:doba'],variants:[{sku:'ROOT-BLACK',title:'Black',inventory:3}]}
-    const supplierCollision=planProductCsvImport('SKU,Quantity\\nROOT,2', [product], 'CJ')
+    const supplierCollision=planProductCsvImport('SKU,Quantity\nROOT,2', [product], 'CJ')
     expect(supplierCollision.hasErrors).toBe(true)
     expect(supplierCollision.rows[0].message).toMatch(/another supplier/)
-    const variantCollision=planProductCsvImport('SKU,Name,Price\\nROOT-BLACK,Variant,99', [product], 'Doba')
+    const variantCollision=planProductCsvImport('SKU,Name,Price\nROOT-BLACK,Variant,99', [product], 'Doba')
     expect(variantCollision.hasErrors).toBe(true)
     expect(variantCollision.rows[0].message).toMatch(/variant/)
-    const valid=planProductCsvImport('SKU,Quantity\\nROOT,2',[product],'Doba')
+    const valid=planProductCsvImport('SKU,Quantity\nROOT,2',[product],'Doba')
     expect(valid.counts.update).toBe(1)
   })
   it('handles empty unchanged updates and enforces safety limits', () => {
