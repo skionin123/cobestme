@@ -471,7 +471,7 @@ async function handlePublicApi(req, res, url) {
 
   if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
     if(!canPayPalCommerce())return sendJson(res,503,{error:'PayPal checkout is not available.'})
-    if(!body?.paypal_order_id||!^[A-Z0-9-]{8,50}$/i.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'A valid PayPal order ID is required.'})
+    if(!body?.paypal_order_id||!/^[A-Z0-9-]{8,50}$/i.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'A valid PayPal order ID is required.'})
     try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:data.verified,status:data.status})}
     catch(error){return sendJson(res,502,{error:error.message})}
   }
