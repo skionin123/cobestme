@@ -94,6 +94,15 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     bySku.set(sku, list)
   }
 
+  // A supplier variant SKU must never be imported as a second product.
+  const variantSkus = new Set()
+  for (const product of existingProducts || []) {
+    for (const variant of product.variants || []) {
+      const variantSku = normalizedSku(variant?.sku)
+      if (variantSku) variantSkus.add(variantSku)
+    }
+  }
+
   const incoming = new Set()
   const tag = supplierTag(supplier)
   const rows = records.slice(1).map((record, idx) => {
@@ -109,6 +118,11 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     if (incoming.has(key)) return fail('This SKU appears more than once in the file.')
     incoming.add(key)
     if (current.length > 1) return fail('More than one existing product has this SKU. Resolve it manually first.')
+    if (variantSkus.has(key)) return fail('This SKU belongs to an existing variant. Update it through variant management, not the product importer.')
+    const existingSupplierTag = (existing?.tags || []).find(x => /^supplier:(doba|cj)$/i.test(String(x)))
+    if (existingSupplierTag && tag && String(existingSupplierTag).toLowerCase() !== tag) {
+      return fail('Product is assigned to another supplier. Verify and reassign the supplier before updating this SKU.')
+    }
 
     try {
       const proposed = {}
