@@ -445,3 +445,42 @@
 .vb-launch-confirm:hover:not(:disabled){background:#8275f8}
 .vb-launch-confirm:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:500px){.vb-launch-dialog{max-height:92vh}.vb-launch-header,.vb-launch-summary,.vb-launch-footer{padding-left:16px;padding-right:16px}.vb-launch-issues{padding-left:16px;padding-right:16px}.vb-launch-issue .vb-launch-status{flex-basis:50px}}
+
+/* Resizable Navigator: keep the right-hand inspector stable and let Fit mode
+   reflow the canvas as the Navigator width changes. Last rule wins over older
+   breakpoint-specific fixed widths elsewhere in the stylesheet. */
+.vb-workspace{grid-template-columns:var(--vb-left-width,320px) minmax(0,1fr) 294px}
+@media(max-width:1500px){
+  .vb-workspace{grid-template-columns:var(--vb-left-width,320px) minmax(0,1fr) 282px}
+}
+@media(max-width:1180px){
+  .vb-workspace{grid-template-columns:var(--vb-left-width,320px) minmax(0,1fr) 258px}
+}
+@media(max-width:940px){
+  .vb-workspace{grid-template-columns:var(--vb-left-width,320px) minmax(0,1fr)}
+}
+.vb-left{position:relative;min-width:0}
+.vb-sidebar-resizer{
+  position:absolute;z-index:55;right:-7px;top:0;bottom:0;width:14px;
+  display:flex;justify-content:center;align-items:center;cursor:col-resize;
+  touch-action:none;outline:0;user-select:none;
+}
+.vb-sidebar-resizer::before{
+  content:"";position:absolute;left:6px;top:0;bottom:0;width:2px;
+  background:transparent;transition:background .15s ease
+}
+.vb-sidebar-grip{
+  position:relative;z-index:1;display:block;width:5px;height:44px;border-radius:99px;
+  background:#42485b;border:1px solid #575f73;opacity:.55;
+  transition:background .15s ease,opacity .15s ease,box-shadow .15s ease
+}
+.vb-sidebar-resizer:hover::before,.vb-sidebar-resizer.is-dragging::before,.vb-sidebar-resizer:focus-visible::before{
+  background:rgba(137,125,255,.45)
+}
+.vb-sidebar-resizer:hover .vb-sidebar-grip,.vb-sidebar-resizer.is-dragging .vb-sidebar-grip,
+.vb-sidebar-resizer:focus-visible .vb-sidebar-grip{
+  opacity:1;background:#9d91ff;box-shadow:0 0 0 5px rgba(137,125,255,.12)
+}
+html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;user-select:none!important}
+.vb-navigator-head{gap:12px}
+.vb-nav-name{min-width:0!important}

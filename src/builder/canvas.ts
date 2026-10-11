@@ -49,9 +49,9 @@ html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
 .builder-drop-marker.inside{background:rgba(99,102,241,.10);border:2px solid #6d5dfc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
 html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-geometry-handle,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
-.builder-node-label{display:flex;align-items:center;gap:2px;cursor:default;padding:4px;background:#21252f;border:1px solid #454958;white-space:nowrap;border-radius:8px;box-shadow:0 8px 24px rgba(10,14,25,.2)}
+.builder-node-label{display:flex;align-items:center;gap:2px;cursor:default;padding:4px;background:#21252f;border:1px solid #454958;white-space:nowrap;border-radius:8px;box-shadow:0 8px 24px rgba(10,14,25,.2);pointer-events:none}
 .builder-label-title{font:650 10px/1.25 Inter,Arial,sans-serif;color:#e8eaf4;max-width:115px;overflow:hidden;text-overflow:ellipsis;padding:0 9px 0 7px;border-right:1px solid #474b59}
-.builder-node-label button{display:grid;place-items:center;width:27px;height:26px;font:750 15px/1 Inter,Arial,sans-serif;color:#d8daf0;background:transparent;border:0;border-radius:5px;padding:0;cursor:pointer;touch-action:none}
+.builder-node-label button{display:grid;place-items:center;width:27px;height:26px;font:750 15px/1 Inter,Arial,sans-serif;color:#d8daf0;background:transparent;border:0;border-radius:5px;padding:0;cursor:pointer;touch-action:none;pointer-events:auto}
 .builder-node-label button:hover,.builder-node-label button:focus-visible{background:#3d4254;color:#fff}
 .builder-node-label button.builder-move-button{color:#b8b1ff;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
