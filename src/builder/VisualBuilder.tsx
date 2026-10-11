@@ -443,7 +443,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
 
 
   const manualSave=async()=>{
-    const snapshot=clone(project)
+    // Keyboard events forwarded from the iframe may reach a listener created
+    // before the latest render. Always persist the latest committed revision.
+    const snapshot=clone(useBuilderStore.getState().project)
     setSaveStatus('saving')
     try{
       await queuedPersist(snapshot)
