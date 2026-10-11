@@ -119,15 +119,48 @@ function ExportModal({onClose}:{onClose:()=>void}){
   </div>
 }
 
-function ContextMenu({x,y,nodeId,onClose}:{x:number;y:number;nodeId:string;onClose:()=>void}){
+type ContextMenuProps={
+  x:number;y:number;nodeId:string;onClose:()=>void
+  onSettings:()=>void;onStyle:()=>void;onNavigator:()=>void
+  onCopy:()=>void;onPaste:()=>void;canPaste:boolean
+}
+function ContextMenu({x,y,nodeId,onClose,onSettings,onStyle,onNavigator,onCopy,onPaste,canPaste}:ContextMenuProps){
   const project=useBuilderStore(s=>s.project)
+  const selectNode=useBuilderStore(s=>s.selectNode)
   const duplicate=useBuilderStore(s=>s.duplicateNode)
   const remove=useBuilderStore(s=>s.deleteNode)
+  const ref=useRef<HTMLDivElement>(null)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
-  if(nodeId===page.root.id)return null
-  return <div className="fixed z-[120] w-44 rounded-lg border border-zinc-700 bg-zinc-900 p-1 shadow-2xl" style={{left:x,top:y}} onMouseLeave={onClose}>
-    <button className="w-full rounded px-3 py-2 text-left text-[10px] text-zinc-300 hover:bg-zinc-800" onClick={()=>{duplicate(nodeId);onClose()}}>Duplicate</button>
-    <button className="w-full rounded px-3 py-2 text-left text-[10px] text-red-300 hover:bg-red-500/10" onClick={()=>{remove(nodeId);onClose()}}>Delete</button>
+  const node=findNode(page.root,nodeId)
+  const parent=node?findParent(page.root,nodeId):null
+  const editable=!!node&&nodeId!==page.root.id&&!node.locked
+  useEffect(()=>{
+    const onPointer=(event:MouseEvent)=>{
+      if(ref.current&&!ref.current.contains(event.target as Node))onClose()
+    }
+    const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();onClose()}}
+    document.addEventListener('pointerdown',onPointer)
+    document.addEventListener('keydown',onKey)
+    return()=>{document.removeEventListener('pointerdown',onPointer);document.removeEventListener('keydown',onKey)}
+  },[onClose])
+  if(!node)return null
+  const option=(label:string,act:()=>void,{disabled=false,danger=false}:{disabled?:boolean;danger?:boolean}={})=>
+    <button key={label} role="menuitem" type="button" disabled={disabled}
+      className={'vb-context-option '+(danger?'danger':'')}
+      onClick={()=>{act();onClose()}}>{label}</button>
+  return <div ref={ref} role="menu" aria-label={'Element actions for '+node.name}
+    className="vb-context-menu" style={{left:x,top:y}} onContextMenu={event=>event.preventDefault()}>
+    <div className="vb-context-title"><span>{node.name}</span><small>{node.type}</small></div>
+    {option(node.type==='image'?'Replace image / Settings':'Edit element settings',onSettings)}
+    {option('Edit style',onStyle)}
+    {option('Show in Navigator',onNavigator)}
+    {parent&&option('Select parent: '+parent.name,()=>selectNode(parent.id))}
+    <div className="vb-context-separator"/>
+    {option('Copy element  ·  Ctrl+C',onCopy,{disabled:!editable})}
+    {option('Paste element  ·  Ctrl+V',onPaste,{disabled:!canPaste})}
+    {option('Duplicate  ·  Ctrl+D',()=>duplicate(nodeId),{disabled:!editable})}
+    <div className="vb-context-separator"/>
+    {option('Delete element  ·  Delete',()=>remove(nodeId),{disabled:!editable,danger:true})}
   </div>
 }
 
@@ -385,7 +418,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       }
       if(msg.type==='context'&&msg.id){
         const rect=iframeRef.current?.getBoundingClientRect()
-        setContext({nodeId:msg.id,x:(rect?.left||0)+Number(msg.x||0),y:(rect?.top||0)+Number(msg.y||0)})
+        // The iframe is scaled to Fit. Client coordinates from inside it are
+        // unscaled CSS pixels, so map them to the outer viewport first.
+        const ratio=rect?rect.width/widths[breakpoint]:1
+        const x=(rect?.left||0)+Number(msg.x||0)*ratio
+        const y=(rect?.top||0)+Number(msg.y||0)*ratio
+        setContext({nodeId:msg.id,
+          x:Math.min(Math.max(6,x),Math.max(6,window.innerWidth-254)),
+          y:Math.min(Math.max(6,y),Math.max(6,window.innerHeight-347))})
         selectNode(msg.id)
       }
     }
@@ -598,7 +638,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
-      {context&&<ContextMenu {...context} onClose={()=>setContext(null)}/>}
+      {context&&<ContextMenu {...context} onClose={()=>setContext(null)}
+        onSettings={()=>setRightTab('settings')} onStyle={()=>setRightTab('style')}
+        onNavigator={()=>setLeftTab('navigator')}
+        onCopy={()=>executeShortcut('copy')} onPaste={()=>executeShortcut('paste')}
+        canPaste={Boolean(copiedNodeRef.current)}/>}
+
       {exportOpen&&<ExportModal onClose={()=>setExportOpen(false)}/>}
     </div>
     <DragOverlay>{dragging?<div className="vb-drag-overlay">{dragLabel}</div>:null}</DragOverlay>
