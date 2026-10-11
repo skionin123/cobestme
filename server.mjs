@@ -4,6 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
+import { stripeOrderTransition } from './server-payment-safety.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -523,14 +524,8 @@ async function handleApi(req, res, url) {
     if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
     const event=JSON.parse(raw.toString('utf8'))
     const object=event?.data?.object||{}
-    const orderId=Number(object?.metadata?.order_id)
-    // Checkout completion is not always payment settlement (asynchronous methods can be pending).
-    const isOrderCheckout=object.mode==='payment'&&orderId>0&&!!object.id
-    if(isOrderCheckout&&(
-      (event.type==='checkout.session.completed'&&object.payment_status==='paid')||
-      event.type==='checkout.session.async_payment_succeeded'
-    )) await internalPaymentUpdate(orderId,'Paid','stripe',object.id)
-    if(isOrderCheckout&&(event.type==='checkout.session.expired'||event.type==='checkout.session.async_payment_failed')) await internalPaymentUpdate(orderId,'Failed','stripe',object.id)
+    const transition=stripeOrderTransition(event)
+    if(transition)await internalPaymentUpdate(transition.orderId,transition.status,transition.provider,transition.reference)
 
     if(event.type==='checkout.session.completed'&&object?.metadata?.billing==='subscription'){
       const subscription=object.subscription?await stripeRequest(`/v1/subscriptions/${encodeURIComponent(object.subscription)}`):null
