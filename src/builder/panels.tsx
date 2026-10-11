@@ -6,9 +6,10 @@ import {
 } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
+import { createElement, createPrebuiltSection, mvpElementCatalog, sectionCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
 import { applyNodeGeometry, geometryClass } from './geometry'
+import { DesignControls } from './DesignControls'
 import { setElementSizing, getElementSizingMode, type SizingMode } from './sizing'
 import { canAcceptChildren, findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
@@ -66,7 +67,14 @@ export function AddPanel(){
         if(!items.length)return null
         return <section className="mb-4" key={group.group}><span className={label}>{group.group}</span><div className="vb-palette-grid grid grid-cols-1 gap-2">{items.map(([type,name])=><DraggablePaletteItem key={type} type={type} label={name}/>)}</div></section>
       })}
-
+      <div className="vb-section-library" aria-label="Prebuilt sections">
+        <div className="vb-section-library-head"><strong>Ready-made sections</strong><span>Click or drag to add</span></div>
+        <div className="vb-section-library-grid">
+          {sectionCatalog.filter(x=>!q||x.label.toLowerCase().includes(q)).map(section=>
+            <DraggablePaletteItem key={section.id} type={section.id} label={section.label}
+              note="Prebuilt · editable" section/>)}
+        </div>
+      </div>
     </div>
   </div>
 }
@@ -379,6 +387,7 @@ export function StylePanel(){
       <div className="vb-inspector-name"><strong>{node.name}</strong><span>{node.type}</span></div>
       <p>Edit directly on the page or refine its layout here.</p>
     </section>
+    <DesignControls/>
     {editable&&<section className="vb-inspector-quick">
       <div className="vb-inspector-heading"><strong>Position</strong><span>{breakpoint.replace('mobilePortrait','Mobile').replace('mobileLandscape','Landscape')}</span></div>
       <div className="vb-inspector-grid">
