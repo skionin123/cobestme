@@ -115,6 +115,8 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     const base = {rowNumber, sku, name: get('name') || existing?.name || '', action:'error', message:'', payload:null, existingId:existing?.id || null}
     const fail = message => ({...base, action:'error', message})
     if (!key) return fail('Missing SKU. Add a unique SKU before importing.')
+    if (key.length > 128) return fail('SKU must be 128 characters or less.')
+    if (record.length !== records[0].length) return fail(`Row contains ${record.length} columns but the header contains ${records[0].length}. Review the CSV formatting.`)
     if (incoming.has(key)) return fail('This SKU appears more than once in the file.')
     incoming.add(key)
     if (current.length > 1) return fail('More than one existing product has this SKU. Resolve it manually first.')
@@ -144,7 +146,9 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
         if (value === undefined || value === '') continue
         proposed[field] = numberField(value,field,{whole:field === 'inventory'})
       }
-      if (get('tags')) proposed.tags = parseTags(get('tags'))
+      // Supplier attribution is controlled by the selected import source.
+      // Supplier-looking values inside generic CSV tags cannot silently reassign stock.
+      if (get('tags')) proposed.tags = parseTags(get('tags')).filter(value=>!/^supplier:/i.test(value))
 
       const tags = Array.from(new Set([...(existing?.tags || []), ...(proposed.tags || []), ...(tag ? [tag] : [])]))
       if (tag || proposed.tags) proposed.tags = tags
@@ -157,7 +161,10 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
             : String(value) !== String(previous ?? '')
         }))
         if (!Object.keys(delta).length) return {...base,action:'skip',message:'No changes'}
-        return {...base,action:'update',message:Object.keys(delta).join(', '),payload:delta}
+        return {...base,action:'update',message:Object.entries(delta).map(([field,value])=>{
+          if(['price','inventory','status'].includes(field))return `${field}: ${existing[field]??'—'} → ${value}`
+          return field
+        }).join(' · '),payload:delta}
       }
       if (!proposed.name) return fail('New products need a name.')
       if (!Number.isFinite(proposed.price)) return fail('New products need a valid price.')
