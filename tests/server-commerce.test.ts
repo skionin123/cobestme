@@ -47,6 +47,15 @@ describe('checkout calculation',()=>{
     expect(x.total).toBeCloseTo(210.4)
   })
 
+  it('does not allow checkout to charge the wrong SKU when a product has variants',()=>{
+    const catalog={...store,products:[{id:8,name:'Variant shirt',status:'Active',price:200,inventory:99,
+      variants:[{title:'Blue / S',sku:'BLUE-S',price:250,inventory:1}]}]}
+    const totals=calculateCheckout(catalog,{items:[{product_id:8,quantity:2}]})
+    expect(totals.variantIssues).toEqual([{product_id:8,name:'Variant shirt'}])
+    expect(totals.items).toHaveLength(0)
+    expect(totals.total).toBe(0)
+  })
+
   it('ignores inactive, expired, over-limit, and invalid discounts',()=>{
     const now=Date.parse('2026-10-07T00:00:00Z')
     for(const d of [
