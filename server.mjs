@@ -99,7 +99,8 @@ async function resolveSiteId(req,token,ownerId){
   const requested=Number(req.headers['x-cobest-site-id']||0)
   if(requested){
     const found=await supabaseFetch(`/rest/v1/workspaces?id=eq.${requested}&user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`,{headers:apiHeaders(token)})
-    if(found.ok&&Array.isArray(found.data)&&found.data[0])return Number(found.data[0].id)
+    // Never silently write to a different site when the requested site is not accessible.
+    return found.ok&&Array.isArray(found.data)&&found.data[0]?Number(found.data[0].id):null
   }
   const first=await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id&order=id.asc&limit=1`,{headers:apiHeaders(token)})
   return first.ok&&Array.isArray(first.data)&&first.data[0]?Number(first.data[0].id):null
@@ -327,9 +328,10 @@ function validateResourceMutation(table, body, method='POST') {
     }
   }
   if (table === 'orders' && method === 'PATCH') {
-    const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
+    // Payment state is provider-owned. Merchant updates may only change fulfillment details.
+    if (Object.hasOwn(next,'payment_status')) return { error: 'Payment status cannot be manually changed. Confirm it with the payment provider.' }
+    const allowed = new Set(['fulfillment_status','tracking_number','carrier','notes'])
     for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
-    if (next.payment_status != null && !['Pending','Paid','Refunded','Failed'].includes(next.payment_status)) return { error: 'Invalid payment status.' }
     if (next.fulfillment_status != null && !['Unfulfilled','Processing','Fulfilled','Cancelled'].includes(next.fulfillment_status)) return { error: 'Invalid fulfillment status.' }
     if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
   }
@@ -465,6 +467,10 @@ async function handlePublicApi(req, res, url) {
     if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
+    const requestedProvider=String(body.payment_provider||'').toLowerCase()
+    if (!['','manual','stripe','paypal'].includes(requestedProvider)) return sendJson(res,400,{error:'Unsupported payment provider.'})
+    if (requestedProvider==='stripe'&&!stripeSecret) return sendJson(res,503,{error:'Card payments are not configured for this store.'})
+    if (requestedProvider==='paypal'&&!(paypalClientId&&paypalClientSecret)) return sendJson(res,503,{error:'PayPal is not configured for this store.'})
     const totals = calculateCheckout(store, body)
     if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
@@ -487,7 +493,7 @@ async function handlePublicApi(req, res, url) {
     if(resendApiKey&&body.buyer?.email){
       sendEmail(body.buyer.email,`Order ${order.order_number} received`,`<p>Hi ${escapeHtml(body.buyer.name)},</p><p>We received order <strong>${escapeHtml(order.order_number)}</strong>.</p><p>Total: <strong>${escapeHtml(String(totals.total))} ${escapeHtml(String(store?.settings?.currency||'PHP'))}</strong></p><p>Payment status: Pending.</p>`).catch(()=>{})
     }
-    const provider=String(body.payment_provider||'').toLowerCase()
+    const provider=requestedProvider
     try{
       if(provider==='stripe'&&stripeSecret){
         const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
@@ -518,8 +524,13 @@ async function handleApi(req, res, url) {
     const event=JSON.parse(raw.toString('utf8'))
     const object=event?.data?.object||{}
     const orderId=Number(object?.metadata?.order_id)
-    if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',object.id||'')
-    if(orderId&&event.type==='checkout.session.expired') await internalPaymentUpdate(orderId,'Failed','stripe',object.id||'')
+    // Checkout completion is not always payment settlement (asynchronous methods can be pending).
+    const isOrderCheckout=object.mode==='payment'&&orderId>0&&!!object.id
+    if(isOrderCheckout&&(
+      (event.type==='checkout.session.completed'&&object.payment_status==='paid')||
+      event.type==='checkout.session.async_payment_succeeded'
+    )) await internalPaymentUpdate(orderId,'Paid','stripe',object.id)
+    if(isOrderCheckout&&(event.type==='checkout.session.expired'||event.type==='checkout.session.async_payment_failed')) await internalPaymentUpdate(orderId,'Failed','stripe',object.id)
 
     if(event.type==='checkout.session.completed'&&object?.metadata?.billing==='subscription'){
       const subscription=object.subscription?await stripeRequest(`/v1/subscriptions/${encodeURIComponent(object.subscription)}`):null
@@ -683,6 +694,9 @@ async function handleApi(req, res, url) {
   }
 
   const siteId = await resolveSiteId(req,token,ownerId)
+  if (req.headers['x-cobest-site-id'] && !siteId) {
+    return sendJson(res, 403, { error: 'Selected site was not found or access was denied. Choose a site you can access.' })
+  }
 
   if (url.pathname === '/api/team' && req.method === 'GET') {
     const [members, invites] = await Promise.all([
