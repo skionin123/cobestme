@@ -199,8 +199,16 @@ async function createStripePortal({req,customer}) {
 }
 
 function requestOrigin(req) {
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
-  return `${proto}://${req.headers.host || 'cobest.me'}`
+  // Payment, invitation and portal callbacks must never be built from Host.
+  const configured=String(process.env.COBEST_PUBLIC_BASE_URL||'').trim()
+  if(!configured)throw new Error('COBEST_PUBLIC_BASE_URL must be configured before enabling external redirects.')
+  let target
+  try{target=new URL(configured)}catch{throw new Error('COBEST_PUBLIC_BASE_URL is invalid.')}
+  if(target.protocol!=='https:'&&!(target.protocol==='http:'&&['localhost','127.0.0.1'].includes(target.hostname))) {
+    throw new Error('COBEST_PUBLIC_BASE_URL must use HTTPS.')
+  }
+  if(target.username||target.password)throw new Error('COBEST_PUBLIC_BASE_URL must not contain credentials.')
+  return target.origin
 }
 
 async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
