@@ -41,8 +41,9 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
     if(!draft.name.trim())return setError('Product name is required.')
     setBusy(true);setError('')
     const source=String(draft.supplier||'').trim().toLowerCase().replace(/[^a-z0-9 -]+/g,'').replace(/\s+/g,'-').slice(0,80)
+    const sourceKey=source==='cj-dropshipping'?'cj':source
     const tags=splitCsv(draft.tags).filter(x=>!/^supplier:/i.test(x))
-    if(source)tags.push('supplier:'+source)
+    if(sourceKey)tags.push('supplier:'+sourceKey)
     const payload={...draft,price:Number(draft.price||0),compare_at_price:draft.compare_at_price===''?null:Number(draft.compare_at_price),inventory:Number(draft.inventory||0),tags,variants:Array.isArray(draft.variants)?draft.variants:[]}
     delete payload.supplier
     delete payload.id;delete payload.user_id;delete payload.created_at;delete payload.updated_at
