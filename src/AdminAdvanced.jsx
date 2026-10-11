@@ -159,7 +159,7 @@ export function CustomersManager({customers,setCustomers,orders}) {
 export function OrdersManager({orders,setOrders,customers,products=[]}) {
   const [query,setQuery]=useState('');const [editing,setEditing]=useState(null);const [draft,setDraft]=useState(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('')
   const [fulfillmentFilter,setFulfillmentFilter]=useState('All')
-  const filtered=orders.filter(o=>(fulfillmentFilter==='All'||o.fulfillment_status===fulfillmentFilter)&&(!query||[o.order_number,o.payment_status,o.fulfillment_status,customers.find(c=>c.id===o.customer_id)?.name].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase())))
+  const filtered=orders.filter(o=>(fulfillmentFilter==='All'||o.fulfillment_status===fulfillmentFilter)&&(!query||[o.order_number,o.payment_status,o.fulfillment_status,customers.find(c=>c.id===o.customer_id)?.name].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase()))))
   const edit=o=>{setEditing(o.id);setDraft({...o});setError('')}
   const save=async()=>{if(draft.fulfillment_status==='Fulfilled'&&draft.payment_status!=='Paid'&&!window.confirm('Payment is not verified as Paid. Continue with fulfillment anyway?'))return;setBusy(true);try{const payload={fulfillment_status:draft.fulfillment_status,tracking_number:draft.tracking_number||'',carrier:draft.carrier||'',notes:draft.notes||''};const x=await updateResource('orders',editing,payload);setOrders(p=>p.map(y=>y.id===editing?x:y));setEditing(null)}catch(err){setError(err.message)}finally{setBusy(false)}}
   const remove=async o=>{if(!window.confirm(`Delete order ${o.order_number}?`))return;await deleteResource('orders',o.id);setOrders(p=>p.filter(x=>x.id!==o.id))}
