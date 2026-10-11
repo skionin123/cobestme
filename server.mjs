@@ -1,10 +1,10 @@
 import { createServer } from 'node:http'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
-import { stripeOrderTransition } from './server-payment-safety.mjs'
+import { stripeOrderTransition, verifyStripeSignature } from './server-payment-safety.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -260,17 +260,6 @@ async function capturePayPal(paypalOrderId) {
   const orderId=Number(data?.purchase_units?.[0]?.custom_id)
   if(data.status==='COMPLETED'&&orderId) await internalPaymentUpdate(orderId,'Paid','paypal',paypalOrderId)
   return data
-}
-
-function verifyStripeSignature(raw, header) {
-  if(!stripeWebhookSecret||!header)return false
-  const parts=Object.fromEntries(String(header).split(',').map(x=>x.split('=').map(v=>v.trim())))
-  const timestamp=parts.t
-  const signature=parts.v1
-  if(!timestamp||!signature)return false
-  if(Math.abs(Date.now()/1000-Number(timestamp))>300)return false
-  const digest=createHmac('sha256',stripeWebhookSecret).update(`${timestamp}.${raw.toString('utf8')}`).digest('hex')
-  try{return timingSafeEqual(Buffer.from(digest,'hex'),Buffer.from(signature,'hex'))}catch{return false}
 }
 
 async function sendEmail(to, subject, html) {
@@ -529,7 +518,7 @@ async function handlePublicApi(req, res, url) {
 async function handleApi(req, res, url) {
   if (url.pathname === '/api/webhooks/stripe' && req.method === 'POST') {
     const raw=await readBuffer(req,2*1024*1024)
-    if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
+    if(!verifyStripeSignature(raw,req.headers['stripe-signature'],stripeWebhookSecret)) return sendJson(res,400,{error:'Invalid Stripe signature.'})
     const event=JSON.parse(raw.toString('utf8'))
     const object=event?.data?.object||{}
     const transition=stripeOrderTransition(event)
