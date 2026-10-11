@@ -135,7 +135,7 @@ export function DesignControls(){
       <div className="vb-design-tabs" role="group" aria-label="Background type">
         {['solid','gradient','image'].map(m=><button type="button" key={m} aria-pressed={mode===m}
           onClick={()=>{
-            if(m==='solid')apply('Solid background',{backgroundImage:null,backgroundColor:bg})
+            if(m==='solid')apply('Solid background',{backgroundImage:'none',backgroundColor:bg})
             else if(m==='gradient')backgroundGradient('linear')
             else apply('Image background',{backgroundImage:'url("https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=80")'})
           }}>{m==='solid'?'Solid':m==='gradient'?'Gradient':'Image'}</button>)}
