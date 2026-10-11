@@ -26,6 +26,9 @@ function compileStateSelector(className:string,state:NodeState){
   return `.${escaped}:${state}`
 }
 
+// Use the same available font families in the editor, preview and exports.
+// System fallbacks still render when an external font cannot be loaded.
+const webFontImports='@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800;900&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800;900&family=Lora:wght@400;500;600;700&display=swap");'
 export function compileProjectCss(project:BuilderProject){
   const colorVars=Object.entries(project.globals.colors).map(([key,value])=>`--${key}:${value};`).join('')
   const textVars=Object.entries(project.globals.textStyles).flatMap(([styleName,props])=>Object.entries(props).map(([key,value])=>`--text-${styleName}-${key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${value};`)).join('')
@@ -49,7 +52,7 @@ export function compileProjectCss(project:BuilderProject){
     if(responsive[bp].length)base+=`${mediaQuery[bp]}{${responsive[bp].join('')}}`
   }
   base+=compileInteractionCss(project.interactions)
-  return base
+  return webFontImports+base
 }
 
 function compileInteractionCss(interactions:BuilderInteraction[]){
