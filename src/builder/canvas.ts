@@ -46,6 +46,10 @@ html.builder-editing [data-builder-node][data-builder-type="flex"]:empty::after{
 }
 .builder-node-label{position:fixed;z-index:2147483647;pointer-events:auto;cursor:grab;background:#4f46e5;color:#fff;font:600 11px/1.2 Arial,sans-serif;padding:6px 8px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.14);user-select:none}
 .builder-node-label:active{cursor:grabbing}
+.builder-snap-guide{position:fixed;z-index:2147483644;background:#7c6dff;box-shadow:0 0 0 1px #ffffff80;pointer-events:none}
+.builder-snap-guide.horizontal{left:0;right:0;height:1px}
+.builder-snap-guide.vertical{top:0;bottom:0;width:1px}
+html:not(.builder-editing) .builder-snap-guide{display:none}
 .builder-drop-marker{position:fixed;z-index:2147483645;pointer-events:none;background:#6d5dfc;box-shadow:0 0 0 1px rgba(255,255,255,.5),0 5px 18px rgba(79,70,229,.25)}
 .builder-drop-marker.inside{background:rgba(99,102,241,.10);border:2px solid #6d5dfc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
 html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .builder-geometry-handle,html:not(.builder-editing) .builder-spacing-handle,html:not(.builder-editing) .builder-drop-marker{display:none}
@@ -94,6 +98,43 @@ ${body}${emptyState}
   let hovered = null
   let label = null
   let nodeDragging = false
+  let snappingEnabled = true
+  let snapGuides=[]
+  const clearSnapGuides=()=>{snapGuides.forEach(item=>item.remove());snapGuides=[]}
+  const showSnapGuides=(x,y)=>{
+    clearSnapGuides()
+    for(const [kind,pos] of [['vertical',x],['horizontal',y]]){
+      if(pos===null||pos<0)continue
+      const line=document.createElement('div')
+      line.className='builder-snap-guide '+kind
+      line.style[kind==='vertical'?'left':'top']=Math.round(pos)+'px'
+      line.setAttribute('aria-hidden','true')
+      document.body.appendChild(line)
+      snapGuides.push(line)
+    }
+  }
+  const alignToSiblings=(el,rect,dx,dy)=>{
+    const others=Array.from(el.parentElement?.children||[]).filter(candidate=>
+      candidate!==el&&candidate.dataset?.builderNode&&candidate.getBoundingClientRect)
+    const peerX=[],peerY=[]
+    for(const peer of others){
+      const box=peer.getBoundingClientRect()
+      peerX.push(box.left,box.right,box.left+box.width/2)
+      peerY.push(box.top,box.bottom,box.top+box.height/2)
+    }
+    const nearest=(position,size,anchors)=>{
+      const endpoints=[position,position+size,position+size/2]
+      let best=7,offset=0,guide=null
+      for(const anchor of anchors)for(const point of endpoints){
+        const difference=anchor-point
+        if(Math.abs(difference)<best){best=Math.abs(difference);offset=difference;guide=anchor}
+      }
+      return {offset,guide}
+    }
+    const horizontal=nearest(rect.left+dx,rect.width,peerX)
+    const vertical=nearest(rect.top+dy,rect.height,peerY)
+    return {horizontal,vertical}
+  }
   let handles = []
   const clearHandles=()=>{handles.forEach(h=>h.remove());handles=[]}
   const spacingProperty=(kind,edge)=>kind+(edge[0].toUpperCase()+edge.slice(1))
@@ -173,8 +214,20 @@ ${body}${emptyState}
           const dx=event.clientX-startX,dy=event.clientY-startY
           if(Math.abs(dx)+Math.abs(dy)>2)dragChanged=true
           if(mode==='move'){
-            newX=Math.round(initialTranslate[0]+dx)
-            newY=Math.round(initialTranslate[1]+dy)
+            if(snappingEnabled&&!event.altKey){
+              const aligned=alignToSiblings(el,initialRect,dx,dy)
+              newX=aligned.horizontal.guide!==null
+                ?Math.round(initialTranslate[0]+dx+aligned.horizontal.offset)
+                :Math.round((initialTranslate[0]+dx)/8)*8
+              newY=aligned.vertical.guide!==null
+                ?Math.round(initialTranslate[1]+dy+aligned.vertical.offset)
+                :Math.round((initialTranslate[1]+dy)/8)*8
+              showSnapGuides(aligned.horizontal.guide,aligned.vertical.guide)
+            }else{
+              clearSnapGuides()
+              newX=Math.round(initialTranslate[0]+dx)
+              newY=Math.round(initialTranslate[1]+dy)
+            }
             el.style.translate=newX+'px '+newY+'px'
           }else{
             const leftSide=['left','nw','sw'].includes(edge)
@@ -224,6 +277,7 @@ ${body}${emptyState}
           handle.removeEventListener('lostpointercapture',up)
           document.removeEventListener('mouseleave',up)
           nodeDragging=false
+          clearSnapGuides()
           handle.classList.remove('is-resizing')
           if(dragChanged){
             if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
@@ -445,6 +499,7 @@ ${body}${emptyState}
   window.addEventListener('message',event=>{
     const msg=event.data||{}
     if(msg.source!=='cobest-editor')return
+    if(msg.type==='snapping'){snappingEnabled=msg.enabled!==false;clearSnapGuides();return}
     if(msg.type==='external-drag-leave'){
       removeDropMarker()
       return
