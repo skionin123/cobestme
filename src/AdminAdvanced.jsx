@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, ExternalLink, FileText, Image as ImageIcon, Package, Pencil, Plus, RefreshCw, Search, Trash2, Upload, Users, X } from 'lucide-react'
-import { createResource, deleteResource, getTeam, inviteTeamMember, publishStore, removeTeamMember, revokeTeamInvite, unpublishStore, updateResource, uploadMedia } from './api.js'
+import { createResource, deleteResource, getTeam, inviteTeamMember, listResource, publishStore, removeTeamMember, revokeTeamInvite, unpublishStore, updateResource, uploadMedia } from './api.js'
 import { getPrimaryCategories, getSubcategories, joinCategory, splitCategory } from './catalogHierarchy.js'
 import { planProductCsvImport } from './productImport.js'
 import { productSupplier, orderSupplierItems, supplierCatalogSummary } from './supplierOperations.js'
@@ -81,7 +81,7 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
       if(file.size>3*1024*1024)throw new Error('Choose a CSV file smaller than 3 MB.')
       const text=await file.text()
       const plan=planProductCsvImport(text,products,importSupplier)
-      setImportPlan(plan)
+      setImportPlan({...plan,sourceText:text})
     }catch(err){setError(err.message)}
     finally{e.target.value=''}
   }
@@ -90,8 +90,18 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
     setBusy(true);setError('');setImportResult('')
     let completed=0
     try {
-      for(const row of importPlan.rows) {
-        if(row.action==='create') {
+      const current=await listResource('products')
+      const reviewed=planProductCsvImport(importPlan.sourceText,current,importPlan.supplier)
+      const fingerprint=plan=>JSON.stringify(plan.rows.map(x=>[x.action,x.sku,x.existingId,x.payload]))
+      // Never apply a stale preview after another user/importer changed the same catalog.
+      if(reviewed.hasErrors||fingerprint(reviewed)!==fingerprint(importPlan)){
+        setProducts(current)
+        setImportPlan({...reviewed,sourceText:importPlan.sourceText})
+        setError('The catalog has changed since this preview. Please review the updated plan and confirm again.')
+        return
+      }
+      for(const row of reviewed.rows){
+        if(row.action==='create'){
           const created=await createResource('products',row.payload)
           setProducts(prev=>[created,...prev])
           completed++
@@ -102,10 +112,17 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
         }
       }
       setImportPlan(null)
-      setImportResult(`Import complete: ${completed} products created or updated. ${importPlan.counts.skip} unchanged.`)
+      setImportResult(`Import complete: ${completed} products created or updated. ${reviewed.counts.skip} unchanged.`)
     }catch(err){
-      setImportPlan(null)
-      setError(`Import stopped after ${completed} successful writes. Some products may already have changed. Refresh the catalog and re-upload the CSV to preview remaining changes. Error: ${err.message}`)
+      try {
+        const latest=await listResource('products')
+        setProducts(latest)
+        const remaining=planProductCsvImport(importPlan.sourceText,latest,importPlan.supplier)
+        setImportPlan({...remaining,sourceText:importPlan.sourceText})
+      }catch{
+        setImportPlan(null)
+      }
+      setError(`Import stopped after ${completed} successful writes. Some changes may already be saved. Review the refreshed import preview or reload your catalog. Error: ${err.message}`)
     }finally{setBusy(false)}
   }
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">CATALOG</p><h1>Products</h1><p>Create, edit, price, organize, and archive products.</p></div><div className="page-actions"><Button variant="secondary" onClick={exportCsv}>Export CSV</Button><label className="btn btn-secondary file-button">Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv}/></label><Button onClick={openNew}><Plus size={16}/> Add product</Button></div></div>
