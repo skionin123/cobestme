@@ -3,6 +3,13 @@ Updated: 2026-10-11
 Repository: skionin123/cobestme
 Branch: feat/cobest-mvp-five-milestones
 
+## Joint user-testing workflow (as of 2026-10-12)
+
+- Start with [QA master issue #26](https://github.com/skionin123/cobestme/issues/26) and `docs/QA_RUNBOOK.md`. **T01.1 is NOT RUN**. No live/manual test is claimed to have passed.
+- Record each test result and environment in `docs/QA_SESSION_LOG.md`. File a distinct issue for a confirmed bug with steps/expected/actual/screenshots; don't call anticipated work a confirmed bug.
+- Known engineering backlog: [#27 staging and tenant isolation](https://github.com/skionin123/cobestme/issues/27), [#28 transactional inventory](https://github.com/skionin123/cobestme/issues/28), [#29 variant checkout](https://github.com/skionin123/cobestme/issues/29), [#30 merchant payments](https://github.com/skionin123/cobestme/issues/30), [#31 supplier fulfillment](https://github.com/skionin123/cobestme/issues/31).
+- **Production and the draft PR are different builds.** Validate the current live experience with throwaway data first; branch-only features must be tested in a safe staging environment before merging.
+
 ## Release rules
 - Keep main/Railway production unchanged until checks are green and each release is reviewed.
 - Preserve all existing websites, product IDs, SKUs, customers, orders, published snapshots, and tenant boundaries.
