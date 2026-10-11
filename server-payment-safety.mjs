@@ -12,7 +12,7 @@ export function verifyStripeSignature(raw,header,secret,now=Date.now()) {
     return index<0?['','']:[piece.slice(0,index).trim(),piece.slice(index+1).trim()]
   })
   const timestampValue=parts.find(([key])=>key==='t')?.[1]
-  if (!/^\\d{1,12}$/.test(timestampValue||'')) return false
+  if (!/^\d{1,12}$/.test(timestampValue||'')) return false
   const timestamp=Number(timestampValue)
   if (!Number.isSafeInteger(timestamp)||Math.abs(now/1000-timestamp)>300) return false
   const signatures=parts.filter(([key,value])=>key==='v1'&&/^[0-9a-f]{64}$/i.test(value)).map(([,value])=>value)
