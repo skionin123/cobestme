@@ -374,15 +374,26 @@ ${body}${emptyState}
     new ResizeObserver(()=>requestAnimationFrame(reportSize)).observe(document.body)
   }
   document.addEventListener('keydown',event=>{
-    if(!document.documentElement.classList.contains('builder-editing'))return
-    if(!(event.ctrlKey||event.metaKey)||event.altKey)return
+    if(!document.documentElement.classList.contains('builder-editing')||event.altKey)return
     const target=event.target
     if(target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target?.tagName))return
     const key=String(event.key||'').toLowerCase()
-    if(key==='z'||key==='y'){
-      event.preventDefault();event.stopPropagation()
-      send('history-shortcut',{action:(key==='y'||event.shiftKey)?'redo':'undo'})
-    }
+    const mod=event.ctrlKey||event.metaKey
+    let action=null
+    if(mod){
+      if(key==='z')action=event.shiftKey?'redo':'undo'
+      else if(key==='y'&&!event.shiftKey)action='redo'
+      else if(!event.shiftKey&&['c','v','d','s'].includes(key))
+        action={c:'copy',v:'paste',d:'duplicate',s:'save'}[key]
+    }else if(key==='escape')action='escape'
+    else if(key==='delete'||key==='backspace')action='delete'
+    else if(['arrowleft','arrowright','arrowup','arrowdown'].includes(key))
+      action='nudge-'+key.slice(5)+(event.shiftKey?'-large':'')
+    if(!action)return
+    // Preserve normal browser copy when nothing is selected in this canvas.
+    if(['copy','duplicate','delete'].includes(action)&&!selected)return
+    event.preventDefault();event.stopPropagation()
+    send('editor-shortcut',{action})
   },true)
   document.addEventListener('mousemove', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return

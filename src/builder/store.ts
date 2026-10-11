@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
+import { duplicateWithIndependentGeometry } from './duplicate'
 import { canAcceptChild, clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
   BuilderAsset,
@@ -254,7 +255,9 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
           for(const child of root.children){if(child.id===id)return root;const hit=findParentLocal(child,id);if(hit)return hit}return null
         }
         const parentNode=findParentLocal(page.root,nodeId);if(!parentNode)return
-        copy=regenerateNodeIds(node,'copy')
+        const duplicate=duplicateWithIndependentGeometry(node,draft.styles,'copy')
+        copy=duplicate.node
+        Object.assign(draft.styles,duplicate.styles)
         const index=parentNode.children.findIndex(x=>x.id===nodeId)+1
         page.root=insertNode(page.root,parentNode.id,copy,index)
       })

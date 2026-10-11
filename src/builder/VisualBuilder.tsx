@@ -11,6 +11,8 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { applyNodeGeometry } from './geometry'
+import { duplicateWithIndependentGeometry } from './duplicate'
+import { editorShortcutFor, type EditorShortcut } from './shortcuts'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
 import { chooseLatestProject, loadProject, saveProject } from './persistence'
 import { createSaveQueue } from './saveQueue'
@@ -19,8 +21,8 @@ import {
   PagesPanel, SettingsPanel, StylePanel, TemplatesPanel, createElement, createPrebuiltSection
 } from './panels'
 import { useBuilderStore } from './store'
-import { clone, findNode, findParent, regenerateNodeIds } from './tree'
-import type { BreakpointId, BuilderNode, BuilderProject } from './types'
+import { canAcceptChild, clone, findNode, findParent } from './tree'
+import type { BreakpointId, BuilderNode, BuilderProject, StyleMap } from './types'
 import './editor-tailwind.css'
 import './visual-builder.css'
 
@@ -193,7 +195,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
-  const copiedNodeRef=useRef<BuilderNode|null>(null)
+  const copiedNodeRef=useRef<{node:BuilderNode;styles:StyleMap}|null>(null)
   const saveQueueRef=useRef(createSaveQueue())
 
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
@@ -207,6 +209,70 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       pointer=findParent(activePage.root,pointer.id)
     }
   }
+  const executeShortcut=(action:EditorShortcut)=>{
+    const state=useBuilderStore.getState()
+    const page=state.project.pages.find(p=>p.id===state.project.activePageId)||state.project.pages[0]
+    const selected=page&&findNode(page.root,state.selectedNodeId)
+    const editable=selected&&selected.id!==page.root.id&&!selected.locked
+    if(action==='undo'){state.undo();return}
+    if(action==='redo'){state.redo();return}
+    if(action==='save'){void manualSave();return}
+    if(action==='escape'){
+      setContext(null)
+      if(preview)setPreview(false)
+      else state.selectNode(null)
+      return
+    }
+    if(action==='copy'){
+      if(editable)copiedNodeRef.current={node:clone(selected),styles:clone(state.project.styles)}
+      return
+    }
+    if(action==='duplicate'){
+      if(editable)state.duplicateNode(selected.id)
+      return
+    }
+    if(action==='delete'){
+      if(editable)state.deleteNode(selected.id)
+      return
+    }
+    if(action==='paste'){
+      const clipboard=copiedNodeRef.current
+      if(!clipboard||!page)return
+      const parent=(selected&&findParent(page.root,selected.id))||page.root
+      if(!canAcceptChild(parent,clipboard.node))return
+      const {node,styles}=duplicateWithIndependentGeometry(clipboard.node,clipboard.styles,'paste')
+      const insertion=selected?parent.children.findIndex(child=>child.id===selected.id)+1:undefined
+      state.mutate('Paste element',draft=>{
+        const current=draft.pages.find(p=>p.id===draft.activePageId)||draft.pages[0]
+        const draftParent=findNode(current.root,parent.id)
+        if(!draftParent)return
+        draftParent.children.splice(insertion==null?draftParent.children.length:insertion,0,node)
+        Object.assign(draft.styles,styles)
+      })
+      useBuilderStore.getState().selectNode(node.id)
+      return
+    }
+    if(action.startsWith('nudge-')&&editable){
+      const large=action.endsWith('-large')
+      const key=action.replace('-large','')
+      const step=large?10:1
+      const xChange=key==='nudge-left'?-step:key==='nudge-right'?step:0
+      const yChange=key==='nudge-up'?-step:key==='nudge-down'?step:0
+      const custom='cb-geometry-'+selected.id.replace(/[^a-zA-Z0-9_-]/g,'-')
+      const style=state.project.styles[custom]
+      const value=style?.[state.breakpoint]?.none?.translate
+        ||style?.desktop?.none?.translate||'0px 0px'
+      const coordinates=value.split(/\\s+/)
+      const x=parseFloat(coordinates[0])||0
+      const y=parseFloat(coordinates[1])||0
+      state.mutate('Nudge element',draft=>{
+        applyNodeGeometry(draft,selected.id,state.breakpoint,{
+          kind:'move',x:x+xChange,y:y+yChange,
+        })
+      })
+    }
+  }
+
   const editorDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,true),[project,breakpoint])
   const previewDocumentHtml=useMemo(()=>createCanvasDocument(project,breakpoint,false),[project,breakpoint])
   const frameWidth=Math.min(widths[breakpoint],1440)
@@ -266,7 +332,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       if(msg.source!=='cobest-builder')return
       if(event.source!==iframeRef.current?.contentWindow)return
       if(msg.type==='history-shortcut'&&['undo','redo'].includes(msg.action)){
-        useBuilderStore.getState()[msg.action as 'undo'|'redo']()
+        executeShortcut(msg.action)
+        return
+      }
+      if(msg.type==='editor-shortcut'&&typeof msg.action==='string'){
+        const allowed=['undo','redo','copy','paste','duplicate','delete','save','escape',
+          'nudge-left','nudge-right','nudge-up','nudge-down',
+          'nudge-left-large','nudge-right-large','nudge-up-large','nudge-down-large']
+        if(allowed.includes(msg.action))executeShortcut(msg.action as EditorShortcut)
         return
       }
       if(msg.type==='select')selectNode(msg.id||null)
@@ -348,33 +421,31 @@ export default function VisualBuilder({projectKey='local-default',initialProject
 
   useEffect(()=>{
     const handler=(event:KeyboardEvent)=>{
-      const target=event.target as HTMLElement
-      if(['INPUT','TEXTAREA','SELECT'].includes(target.tagName)||target.isContentEditable)return
-      const mod=event.metaKey||event.ctrlKey
-      if(mod&&!event.altKey&&['z','y'].includes(event.key.toLowerCase())){
-        event.preventDefault()
-        if(event.key.toLowerCase()==='y'||event.shiftKey)redo()
-        else undo()
-        return
-      }
-      if(mod&&event.key.toLowerCase()==='c'&&selectedNode){event.preventDefault();copiedNodeRef.current=clone(selectedNode);return}
-      if(mod&&event.key.toLowerCase()==='d'&&selectedNodeId){event.preventDefault();duplicateNode(selectedNodeId);return}
-      if(mod&&event.key.toLowerCase()==='v'&&copiedNodeRef.current){
-        event.preventDefault()
-        const parent=selectedNodeId?findParent(activePage.root,selectedNodeId):activePage.root
-        const copy=regenerateNodeIds(copiedNodeRef.current,'paste')
-        addNode(parent?.id||activePage.root.id,copy)
-        return
-      }
-      if((event.key==='Delete'||event.key==='Backspace')&&selectedNodeId&&selectedNodeId!==activePage.root.id){event.preventDefault();deleteNode(selectedNodeId);return}
-      if(event.key==='Escape'){if(preview)setPreview(false);setContext(null)}
+      const element=event.target as HTMLElement|null
+      const typing=Boolean(element?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(element?.tagName||''))
+      const action=editorShortcutFor(event,typing)
+      if(!action)return
+      // Browser clipboard and page commands should work normally when there is
+      // no selected node or no copied design element.
+      const state=useBuilderStore.getState()
+      const page=state.project.pages.find(p=>p.id===state.project.activePageId)||state.project.pages[0]
+      const node=page&&findNode(page.root,state.selectedNodeId)
+      if(['copy','duplicate','delete','nudge-left','nudge-right','nudge-up','nudge-down',
+          'nudge-left-large','nudge-right-large','nudge-up-large','nudge-down-large'].includes(action)
+          &&(!node||node.id===page.root.id||node.locked))return
+      if(action==='paste'&&!copiedNodeRef.current)return
+      event.preventDefault()
+      executeShortcut(action)
     }
     window.addEventListener('keydown',handler)
     return()=>window.removeEventListener('keydown',handler)
-  },[selectedNode,selectedNodeId,activePage,preview,undo,redo,duplicateNode,addNode,deleteNode])
+  })
+
 
   const manualSave=async()=>{
-    const snapshot=clone(project)
+    // Keyboard events forwarded from the iframe may reach a listener created
+    // before the latest render. Always persist the latest committed revision.
+    const snapshot=clone(useBuilderStore.getState().project)
     setSaveStatus('saving')
     try{
       await queuedPersist(snapshot)
