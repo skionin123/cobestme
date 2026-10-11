@@ -654,8 +654,10 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/integrations/status' && req.method === 'GET') {
     return sendJson(res, 200, {
-      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
-      paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
+      stripe: canStripeCommerce(),
+      stripe_billing: Boolean(stripeSecret && stripeWebhookSecret),
+      paypal: canPayPalCommerce(),
+      commerce_enabled: commercePaymentsEnabled,
       email: Boolean(resendApiKey),
       shipstation: Boolean(process.env.SHIPSTATION_API_KEY),
       amazon: Boolean(process.env.AMAZON_SELLING_PARTNER_CLIENT_ID && process.env.AMAZON_SELLING_PARTNER_CLIENT_SECRET),
