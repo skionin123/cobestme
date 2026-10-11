@@ -17,6 +17,13 @@ describe('CoBest security regression guards',()=>{
   expect(admin).toContain('Payment status (provider verified; read-only)')
   expect(admin).not.toContain('const payload={payment_status:draft.payment_status')
  })
+ it('builds payment callback URLs from a trusted configured origin',()=>{
+  const origin=server.slice(server.indexOf('function requestOrigin('),server.indexOf('async function createStripeCheckout('))
+  expect(origin).toContain('COBEST_PUBLIC_BASE_URL')
+  expect(origin).not.toContain('req.headers.host')
+  expect(origin).not.toContain("req.headers['x-forwarded-proto']")
+  expect(origin).toContain("target.protocol!=='https:'")
+ })
  it('keeps merchant checkout opt-in and separate from platform subscription configuration',()=>{
   expect(server).toContain("COBEST_ENABLE_COMMERCE_PAYMENTS === 'true'")
   expect(server).toContain('stripe: canStripeCommerce()')
