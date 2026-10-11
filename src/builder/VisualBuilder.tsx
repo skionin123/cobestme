@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { applyNodeGeometry } from './geometry'
+import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
 import { duplicateWithIndependentGeometry } from './duplicate'
 import { editorShortcutFor, type EditorShortcut } from './shortcuts'
 import { downloadProjectJson, downloadProjectZip, importProjectJson } from './export'
@@ -230,11 +231,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
   const [publishNotice,setPublishNotice]=useState<{url?:string;message:string;error?:boolean}|null>(null)
   const [publishing,setPublishing]=useState(false)
+  const [launchReviewOpen,setLaunchReviewOpen]=useState(false)
   const copiedNodeRef=useRef<{node:BuilderNode;styles:StyleMap}|null>(null)
   const saveQueueRef=useRef(createSaveQueue())
 
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
+  const launchIssues=useMemo(()=>reviewWebsiteLaunch(project),[project])
+  const launchBlockers=launchIssues.filter(issue=>issue.level==='blocker')
   const selectedNode=findNode(activePage.root,selectedNodeId)
   const selectionPath:BuilderNode[]=[]
   if(selectedNode){
@@ -534,8 +538,17 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
+  const openLaunchIssue=(issue:LaunchIssue)=>{
+    if(issue.pageId)setActivePage(issue.pageId)
+    if(issue.nodeId)selectNode(issue.nodeId)
+    if(issue.tab==='settings')setRightTab('settings')
+    if(issue.tab==='pages')setLeftTab('pages')
+    setLaunchReviewOpen(false)
+  }
+
   const publish=async()=>{
-    if(publishing)return
+    if(publishing||launchBlockers.length)return
+    setLaunchReviewOpen(false)
     setPublishNotice(null)
     setPublishing(true)
     try{
@@ -594,7 +607,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
-          {onPublish&&<button className="vb-publish" onClick={publish} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
+          {onPublish&&<button className="vb-publish" onClick={()=>setLaunchReviewOpen(true)} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
       </header>
       <div className="vb-workspace">
@@ -641,6 +654,42 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
+      {launchReviewOpen&&<div className="vb-launch-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setLaunchReviewOpen(false)}}>
+        <section className="vb-launch-dialog" role="dialog" aria-modal="true" aria-label="Website launch review">
+          <header className="vb-launch-header">
+            <div><span className="vb-launch-eyebrow">Before you go live</span>
+              <h2>Review your website</h2>
+              <p>Check your pages and important details before publishing.</p>
+            </div>
+            <button type="button" aria-label="Close launch review" onClick={()=>setLaunchReviewOpen(false)}><X size={18}/></button>
+          </header>
+          <div className="vb-launch-summary">
+            <span><strong>{project.pages.length}</strong> pages</span>
+            <span><strong>{launchIssues.filter(x=>x.level==='warning').length}</strong> suggestions</span>
+            <span className={launchBlockers.length?'blocked':'ready'}><strong>{launchBlockers.length}</strong> blockers</span>
+          </div>
+          <div className="vb-launch-issues">
+            {launchIssues.length===0&&<div className="vb-launch-clean">
+              <strong>Your website passes the local design checklist.</strong>
+              <p>Review the preview and test forms, checkout, domains and mobile devices before inviting customers.</p>
+            </div>}
+            {launchIssues.map(issue=><div key={issue.id} className={'vb-launch-issue '+issue.level}>
+              <span className="vb-launch-status">{issue.level==='blocker'?'Fix required':'Suggestion'}</span>
+              <div><strong>{issue.title}</strong><p>{issue.detail}</p></div>
+              <button type="button" onClick={()=>openLaunchIssue(issue)}>Fix</button>
+            </div>)}
+          </div>
+          <footer className="vb-launch-footer">
+            <p>Publishing updates the public website. Your saved drafts stay separate until you publish again.</p>
+            <div>
+              <button type="button" className="vb-launch-cancel" onClick={()=>{setLaunchReviewOpen(false);setPreview(true)}}>Preview first</button>
+              <button type="button" className="vb-launch-confirm" onClick={publish} disabled={publishing||!!launchBlockers.length}>
+                {launchBlockers.length?'Fix blockers to publish':publishing?'Publishing…':'Confirm publish'}
+              </button>
+            </div>
+          </footer>
+        </section>
+      </div>}
       {publishNotice&&<div className={'vb-publish-notice '+(publishNotice.error?'is-error':'')} role={publishNotice.error?'alert':'status'}>
         <strong>{publishNotice.message}</strong>
         {publishNotice.url&&<a href={publishNotice.url} target="_blank" rel="noopener noreferrer">Open live website ↗</a>}
