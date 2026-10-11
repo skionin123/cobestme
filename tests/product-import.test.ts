@@ -34,6 +34,8 @@ describe('supplier-aware product import', () => {
     const supplierCollision=planProductCsvImport('SKU,Quantity\nROOT,2', [product], 'CJ')
     expect(supplierCollision.hasErrors).toBe(true)
     expect(supplierCollision.rows[0].message).toMatch(/another supplier/)
+    const customCollision=planProductCsvImport('SKU,Quantity\nROOT,2',[{...product,tags:['supplier:local-distributor']}],'Doba')
+    expect(customCollision.hasErrors).toBe(true)
     const variantCollision=planProductCsvImport('SKU,Name,Price\nROOT-BLACK,Variant,99', [product], 'Doba')
     expect(variantCollision.hasErrors).toBe(true)
     expect(variantCollision.rows[0].message).toMatch(/variant/)
