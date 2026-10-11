@@ -13,6 +13,7 @@ describe('CoBest security regression guards',()=>{
  it('does not allow merchants to create fake paid status via order PATCH',()=>{
   expect(server).toContain("Object.hasOwn(next,'payment_status')")
   expect(server).toContain('Payment status cannot be manually changed.')
+  expect(server).toContain('New orders must start Pending until payment is verified by the provider.')
   expect(admin).toContain('Payment status (provider verified; read-only)')
   expect(admin).not.toContain('const payload={payment_status:draft.payment_status')
  })
