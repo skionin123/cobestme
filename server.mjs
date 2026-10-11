@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
-import { stripeOrderTransition, verifyStripeSignature } from './server-payment-safety.mjs'
+import { stripeOrderTransition, verifyStripeSignature, paypalCapturedOrder } from './server-payment-safety.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -262,13 +262,13 @@ async function capturePayPal(paypalOrderId) {
   const access=await paypalAccessToken()
   if(!access) throw new Error('PayPal is not configured.')
   const response=await fetch(`${paypalBase}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`,{
-    method:'POST',headers:{authorization:`Bearer ${access}`,'content-type':'application/json'},body:'{}'
+    method:'POST',headers:{authorization:`Bearer ${access}`,'content-type':'application/json','paypal-request-id':`cobest-capture-${paypalOrderId}`},body:'{}'
   })
   const data=await response.json().catch(()=>({}))
   if(!response.ok) throw new Error(data?.message||'PayPal capture failed.')
-  const orderId=Number(data?.purchase_units?.[0]?.custom_id)
-  if(data.status==='COMPLETED'&&orderId) await internalPaymentUpdate(orderId,'Paid','paypal',paypalOrderId)
-  return data
+  const confirmed=paypalCapturedOrder(data,paypalOrderId)
+  if(confirmed)await internalPaymentUpdate(confirmed.orderId,confirmed.status,confirmed.provider,confirmed.reference)
+  return {status:confirmed?'COMPLETED':'PENDING',verified:Boolean(confirmed)}
 }
 
 async function sendEmail(to, subject, html) {
@@ -462,8 +462,9 @@ async function handlePublicApi(req, res, url) {
   }
 
   if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
-    if(!body?.paypal_order_id)return sendJson(res,400,{error:'PayPal order ID is required.'})
-    try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:true,status:data.status})}
+    if(!canPayPalCommerce())return sendJson(res,503,{error:'PayPal checkout is not available.'})
+    if(!body?.paypal_order_id||!^[A-Z0-9-]{8,50}$/i.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'A valid PayPal order ID is required.'})
+    try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:data.verified,status:data.status})}
     catch(error){return sendJson(res,502,{error:error.message})}
   }
 
