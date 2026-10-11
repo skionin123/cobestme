@@ -56,11 +56,18 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-node-label button.builder-move-button{color:#b8b1ff;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
 .builder-node-label button.builder-size-button{color:#b8b1ff;cursor:nwse-resize}
-.builder-geometry-handle{position:fixed;z-index:2147483647;display:grid;place-items:center;width:30px;height:30px;background:transparent;border:0;border-radius:7px;cursor:nwse-resize;touch-action:none;box-shadow:none;user-select:none}
-.builder-geometry-handle.builder-resize-corner::after{content:"";display:block;width:12px;height:12px;border:2px solid #fff;background:#6255ec;border-radius:4px;box-shadow:0 0 0 2px #6255ec,0 2px 9px rgba(31,28,77,.32);pointer-events:none;transition:width .12s,height .12s,background .12s}
-.builder-geometry-handle.builder-resize-corner:hover::after,.builder-geometry-handle.builder-resize-corner:focus-visible::after,.builder-geometry-handle.builder-resize-corner.is-resizing::after{width:16px;height:16px;background:#4f46e5}
-.builder-geometry-handle.builder-resize-corner:focus-visible{outline:2px solid #818cf8;outline-offset:2px}
-.builder-geometry-handle.builder-width-handle{width:13px;height:23px;cursor:ew-resize;border-radius:3px}
+.builder-corner-hit{position:fixed;z-index:2147483647;display:grid;place-items:center;width:36px;height:36px;background:transparent;border:0;border-radius:5px;touch-action:none;user-select:none;cursor:nwse-resize}
+.builder-corner-hit[data-edge="ne"],.builder-corner-hit[data-edge="sw"]{cursor:nesw-resize}
+/* Professional, unobtrusive corners: no persistent square knobs. The hover
+   target stays large at Fit zoom, while only a subtle corner bracket appears
+   when the user hovers, focuses or actively resizes. */
+.builder-corner-hit::after{content:"";box-sizing:border-box;width:14px;height:14px;border:solid #6255ec;opacity:0;pointer-events:none;transition:opacity .1s ease}
+.builder-corner-hit[data-edge="nw"]::after{border-width:2px 0 0 2px}
+.builder-corner-hit[data-edge="ne"]::after{border-width:2px 2px 0 0}
+.builder-corner-hit[data-edge="sw"]::after{border-width:0 0 2px 2px}
+.builder-corner-hit[data-edge="se"]::after{border-width:0 2px 2px 0}
+.builder-corner-hit:hover::after,.builder-corner-hit:focus-visible::after,.builder-corner-hit.is-resizing::after{opacity:1}
+.builder-corner-hit:focus-visible{outline:2px solid rgba(99,102,241,.65);outline-offset:-5px}
 .builder-resize-edge{position:fixed;z-index:2147483645;display:block;touch-action:none;background:transparent;border:0;border-radius:2px}
 .builder-resize-edge[data-edge="left"],.builder-resize-edge[data-edge="right"]{cursor:ew-resize}
 .builder-resize-edge[data-edge="top"],.builder-resize-edge[data-edge="bottom"]{cursor:ns-resize}
@@ -170,17 +177,19 @@ ${body}${emptyState}
             newY=Math.round(initialTranslate[1]+dy)
             el.style.translate=newX+'px '+newY+'px'
           }else{
-            const horizontal=['left','right','corner','toolbar'].includes(edge)
-            const vertical=['top','bottom','corner','toolbar'].includes(edge)
+            const leftSide=['left','nw','sw'].includes(edge)
+            const topSide=['top','nw','ne'].includes(edge)
+            const horizontal=['left','right','nw','ne','sw','se','corner','toolbar'].includes(edge)
+            const vertical=['top','bottom','nw','ne','sw','se','corner','toolbar'].includes(edge)
             if(horizontal){
-              newWidth=Math.max(32,Math.round(startWidth+(edge==='left'?-dx:dx)))
+              newWidth=Math.max(32,Math.round(startWidth+(leftSide?-dx:dx)))
               el.style.width=newWidth+'px'
               el.style.maxWidth='none'
-              if(edge==='left')newX=Math.round(initialTranslate[0]+startWidth-newWidth)
+              if(leftSide)newX=Math.round(initialTranslate[0]+startWidth-newWidth)
             }
             if(vertical){
-              newHeight=Math.max(frameElement?minimumFrameHeight:20,Math.round(startHeight+(edge==='top'?-dy:dy)))
-              if(edge==='top')newY=Math.round(initialTranslate[1]+startHeight-newHeight)
+              newHeight=Math.max(frameElement?minimumFrameHeight:20,Math.round(startHeight+(topSide?-dy:dy)))
+              if(topSide&&(!textElement||edge==='top'))newY=Math.round(initialTranslate[1]+startHeight-newHeight)
               if(!textElement||edge==='top'||edge==='bottom')el.style.height=newHeight+'px'
               if(frameElement){
                 // Theme padding/minHeight cause the huge, unshrinkable Hero.
@@ -194,7 +203,7 @@ ${body}${emptyState}
                 el.style.paddingBottom=newPaddingBottom+'px'
               }
             }
-            if(edge==='left'||edge==='top')el.style.translate=newX+'px '+newY+'px'
+            if(leftSide||(topSide&&(!textElement||edge==='top')))el.style.translate=newX+'px '+newY+'px'
             // Resizing a text box changes its wrapping width, not font size.
             // Typography has its own explicit control in the right inspector.
             if(el.tagName==='IMG')el.style.objectFit='cover'
@@ -219,12 +228,14 @@ ${body}${emptyState}
           if(dragChanged){
             if(mode==='move')send('node-geometry',{id:el.dataset.builderNode,kind:'move',x:newX,y:newY})
             else{
-              const horizontal=['left','right','corner','toolbar'].includes(edge)
-              const vertical=['top','bottom','corner','toolbar'].includes(edge)
-              send('node-geometry',{id:el.dataset.builderNode,kind:'resize',width:newWidth,
+              const horizontal=['left','right','nw','ne','sw','se','corner','toolbar'].includes(edge)
+              const vertical=['top','bottom','nw','ne','sw','se','corner','toolbar'].includes(edge)
+              const leftOrTop=['left','top','nw','ne','sw'].includes(edge)
+              send('node-geometry',{id:el.dataset.builderNode,kind:'resize',
+                ...(horizontal?{width:newWidth}:{}),
                 ...((!textElement&&vertical)||edge==='top'||edge==='bottom'?{height:newHeight}:{}),
                 ...(frameElement&&vertical?{frame:true,paddingTop:newPaddingTop,paddingBottom:newPaddingBottom}:{}),
-                ...(['left','top'].includes(edge)?{x:newX,y:newY}:{})})
+                ...(leftOrTop?{x:newX,y:newY}:{})})
             }
           }else{
             el.style.translate='';el.style.width='';el.style.height='';el.style.maxWidth='';el.style.fontSize='';el.style.minHeight='';el.style.paddingTop='';el.style.paddingBottom=''
@@ -251,11 +262,12 @@ ${body}${emptyState}
     }
     document.body.appendChild(label)
     if(!movable)return
-    const handle=(kind,left,top,cssClass,edge='corner',width=10,height=10)=>{
+    const handle=(kind,left,top,cssClass,edge,width,height)=>{
       const h=document.createElement('div')
-      h.className=(cssClass.includes('builder-resize-edge')?'':'builder-geometry-handle ')+cssClass
+      h.className=cssClass
       h.dataset.edge=edge
-      h.title=edge==='corner'?'Drag this corner to resize '+(el.dataset.builderName||'element'):'Drag the '+edge+' border to resize '+(el.dataset.builderName||'element')
+      const corner=['nw','ne','sw','se'].includes(edge)
+      h.title=corner?'Drag '+edge.toUpperCase()+' corner to resize '+(el.dataset.builderName||'element'):'Drag '+edge+' edge to resize '+(el.dataset.builderName||'element')
       h.setAttribute('aria-label',h.title)
       h.style.left=left+'px';h.style.top=top+'px'
       h.style.width=width+'px';h.style.height=height+'px'
@@ -263,23 +275,32 @@ ${body}${emptyState}
       document.body.appendChild(h)
       handles.push(h)
     }
-    // All four edges have generous invisible hit targets. The selected outline
-    // stays visually slim, with only one small visible corner grip.
-    const sideHeight=Math.max(8,rect.height-24)
-    const sideTop=rect.top+Math.max(0,(rect.height-sideHeight)/2)
-    const horizontalWidth=Math.max(8,rect.width-24)
-    const horizontalLeft=rect.left+Math.max(0,(rect.width-horizontalWidth)/2)
+    // Transparent 36px hover targets at all four corners replace the old
+    // always-visible bottom-right square. Edges remain directly draggable.
+    const edgeInset=40
+    const sideHeight=Math.max(8,rect.height-edgeInset*2)
+    const sideTop=rect.top+(rect.height-sideHeight)/2
+    const horizontalWidth=Math.max(8,rect.width-edgeInset*2)
+    const horizontalLeft=rect.left+(rect.width-horizontalWidth)/2
     handle('resize',rect.left-5,sideTop,'builder-resize-edge','left',10,sideHeight)
     handle('resize',rect.right-5,sideTop,'builder-resize-edge','right',10,sideHeight)
     handle('resize',horizontalLeft,rect.top-5,'builder-resize-edge','top',horizontalWidth,10)
     handle('resize',horizontalLeft,rect.bottom-5,'builder-resize-edge','bottom',horizontalWidth,10)
-    // The visible 12px knob sits inside a 30px hit target. At Fit zoom the
-    // entire iframe scales down, so a 10px target became only 5-7 screen pixels.
-    // Keep the complete draggable area inside the iframe whenever possible.
-    const gripSize=30
-    const cornerX=Math.max(0,Math.min(rect.right-gripSize/2,window.innerWidth-gripSize))
-    const cornerY=Math.max(0,Math.min(rect.bottom-gripSize/2,window.innerHeight-gripSize))
-    handle('resize',cornerX,cornerY,'builder-resize-corner','corner',gripSize,gripSize)
+    const size=36
+    const anchor=(value,limit)=>Math.max(0,Math.min(value-size/2,limit-size))
+    const corners=[
+      ['nw',rect.left,rect.top],
+      ['ne',rect.right,rect.top],
+      ['sw',rect.left,rect.bottom],
+      ['se',rect.right,rect.bottom],
+    ]
+    for(const [corner,x,y] of corners){
+      // Do not render a misleading handle far away from an off-screen corner.
+      if(x<0||y<0||x>window.innerWidth||y>window.innerHeight)continue
+      const classes='builder-corner-hit'+(corner==='se'?' builder-geometry-handle builder-resize-corner':'')
+      handle('resize',anchor(x,window.innerWidth),anchor(y,window.innerHeight),
+        classes,corner,size,size)
+    }
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
   const reportSize=()=>{
