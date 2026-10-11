@@ -13,6 +13,15 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || ''
 const internalSecret = process.env.COBEST_INTERNAL_SECRET || ''
 const stripeSecret = process.env.STRIPE_SECRET_KEY || ''
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
+/*
+ * Platform subscription billing is not merchant checkout.
+ * Shared-platform commerce is opt-in and must not be activated by adding a
+ * Stripe billing key alone. Multi-merchant production requires Connect or
+ * another properly onboarded merchant-specific payment architecture.
+ */
+const commercePaymentsEnabled = process.env.COBEST_ENABLE_COMMERCE_PAYMENTS === 'true'
+const canStripeCommerce = () => commercePaymentsEnabled && Boolean(stripeSecret && stripeWebhookSecret)
+const canPayPalCommerce = () => commercePaymentsEnabled && Boolean(paypalClientId && paypalClientSecret)
 const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
 const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
 const paypalBase = (process.env.PAYPAL_ENV || 'sandbox').toLowerCase() === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
@@ -352,14 +361,14 @@ async function handlePublicApi(req, res, url) {
   if (storeMatch && req.method === 'GET') {
     const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...store, payment_options: { stripe: canStripeCommerce(), paypal: canPayPalCommerce() } })
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
     const store = host ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...store, payment_options: { stripe: canStripeCommerce(), paypal: canPayPalCommerce() } })
   }
 
   const body = req.method === 'POST' ? await readJson(req) : {}
@@ -465,8 +474,8 @@ async function handlePublicApi(req, res, url) {
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const requestedProvider=String(body.payment_provider||'').toLowerCase()
     if (!['','manual','stripe','paypal'].includes(requestedProvider)) return sendJson(res,400,{error:'Unsupported payment provider.'})
-    if (requestedProvider==='stripe'&&!stripeSecret) return sendJson(res,503,{error:'Card payments are not configured for this store.'})
-    if (requestedProvider==='paypal'&&!(paypalClientId&&paypalClientSecret)) return sendJson(res,503,{error:'PayPal is not configured for this store.'})
+    if (requestedProvider==='stripe'&&!canStripeCommerce()) return sendJson(res,503,{error:'Card payments are not configured for this store.'})
+    if (requestedProvider==='paypal'&&!canPayPalCommerce()) return sendJson(res,503,{error:'PayPal is not configured for this store.'})
     const totals = calculateCheckout(store, body)
     if (totals.quantityIssues?.length) return sendJson(res, 409, { error: 'A product was requested more than 99 times across multiple cart entries.', quantity_issues: totals.quantityIssues })
     if (totals.variantIssues?.length) return sendJson(res, 409, { error: 'This product has variants that require option selection. Variant checkout is not yet available; contact the store before ordering.', variant_issues: totals.variantIssues })
@@ -493,11 +502,11 @@ async function handlePublicApi(req, res, url) {
     }
     const provider=requestedProvider
     try{
-      if(provider==='stripe'&&stripeSecret){
+      if(provider==='stripe'&&canStripeCommerce()){
         const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
         return sendJson(res,200,{order,totals,payment})
       }
-      if(provider==='paypal'&&paypalClientId&&paypalClientSecret){
+      if(provider==='paypal'&&canPayPalCommerce()){
         const payment=await createPayPalCheckout({req,order,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
         return sendJson(res,200,{order,totals,payment})
       }
