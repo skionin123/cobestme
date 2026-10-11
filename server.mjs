@@ -476,6 +476,7 @@ async function handlePublicApi(req, res, url) {
     if (requestedProvider==='stripe'&&!stripeSecret) return sendJson(res,503,{error:'Card payments are not configured for this store.'})
     if (requestedProvider==='paypal'&&!(paypalClientId&&paypalClientSecret)) return sendJson(res,503,{error:'PayPal is not configured for this store.'})
     const totals = calculateCheckout(store, body)
+    if (totals.variantIssues?.length) return sendJson(res, 409, { error: 'This product has variants that require option selection. Variant checkout is not yet available; contact the store before ordering.', variant_issues: totals.variantIssues })
     if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
