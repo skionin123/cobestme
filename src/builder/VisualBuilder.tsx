@@ -268,6 +268,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [rightTab,setRightTab]=useState<RightTab>('style')
   const [preview,setPreview]=useState(false)
   const [zoomMode,setZoomMode]=useState<'fit'|'actual'>('fit')
+  const [snappingEnabled,setSnappingEnabled]=useState(()=>{
+    try{return window.localStorage.getItem('cobest-designer-snap')!=='off'}catch{return true}
+  })
   const [stageWidth,setStageWidth]=useState(0)
   const [canvasHeight,setCanvasHeight]=useState(viewportHeights.desktop)
   const [dragLabel,setDragLabel]=useState('')
@@ -502,6 +505,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   useEffect(()=>{
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
   },[selectedNodeId,hoveredNodeId,editorDocumentHtml])
+  useEffect(()=>{
+    try{window.localStorage.setItem('cobest-designer-snap',snappingEnabled?'on':'off')}catch{}
+    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'snapping',enabled:snappingEnabled},'*')
+  },[snappingEnabled,editorDocumentHtml])
 
   const persistProject=async(current:BuilderProject)=>{
     await saveProject(current)
@@ -698,6 +705,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <button type="button" className={zoomMode==='fit'?'active':''} onClick={()=>setZoomMode('fit')} aria-label="Fit canvas to workspace">Fit</button>
               <span data-testid="canvas-zoom">{zoom}%</span>
               <button type="button" className={zoomMode==='actual'?'active':''} onClick={()=>setZoomMode('actual')} aria-label="Show canvas at actual size">100%</button>
+              <button type="button" className={'vb-snap-toggle '+(snappingEnabled?'active':'')}
+                aria-label="Toggle alignment snapping" title="Snap to 8px grid and nearby element edges (hold Alt while dragging to bypass)"
+                aria-pressed={snappingEnabled} onClick={()=>setSnappingEnabled(enabled=>!enabled)}>
+                Snap {snappingEnabled?'On':'Off'}
+              </button>
             </div>
           </div>
           {selectionPath.length>0&&<nav className="vb-selection-path" aria-label="Selected element hierarchy">
