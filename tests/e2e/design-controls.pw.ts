@@ -22,7 +22,10 @@ test('select a heading: font, color and responsive styling without Advanced CSS'
 test('section gradients and responsive stacks work from the main Style panel',async({page})=>{
   await page.goto('/e2e.html')
   const hero=canvas(page).locator('[data-builder-node="hero-home"]')
-  await hero.click()
+  await canvas(page).locator('[data-builder-node="hero-title-home"]').click()
+  await page.getByRole('navigation',{name:'Selected element hierarchy'})
+    .getByRole('button',{name:'Select Hero',exact:true}).click()
+  await expect(hero).toHaveClass(/builder-selected/)
   const design=page.getByRole('group',{name:'Background type'})
   await expect(design).toBeVisible()
   await design.getByRole('button',{name:'Gradient'}).click()
