@@ -58,6 +58,8 @@ test('real application shell saves each site and reopens its own builder documen
   await expect.poll(()=>workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Website')
   page.on('dialog',dialog=>dialog.accept())
   await page.getByRole('button',{name:'Publish',exact:true}).click()
+  await expect(page.getByRole('dialog',{name:'Website launch review'})).toBeVisible()
+  await page.getByRole('button',{name:'Confirm publish'}).click()
   await expect.poll(()=>published.length).toBe(1)
   expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
   const liveLink=page.getByRole('link',{name:/Open live website/})
@@ -84,6 +86,8 @@ test('real application shell saves each site and reopens its own builder documen
   await expect.poll(()=>workspaces.get(41)?.editor?.visualBuilderProject?.name).toBe('Alpha Draft Only')
   expect(published[0].snapshot.visual_project.name).toBe('Alpha Website')
   await page.getByRole('button',{name:'Publish',exact:true}).click()
+  await expect(page.getByRole('dialog',{name:'Website launch review'})).toBeVisible()
+  await page.getByRole('button',{name:'Confirm publish'}).click()
   await expect.poll(()=>published.length).toBe(2)
   expect(published[1].snapshot.visual_project.name).toBe('Alpha Draft Only')
 
