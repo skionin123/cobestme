@@ -54,6 +54,11 @@ Release gate: merchant can complete checks without mistaking missing integration
 - [ ] Securely connect merchant Stripe/PayPal through supported provider process (merchant action needed).
 - [x] Deny merchant order PATCH attempts to modify payment status; make payment field read-only in admin.
 - [x] Only settle an order Paid on Stripe confirmed paid/async success event; add unit tests and keep signature verification.
+- [x] Verify Stripe webhook raw-body signature using correct timestamp checking and multiple rotated v1 signatures.
+- [x] Validate completed PayPal capture responses and set an idempotency header on capture requests.
+- [x] Keep platform subscription billing and merchant checkout readiness separate; merchant checkout is opt-in.
+- [x] Require a trusted HTTPS COBEST_PUBLIC_BASE_URL for payment and invitation redirects.
+- [x] Reject attempts to delete Paid or Refunded orders through merchant resource routes.
 - [ ] Verify replay/idempotency, refunds and PayPal order/amount ownership with real sandbox and database tests.
 - [ ] Reconcile payments, order status, stock reservations/deductions, refunds and error paths.
 - [ ] Test Stripe/PayPal sandbox before considering live activation.
@@ -75,3 +80,16 @@ The first branch commits address M2's product-import preview and tests; other un
 - Provider payment credentials are not configured on Railway. Real sales and provider settlement have not been verified.
 - Current import applies verified rows sequentially with resumable recovery; cross-request database atomicity and audit history are still pending.
 - CI verifies code and mock browser flows but does not certify real Supabase multi-tenant operations.
+
+## Additional improvements delivered in development (2026-10-12)
+
+- [x] Consolidate duplicate cart item rows before checking inventory; reject quantities exceeding the per-product limit.
+- [x] Make the public storefront label unhandled variant products as "View options" and display their specific price/stock instead of promising checkout.
+- [x] Clarify redirect messaging: a return from Stripe does not mean the server has settled a payment.
+- [x] Provide a header-only CSV template and safer row/header-format checks.
+- [x] Ignore forged supplier tags inside imported CSVs; preserve owner-managed source attribution.
+- [x] Add fulfillment filters, unpaid warnings, and preserve Paid/Refunded orders for reconciliation.
+- [x] Add merchant instructions in `docs/SUPPLIER_IMPORT_AND_FULFILLMENT.md`.
+- [ ] Database-backed atomic SKU updates, per-SKU reservations, supplier tables, detailed fulfillment events and real provider-account verification remain **release blockers**.
+
+**Commerce configuration caveat:** `COBEST_ENABLE_COMMERCE_PAYMENTS` is disabled by default. It is a deliberate safeguard, **not** a replacement for per-merchant payment onboarding or a live gateway certification. `COBEST_PUBLIC_BASE_URL` is now required before provider redirects and team-invite email links can be created.
