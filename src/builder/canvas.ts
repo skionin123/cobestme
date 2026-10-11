@@ -189,7 +189,7 @@ ${body}${emptyState}
             }
             if(vertical){
               newHeight=Math.max(frameElement?minimumFrameHeight:20,Math.round(startHeight+(topSide?-dy:dy)))
-              if(topSide)newY=Math.round(initialTranslate[1]+startHeight-newHeight)
+              if(topSide&&(!textElement||edge==='top'))newY=Math.round(initialTranslate[1]+startHeight-newHeight)
               if(!textElement||edge==='top'||edge==='bottom')el.style.height=newHeight+'px'
               if(frameElement){
                 // Theme padding/minHeight cause the huge, unshrinkable Hero.
@@ -203,7 +203,7 @@ ${body}${emptyState}
                 el.style.paddingBottom=newPaddingBottom+'px'
               }
             }
-            if(leftSide||topSide)el.style.translate=newX+'px '+newY+'px'
+            if(leftSide||(topSide&&(!textElement||edge==='top')))el.style.translate=newX+'px '+newY+'px'
             // Resizing a text box changes its wrapping width, not font size.
             // Typography has its own explicit control in the right inspector.
             if(el.tagName==='IMG')el.style.objectFit='cover'
