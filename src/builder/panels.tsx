@@ -458,7 +458,7 @@ function ImageSettings({node}:{node:BuilderNode}){
         if(!uploaded?.url)throw new Error('Upload did not return an image URL.')
         asset={id:String(uploaded.id||uid('asset')),name:uploaded.name||file.name,
           mimeType:uploaded.mime_type||file.type,url:uploaded.url,
-          alt:file.name.replace(/\\.[^.]+$/,''),createdAt:uploaded.created_at||new Date().toISOString()}
+          alt:file.name.replace(/\.[^.]+$/,''),createdAt:uploaded.created_at||new Date().toISOString()}
       }else{
         const url=await new Promise<string>((resolve,reject)=>{
           const reader=new FileReader()
@@ -467,7 +467,7 @@ function ImageSettings({node}:{node:BuilderNode}){
           reader.readAsDataURL(file)
         })
         asset={id:uid('asset'),name:file.name,mimeType:file.type,url,
-          alt:file.name.replace(/\\.[^.]+$/,''),createdAt:new Date().toISOString()}
+          alt:file.name.replace(/\.[^.]+$/,''),createdAt:new Date().toISOString()}
       }
       addAsset(asset)
       select(asset.url,asset.alt)
