@@ -915,6 +915,13 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'DELETE' && id) {
+      if(table==='orders'){
+        const lookup=await supabaseFetch(`/rest/v1/orders?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=id,payment_status&limit=1`,{headers:apiHeaders(token)})
+        if(!lookup.ok)return sendJson(res,lookup.status,lookup.data)
+        const order=Array.isArray(lookup.data)?lookup.data[0]:null
+        if(!order)return sendJson(res,404,{error:'Order not found.'})
+        if(['Paid','Refunded'].includes(order.payment_status))return sendJson(res,409,{error:'Paid and refunded orders must be retained for reporting and payment reconciliation.'})
+      }
       if(table==='media_assets'){
         const lookup=await supabaseFetch(`/rest/v1/media_assets?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=storage_path&limit=1`,{headers:apiHeaders(token)})
         const path=lookup.ok&&Array.isArray(lookup.data)?lookup.data[0]?.storage_path:null
