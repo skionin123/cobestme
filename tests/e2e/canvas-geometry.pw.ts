@@ -34,6 +34,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   await expect(page.frameLocator('iframe[title="CoBest preview"]').locator('.cb-geometry-hero-title-home')).toHaveCSS('translate','80px 40px')
   await page.getByRole('button',{name:'Exit preview'}).click()
   await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect(heading).toHaveCSS('translate','80px 40px')
@@ -65,6 +66,7 @@ test('dragging a selected element border resizes that element only',async({page}
   await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
   await expect(frame(page).locator('[data-builder-node="hero-title-home"]')).not.toHaveClass(/cb-geometry-hero-copy-home/)
   await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
   await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
 })
@@ -95,6 +97,7 @@ test('corner grip is large enough at Fit zoom and actually resizes a heading',as
   await expect(frame(page).locator('[data-builder-node="hero-copy-home"]')).not.toHaveClass(/cb-geometry-hero-title-home/)
 
   await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
   await expect(frame(page).locator('[data-builder-node="hero-title-home"]')).toHaveClass(/cb-geometry-hero-title-home/)
 })
@@ -129,6 +132,7 @@ test('section border reduces whitespace, keeps text size and supports Ctrl+Z ins
   await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(before-50)
 
   await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
   await expect(frame(page).locator('[data-builder-node="hero-home"]')).toHaveClass(/cb-geometry-hero-home/)
 })
@@ -163,6 +167,7 @@ test('corner targets are invisible until hover and resize from the upper-left',a
   // in Fit mode, so its CSS displacement is larger than the screen delta.
   expect(parseFloat(moved)).toBeGreaterThan(40)
   await page.getByRole('button',{name:'Save',exact:true}).click()
+  await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
   await expect(canvas.locator('[data-builder-node="hero-title-home"]')).toHaveCSS('translate',moved)
 })
