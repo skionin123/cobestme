@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, ExternalLink, FileText, Image as ImageIcon, Package, Pencil, Plus, RefreshCw, Search, Trash2, Upload, Users, X } from 'lucide-react'
 import { createResource, deleteResource, getTeam, inviteTeamMember, publishStore, removeTeamMember, revokeTeamInvite, unpublishStore, updateResource, uploadMedia } from './api.js'
 import { getPrimaryCategories, getSubcategories, joinCategory, splitCategory } from './catalogHierarchy.js'
+import { planProductCsvImport } from './productImport.js'
 
 const money=(v,c='PHP')=>new Intl.NumberFormat('en-PH',{style:'currency',currency:c,maximumFractionDigits:2}).format(Number(v||0))
 const splitCsv=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean)
@@ -15,6 +16,9 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
   const empty={name:'',description:'',price:'',compare_at_price:'',inventory:'',category:'',brand:'',sku:'',status:'Draft',image_url:'',images:[],tags:'',variants:[]}
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('All')
+  const [importPlan,setImportPlan]=useState(null)
+  const [importSupplier,setImportSupplier]=useState('Generic')
+  const [importResult,setImportResult]=useState('')
   const [editing,setEditing]=useState(null)
   const [draft,setDraft]=useState(empty)
   const [busy,setBusy]=useState(false)
@@ -64,24 +68,45 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
     products.forEach(p=>rows.push([p.name,p.description,p.price,p.compare_at_price??'',p.inventory,p.category,p.brand,p.sku,p.status,p.image_url,(p.tags||[]).join('|')].map(escape).join(',')))
     const blob=new Blob([rows.join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cobest-products.csv';a.click();URL.revokeObjectURL(a.href)
   }
-  const parseCsvLine=line=>{const out=[];let cur='',quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'&&quoted){cur+='"';i++}else if(ch==='"'){quoted=!quoted}else if(ch===','&&!quoted){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out}
   const importCsv=async e=>{
     const file=e.target.files?.[0];if(!file)return
-    setBusy(true);setError('')
-    try{
-      const text=await file.text();const lines=text.split(/\r?\n/).filter(Boolean);if(lines.length<2)throw new Error('CSV has no product rows.')
-      const headers=parseCsvLine(lines[0]).map(x=>x.trim())
-      const created=[]
-      for(const line of lines.slice(1)){
-        const vals=parseCsvLine(line);const row=Object.fromEntries(headers.map((h,i)=>[h,vals[i]??'']))
-        if(!row.name)continue
-        const payload={name:row.name,description:row.description||'',price:Number(row.price||0),compare_at_price:row.compare_at_price?Number(row.compare_at_price):null,inventory:Number(row.inventory||0),category:row.category||'Uncategorized',brand:row.brand||'',sku:row.sku||'',status:['Draft','Active','Archived'].includes(row.status)?row.status:'Draft',image_url:row.image_url||'',tags:String(row.tags||'').split('|').filter(Boolean),images:row.image_url?[row.image_url]:[],variants:[]}
-        created.push(await createResource('products',payload))
+    setError('');setImportResult('')
+    try {
+      if(file.size>3*1024*1024)throw new Error('Choose a CSV file smaller than 3 MB.')
+      const text=await file.text()
+      const plan=planProductCsvImport(text,products,importSupplier)
+      setImportPlan(plan)
+    }catch(err){setError(err.message)}
+    finally{e.target.value=''}
+  }
+  const applyImport=async()=>{
+    if(!importPlan||importPlan.hasErrors||busy)return
+    setBusy(true);setError('');setImportResult('')
+    let completed=0
+    try {
+      for(const row of importPlan.rows) {
+        if(row.action==='create') {
+          const created=await createResource('products',row.payload)
+          setProducts(prev=>[created,...prev])
+          completed++
+        }else if(row.action==='update'){
+          const updated=await updateResource('products',row.existingId,row.payload)
+          setProducts(prev=>prev.map(x=>x.id===row.existingId?updated:x))
+          completed++
+        }
       }
-      setProducts(prev=>[...created.reverse(),...prev])
-    }catch(err){setError(err.message)}finally{setBusy(false);e.target.value=''}
+      setImportPlan(null)
+      setImportResult(`Import complete: ${completed} products created or updated. ${importPlan.counts.skip} unchanged.`)
+    }catch(err){
+      setImportPlan(null)
+      setError(`Import stopped after ${completed} successful writes. Some products may already have changed. Refresh the catalog and re-upload the CSV to preview remaining changes. Error: ${err.message}`)
+    }finally{setBusy(false)}
   }
   return <div className="page-wrap"><div className="page-head"><div><p className="overline">CATALOG</p><h1>Products</h1><p>Create, edit, price, organize, and archive products.</p></div><div className="page-actions"><Button variant="secondary" onClick={exportCsv}>Export CSV</Button><label className="btn btn-secondary file-button">Import CSV<input type="file" accept=".csv,text/csv" onChange={importCsv}/></label><Button onClick={openNew}><Plus size={16}/> Add product</Button></div></div>
+    {error&&<div className="auth-message auth-error">{error}</div>}
+    {importResult&&<div className="auth-message">{importResult}</div>}
+    <div className="panel" style={{padding:14,marginBottom:14}}><strong>Supplier import preview</strong><p>Match existing products by SKU before changing prices or stock. Imports are reviewed first; an invalid file will not be applied.</p><label className="field" style={{maxWidth:220}}><span>CSV source</span><select value={importSupplier} disabled={busy} onChange={e=>setImportSupplier(e.target.value)}><option>Generic</option><option>Doba</option><option>CJ</option></select></label><small>Use supplier files with a SKU, item number, or matching identifier column. New products need a name and price; inventory updates can use SKU and quantity only.</small></div>
+    {importPlan&&<Modal title="Review product import" onClose={()=>!busy&&setImportPlan(null)}><div className="modal-form"><p>Supplier: <strong>{importPlan.supplier}</strong>. Create: <strong>{importPlan.counts.create}</strong> · Update: <strong>{importPlan.counts.update}</strong> · Unchanged: <strong>{importPlan.counts.skip}</strong> · Errors: <strong>{importPlan.counts.error}</strong>.</p><p>Only confirm after checking every change. SKU collisions, invalid prices and missing required data block the entire import.</p><div style={{maxHeight:300,overflow:'auto'}}><table><thead><tr><th>Row</th><th>SKU</th><th>Product</th><th>Action</th><th>Details</th></tr></thead><tbody>{importPlan.rows.map(row=><tr key={row.rowNumber}><td>{row.rowNumber}</td><td>{row.sku||'—'}</td><td>{row.name||'—'}</td><td>{row.action}</td><td>{row.message}</td></tr>)}</tbody></table></div><div className="modal-actions"><Button variant="secondary" disabled={busy} onClick={()=>setImportPlan(null)}>Cancel</Button><Button disabled={busy||importPlan.hasErrors||!(importPlan.counts.create+importPlan.counts.update)} onClick={applyImport}>{busy?'Applying…':'Confirm import'}</Button></div>{importPlan.hasErrors&&<p role="alert">Correct errors in the CSV and upload again. No records have been changed.</p>}</div></Modal>}
     <div className="toolbar"><div className="searchbox"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></div><select className="toolbar-select" value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Active</option><option>Draft</option><option>Archived</option></select></div>
     <div className="table-card"><table><thead><tr><th>Product</th><th>Status</th><th>Inventory</th><th>Category</th><th>Price</th><th/></tr></thead><tbody>{filtered.map((p,i)=><tr key={p.id}><td><div className="product-cell">{p.image_url?<img className="admin-product-image" src={p.image_url} alt=""/>:<div className={`product-thumb thumb-${(i%4)+1}`}><Package size={18}/></div>}<div><strong>{p.name}</strong><span>{p.sku||p.brand||''}</span></div></div></td><td><span className={`status ${String(p.status||'Draft').toLowerCase()}`}>{p.status||'Draft'}</span></td><td>{p.inventory}</td><td>{p.category||'—'}</td><td>{money(p.price,currency)}</td><td><div className="row-actions"><button onClick={()=>openEdit(p)}><Pencil size={15}/></button><button onClick={()=>remove(p)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table>{!filtered.length&&<Empty title="No matching products" body="Try a different search/filter or add a product."/>}</div>
     {editing&&<Modal title={editing==='new'?'Add product':'Edit product'} onClose={()=>setEditing(null)}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<Field label="Product name"><input value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></Field><Field label="Description"><textarea rows="4" value={draft.description||''} onChange={e=>setDraft({...draft,description:e.target.value})}/></Field><div className="form-grid three"><Field label="Price"><input type="number" value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></Field><Field label="Compare-at price"><input type="number" value={draft.compare_at_price??''} onChange={e=>setDraft({...draft,compare_at_price:e.target.value})}/></Field><Field label="Inventory"><input type="number" value={draft.inventory} onChange={e=>setDraft({...draft,inventory:e.target.value})}/></Field></div><div className="form-grid three"><Field label="Primary category"><input aria-label="Primary category" list="cobest-primary-options" value={parsedDraftCategory.primary} onChange={e=>setDraft({...draft,category:joinCategory(e.target.value)})} placeholder="e.g. Home"/><datalist id="cobest-primary-options">{primaryCategories.map(name=><option key={name} value={name}/>)}</datalist></Field><Field label="Subcategory"><input aria-label="Subcategory" list="cobest-subcategory-options" value={parsedDraftCategory.subcategory} disabled={!parsedDraftCategory.primary} onChange={e=>setDraft({...draft,category:joinCategory(parsedDraftCategory.primary,e.target.value)})} placeholder="e.g. Lighting"/><datalist id="cobest-subcategory-options">{subcategoryOptions.map(name=><option key={name} value={name}/>)}</datalist></Field></div><div className="form-grid two"><Field label="Brand"><input list="cobest-brand-options" value={draft.brand||''} onChange={e=>setDraft({...draft,brand:e.target.value})}/><datalist id="cobest-brand-options">{terms.filter(x=>x.term_type==='brand').map(x=><option key={x.id} value={x.name}/>)}</datalist></Field><Field label="SKU"><input value={draft.sku||''} onChange={e=>setDraft({...draft,sku:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Status"><select value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})}><option>Draft</option><option>Active</option><option>Archived</option></select></Field><Field label="Tags"><input value={draft.tags||''} onChange={e=>setDraft({...draft,tags:e.target.value})} placeholder="home, featured"/></Field></div><div className="product-media-editor"><Field label="Primary image URL"><input value={draft.image_url||''} onChange={e=>setDraft({...draft,image_url:e.target.value,images:Array.from(new Set([...(draft.images||[]),e.target.value].filter(Boolean)))})} placeholder="https://..."/></Field><label className="btn btn-secondary file-button"><Upload size={15}/> Upload product image<input type="file" accept="image/*" onChange={uploadProductImage}/></label>{(draft.images||[]).length>0&&<div className="product-image-strip">{draft.images.map(url=><button key={url} className={draft.image_url===url?'active':''} onClick={()=>setDraft({...draft,image_url:url})}><img src={url} alt=""/></button>)}</div>}</div><div className="variant-editor"><div className="panel-head"><div><span>Variants</span><h3>Options / SKUs</h3></div><Button variant="secondary" onClick={addVariant}><Plus size={14}/> Add variant</Button></div>{(draft.variants||[]).map((v,i)=><div className="variant-row" key={i}><input value={v.title||''} onChange={e=>updateVariant(i,'title',e.target.value)} placeholder="Title"/><input value={v.option||''} onChange={e=>updateVariant(i,'option',e.target.value)} placeholder="e.g. Black / M"/><input value={v.sku||''} onChange={e=>updateVariant(i,'sku',e.target.value)} placeholder="SKU"/><input type="number" value={v.price??0} onChange={e=>updateVariant(i,'price',e.target.value)} placeholder="Price"/><input type="number" value={v.inventory??0} onChange={e=>updateVariant(i,'inventory',e.target.value)} placeholder="Stock"/><button onClick={()=>removeVariant(i)}><Trash2 size={15}/></button></div>)}</div><div className="modal-actions"><Button variant="secondary" onClick={()=>setEditing(null)}>Cancel</Button><Button disabled={busy} onClick={save}>{busy?'Saving…':'Save product'}</Button></div></div></Modal>}
