@@ -522,3 +522,8 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-section-library-head span{font-size:9px;color:#939bac}
 .vb-section-library-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 .vb-section-library-grid .vb-palette-item{min-height:62px}
+
+/* Small grid/edge snapping control near existing canvas zoom */
+.vb-stage-view .vb-snap-toggle{margin-left:7px;border-left:1px solid #434955;padding:7px 9px;color:#9da5b6;font-size:10px}
+.vb-stage-view .vb-snap-toggle.active{color:#c1b9ff;background:#332f4c}
+.vb-stage-view .vb-snap-toggle:hover{color:#fff}
