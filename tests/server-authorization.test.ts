@@ -22,6 +22,14 @@ describe('server authorization guards',()=>{
     expect(unpublish).toContain("if(role==='Viewer')return sendJson(res,403")
   })
 
+  it('only confirms publishing after both published snapshot and workspace status write succeed',()=>{
+    const publish=routeBlock("if (url.pathname === '/api/publish'","if (url.pathname === '/api/unpublish'")
+    expect(publish).toContain("if (!result.ok) return sendJson(res, result.status, result.data)")
+    expect(publish).toContain('const publishedWorkspace=await supabaseFetch')
+    expect(publish).toContain('if(!publishedWorkspace.ok||!Array.isArray(publishedWorkspace.data)||!publishedWorkspace.data.length)')
+    expect(publish).toContain("return sendJson(res, 502")
+  })
+
   it('prevents Viewer media uploads',()=>{
     const media=routeBlock("if (url.pathname === '/api/media/upload'","const campaignSend")
     expect(media).toContain("if(role==='Viewer')return sendJson(res,403")
