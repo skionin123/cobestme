@@ -30,7 +30,7 @@ export default function SuppliersManager({products=[],setProducts}) {
   const assign=async()=>{
     const current=products.find(p=>String(p.id)===String(selectedId))
     if(!current)return setError('Choose a product first.')
-    const name=normalizeName(supplierName)
+    const name=normalizeName(supplierName)==='cj-dropshipping'?'cj':normalizeName(supplierName)
     const tags=(Array.isArray(current.tags)?current.tags:[]).filter(x=>!/^supplier:/i.test(String(x)))
     if(name)tags.push('supplier:'+name)
     setBusy(true);setError('');setMessage('')
