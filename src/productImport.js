@@ -119,7 +119,7 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     incoming.add(key)
     if (current.length > 1) return fail('More than one existing product has this SKU. Resolve it manually first.')
     if (variantSkus.has(key)) return fail('This SKU belongs to an existing variant. Update it through variant management, not the product importer.')
-    const existingSupplierTag = (existing?.tags || []).find(x => /^supplier:(doba|cj|cj-dropshipping)$/i.test(String(x)))
+    const existingSupplierTag = (existing?.tags || []).find(x => /^supplier:[^:]+$/i.test(String(x)))
     if (existingSupplierTag && tag && String(existingSupplierTag).toLowerCase().replace('cj-dropshipping','cj') !== tag) {
       return fail('Product is assigned to another supplier. Verify and reassign the supplier before updating this SKU.')
     }
