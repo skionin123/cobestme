@@ -17,6 +17,13 @@ describe('CoBest security regression guards',()=>{
   expect(admin).toContain('Payment status (provider verified; read-only)')
   expect(admin).not.toContain('const payload={payment_status:draft.payment_status')
  })
+ it('keeps merchant checkout opt-in and separate from platform subscription configuration',()=>{
+  expect(server).toContain("COBEST_ENABLE_COMMERCE_PAYMENTS === 'true'")
+  expect(server).toContain('stripe: canStripeCommerce()')
+  expect(server).toContain('paypal: canPayPalCommerce()')
+  expect(server).toContain('stripe_billing: Boolean(stripeSecret && stripeWebhookSecret)')
+  expect(server).toContain("requestedProvider==='stripe'&&!canStripeCommerce()")
+ })
  it('does not create pending orders for unsupported or missing online payment configurations',()=>{
   expect(server).toContain("Unsupported payment provider.")
   expect(server).toContain('Card payments are not configured for this store.')
