@@ -26,7 +26,7 @@ export function reviewWebsiteLaunch(project:BuilderProject):LaunchIssue[]{
   const slugs=new Map<string,string>()
   // Compare all internal links against the complete set of page slugs.
   const knownPaths=new Set(project.pages.map(page=>
-    (page.slug||'/').trim().replace(/\\/+$/,'').toLowerCase()||'/'))
+    (page.slug||'/').trim().replace(/\/+$/,'').toLowerCase()||'/'))
   for(const page of project.pages){
     const slug=(page.slug||'/').trim().replace(/\/+$/,'').toLowerCase()||'/'
     if(slugs.has(slug)){
@@ -69,7 +69,7 @@ export function reviewWebsiteLaunch(project:BuilderProject):LaunchIssue[]{
       }
       if(['link','button'].includes(node.type)){
         const href=node.attributes.href?.trim()||''
-        if(href.startsWith('/')&&!href.startsWith('//')&&!knownPaths.has(href.split(/[?#]/)[0].replace(/\\/+$/,'').toLowerCase()||'/')){
+        if(href.startsWith('/')&&!href.startsWith('//')&&!knownPaths.has(href.split(/[?#]/)[0].replace(/\/+$/,'').toLowerCase()||'/')){
           add({id:'link-missing-'+node.id,level:'warning',title:'Internal link has no matching page',
             detail:node.name+' points to '+href+'. Choose an existing page or fix the URL.',
             pageId:page.id,nodeId:node.id,tab:'settings'})
