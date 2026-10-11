@@ -132,3 +132,34 @@ test('section border reduces whitespace, keeps text size and supports Ctrl+Z ins
   await page.reload()
   await expect(frame(page).locator('[data-builder-node="hero-home"]')).toHaveClass(/cb-geometry-hero-home/)
 })
+
+test('corner targets are invisible until hover and resize from the upper-left',async({page})=>{
+  await page.setViewportSize({width:1440,height:900})
+  await page.goto('/e2e.html')
+  const canvas=frame(page)
+  const title=canvas.locator('[data-builder-node="hero-title-home"]')
+  await title.click()
+  const corners=canvas.locator('.builder-corner-hit')
+  await expect(corners).toHaveCount(4)
+  // No permanently painted bottom-right square.
+  const se=canvas.locator('.builder-corner-hit[data-edge="se"]')
+  await expect(se).toBeVisible()
+  expect(await se.evaluate(el=>getComputedStyle(el,'::after').opacity)).toBe('0')
+
+  const nw=canvas.locator('.builder-corner-hit[data-edge="nw"]')
+  await nw.hover()
+  await expect.poll(()=>nw.evaluate(el=>getComputedStyle(el,'::after').opacity)).toBe('1')
+  await expect(nw).toHaveCSS('cursor','nwse-resize')
+  const initial=await title.evaluate(el=>({
+    width:el.getBoundingClientRect().width,
+    fontSize:parseFloat(getComputedStyle(el).fontSize),
+  }))
+  await pointerDrag(page,nw,58,0)
+  await expect(title).toHaveClass(/cb-geometry-hero-title-home/)
+  await expect.poll(()=>title.evaluate(el=>el.getBoundingClientRect().width).catch(()=>0)).toBeLessThan(initial.width-30)
+  expect(await title.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBe(initial.fontSize)
+  await expect(title).toHaveCSS('translate','58px 0px')
+  await page.getByRole('button',{name:'Save',exact:true}).click()
+  await page.reload()
+  await expect(canvas.locator('[data-builder-node="hero-title-home"]')).toHaveCSS('translate','58px 0px')
+})
