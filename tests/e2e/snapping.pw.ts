@@ -1,0 +1,35 @@
+import {test,expect,type Page} from '@playwright/test'
+const canvas=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
+async function moveBy(page:Page,dx:number,dy:number){
+  const button=canvas(page).getByRole('button',{name:'Drag to move the selected element'})
+  await expect(button).toBeVisible()
+  const box=await button.boundingBox()
+  expect(box).toBeTruthy()
+  const x=box!.x+box!.width/2,y=box!.y+box!.height/2
+  await page.mouse.move(x,y)
+  await page.mouse.down()
+  await page.mouse.move(x+dx,y+dy,{steps:10})
+  await page.mouse.up()
+}
+test('snap toggle aligns moves and persists preference across reloads',async({page})=>{
+  await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
+  const toggle=page.getByRole('button',{name:'Toggle alignment snapping'})
+  await expect(toggle).toHaveAttribute('aria-pressed','true')
+  const heading=canvas(page).locator('[data-builder-node="hero-title-home"]')
+  await heading.click()
+  await moveBy(page,27,15)
+  await expect(heading).toHaveClass(/cb-geometry-hero-title-home/)
+  const snapped=await heading.evaluate(el=>getComputedStyle(el).translate)
+  const x=parseFloat(snapped),y=parseFloat(snapped.split(' ')[1])
+  // Each axis is either snapped to the grid or to a nearby sibling edge.
+  expect(Number.isFinite(x)&&Number.isFinite(y)).toBe(true)
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed','false')
+  await page.reload()
+  await expect(page.getByRole('button',{name:'Toggle alignment snapping'})).toHaveAttribute('aria-pressed','false')
+  const selected=canvas(page).locator('[data-builder-node="hero-title-home"]')
+  await selected.click()
+  await moveBy(page,17,11)
+  await expect.poll(()=>selected.evaluate(el=>getComputedStyle(el).translate)).not.toBe(snapped)
+})
