@@ -42,6 +42,21 @@ describe('supplier-aware product import', () => {
     const valid=planProductCsvImport('SKU,Quantity\nROOT,2',[product],'Doba')
     expect(valid.counts.update).toBe(1)
   })
+  it('flags malformed column counts before mutating the catalog',()=>{
+    const plan=planProductCsvImport('SKU,Name,Price\\nA,Product,100,unexpected',[])
+    expect(plan.hasErrors).toBe(true)
+    expect(plan.rows[0].message).toMatch(/columns/)
+  })
+
+  it('does not let a generic CSV impersonate another supplier through tags',()=>{
+    const plan=planProductCsvImport('SKU,Name,Price,Tags\\nA,Lamp,20,supplier:cj|featured',[],'Generic')
+    expect(plan.hasErrors).toBe(false)
+    expect(plan.rows[0].payload.tags).toEqual(['featured'])
+    const update=planProductCsvImport('SKU,Tags\\nB,supplier:cj|featured',
+      [{id:1,sku:'B',name:'Table',tags:['supplier:doba']}],'Generic')
+    expect(update.rows[0].payload.tags).toEqual(['supplier:doba','featured'])
+  })
+
   it('handles empty unchanged updates and enforces safety limits', () => {
     const noChange=planProductCsvImport('SKU,Quantity\nX,2',[{id:1,sku:'X',inventory:2}])
     expect(noChange.counts.skip).toBe(1)
