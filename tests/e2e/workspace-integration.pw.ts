@@ -75,7 +75,7 @@ test('real application shell saves each site and reopens its own builder documen
   })
   await live.goto('/store/alpha-studio')
   await expect(live.frameLocator('iframe.visual-published-frame').locator('body'))
-    .toContainText('Build trust before the first conversation.')
+    .toContainText('Your business deserves a strong first impression.')
   await live.close()
 
   await projectName.fill('Alpha Draft Only')
