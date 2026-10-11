@@ -122,6 +122,11 @@ export default function PublicStore({slug:slugProp,host}) {
     if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:name}}).catch(()=>{})
   }
   const add=p=>{
+    if(Array.isArray(p.variants)&&p.variants.length){
+      setNotice('This product has options that require confirmation. Please contact the store before ordering.')
+      setTimeout(()=>setNotice(''),4500)
+      return
+    }
     const stock=p.inventory==null?null:Math.max(0,Math.floor(Number(p.inventory)||0))
     if(stock===0){setNotice(`${p.name} is out of stock.`);setTimeout(()=>setNotice(''),2600);return}
     let added=false
