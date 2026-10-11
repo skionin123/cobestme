@@ -9,6 +9,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { createElement, createPrebuiltSection, mvpElementCatalog } from './elements'
 import { applyTemplate, builderTemplates } from './templates'
 import { applyNodeGeometry, geometryClass } from './geometry'
+import { setElementSizing, getElementSizingMode, type SizingMode } from './sizing'
 import { canAcceptChildren, findNode, findParent, slugify, uid, walkNodes } from './tree'
 import { useBuilderStore } from './store'
 import type { BuilderAsset, BuilderInteraction, BuilderNode, CmsCollection, CmsField, CssProperties } from './types'
@@ -307,6 +308,15 @@ export function StylePanel(){
   const x=String(parseFloat(pos[0])||0)
   const y=String(parseFloat(pos[1])||0)
   const isText=['heading','paragraph','button','link'].includes(node.type)
+  const widthMode=getElementSizingMode(project,node.id,breakpoint,'width')
+  const heightMode=getElementSizingMode(project,node.id,breakpoint,'height')
+  const changeSizing=(axis:'width'|'height',mode:SizingMode)=>{
+    useBuilderStore.getState().mutate('Set '+axis+' behavior',draft=>{
+      const prev=draft.styles[geometryClass(node.id)]?.[breakpoint]?.none||{}
+      const px=parseFloat(prev[axis]||'')|| (axis==='width'?320:240)
+      setElementSizing(draft,node.id,breakpoint,axis,mode,px)
+    })
+  }
   const isFrame=['section','container','div','grid','flex','columns','navbar','footer'].includes(node.type)
   const editable=node.id!==page.root.id&&!node.locked
   const mutateGeometry=(labelText:string,change:Parameters<typeof applyNodeGeometry>[3])=>{
@@ -375,7 +385,21 @@ export function StylePanel(){
         <InspectorNumber key={node.id+breakpoint+'x'} name="X" value={x} onCommit={next=>changeNumber('x',next)}/>
         <InspectorNumber key={node.id+breakpoint+'y'} name="Y" value={y} onCommit={next=>changeNumber('y',next)}/>
       </div>
-      <div className="vb-inspector-heading"><strong>Dimensions</strong><span>px</span></div>
+      <div className="vb-inspector-heading"><strong>Size behavior</strong><span>Responsive</span></div>
+      <div className="vb-sizing-controls">
+        <label><span>Width</span><select aria-label="Width behavior" value={widthMode}
+          onChange={e=>changeSizing('width',e.target.value as SizingMode)}>
+          <option value="theme">Theme default</option><option value="hug">Fit content</option>
+          <option value="fill">Fill container</option><option value="fixed">Fixed (px)</option>
+        </select></label>
+        <label><span>Height</span><select aria-label="Height behavior" value={heightMode}
+          onChange={e=>changeSizing('height',e.target.value as SizingMode)}>
+          <option value="theme">Theme default</option><option value="hug">Fit content</option>
+          <option value="fixed">Fixed (px)</option>
+        </select></label>
+      </div>
+      <p className="vb-sizing-help">Fit follows content · Fill follows its parent · Fixed uses the pixel size below. Adjust each device separately.</p>
+      <div className="vb-inspector-heading"><strong>Exact size</strong><span>px</span></div>
       <div className="vb-inspector-grid">
         <InspectorNumber key={node.id+breakpoint+'width'} name="Width" value={String(parseFloat(read('width'))||'')} onCommit={next=>changeNumber('width',next)}/>
         {isFrame&&<InspectorNumber key={node.id+breakpoint+'height'} name="Height" value={String(parseFloat(read('height'))||'')} onCommit={next=>changeNumber('height',next)}/>}
