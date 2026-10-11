@@ -752,6 +752,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             <span><strong>{launchIssues.filter(x=>x.level==='warning').length}</strong> suggestions</span>
             <span className={launchBlockers.length?'blocked':'ready'}><strong>{launchBlockers.length}</strong> blockers</span>
           </div>
+          <div className="vb-search-preview" aria-label="Search preview">
+            <small>Search preview · {activePage.name}</small>
+            <strong>{activePage.seo.title||activePage.name}</strong>
+            <span>{activePage.seo.description||'Add a page description so visitors know what this website offers.'}</span>
+          </div>
           <div className="vb-launch-issues">
             {launchIssues.length===0&&<div className="vb-launch-clean">
               <strong>Your website passes the local design checklist.</strong>
@@ -764,8 +769,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             </div>)}
           </div>
           <footer className="vb-launch-footer">
-            <p>Publishing updates the public website. Your saved drafts stay separate until you publish again.</p>
+            <p>Publishing updates the public website. Drafts stay separate until you publish again. Verify mobile layout, forms, payments and domain settings manually before inviting customers.</p>
             <div>
+              <button type="button" className="vb-launch-cancel"
+                onClick={()=>{setBreakpoint('mobilePortrait');setLaunchReviewOpen(false);setPreview(true)}}>Preview mobile</button>
               <button type="button" className="vb-launch-cancel" onClick={()=>{setLaunchReviewOpen(false);setPreview(true)}}>Preview first</button>
               <button type="button" className="vb-launch-confirm" onClick={publish} disabled={publishing||!!launchBlockers.length}>
                 {launchBlockers.length?'Fix blockers to publish':publishing?'Publishing…':'Confirm publish'}
