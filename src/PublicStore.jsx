@@ -80,12 +80,13 @@ export default function PublicStore({slug:slugProp,host}) {
     const paypalOrder=params.get('token')
     const payment=params.get('payment')
     if(paypalReturn&&paypalOrder){
-      publicAction('paypal-capture',{paypal_order_id:paypalOrder}).then(()=>{
-        setCart([]);setNotice('PayPal payment completed. Your order is confirmed.')
+      publicAction('paypal-capture',{paypal_order_id:paypalOrder}).then(result=>{
+        if(result?.status!=='COMPLETED')throw new Error('Provider confirmation is still pending.')
+        setCart([]);setNotice('PayPal reports a completed payment. Check the order status for confirmation.')
         window.history.replaceState({},document.title,window.location.pathname)
-      }).catch(err=>setNotice(`PayPal capture needs attention: ${err.message}`))
+      }).catch(err=>setNotice(`PayPal verification needs attention: ${err.message}`))
     }else if(payment==='success'){
-      setCart([]);setNotice('Payment completed. Your order status will update automatically.')
+      setCart([]);setNotice('Checkout returned successfully. Payment will be confirmed after provider verification; check your order status.')
       window.history.replaceState({},document.title,window.location.pathname)
     }else if(payment==='cancelled'){
       setNotice('Payment was cancelled. Your pending order remains available for follow-up.')
