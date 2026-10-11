@@ -78,7 +78,7 @@ export function ProductsManager({products,setProducts,terms=[],currency='PHP'}) 
   const downloadImportTemplate=()=>{
     // Header-only template: no sample product is accidentally imported.
     const columns='sku,name,price,inventory,description,category,brand,status,image_url,tags'
-    const blob=new Blob([columns+'\\n'],{type:'text/csv;charset=utf-8'})
+    const blob=new Blob([columns+'\n'],{type:'text/csv;charset=utf-8'})
     const url=URL.createObjectURL(blob)
     const link=document.createElement('a')
     link.href=url;link.download='cobest-product-import-template.csv';link.click()
