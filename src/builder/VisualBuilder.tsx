@@ -30,6 +30,15 @@ import './visual-builder.css'
 const widths:Record<BreakpointId,number>={desktop:1440,tablet:991,mobileLandscape:767,mobilePortrait:478}
 const breakpointLabels:Record<BreakpointId,string>={desktop:'Desktop 1440',tablet:'Tablet 991',mobileLandscape:'Mobile landscape 767',mobilePortrait:'Mobile portrait 478'}
 const viewportHeights:Record<BreakpointId,number>={desktop:900,tablet:760,mobileLandscape:430,mobilePortrait:844}
+const SIDEBAR_WIDTH_KEY='cobest-designer-navigator-width'
+const SIDEBAR_DEFAULT_WIDTH=320
+const SIDEBAR_MIN_WIDTH=230
+const sidebarWidthLimit=(viewport:number)=>{
+  const right=viewport>940?(viewport<=1180?258:viewport<=1500?282:294):0
+  const canvasSpace=viewport<=940?300:Math.max(400,viewport*.38)
+  return Math.min(520,Math.max(SIDEBAR_MIN_WIDTH,viewport-right-canvasSpace))
+}
+
 
 type LeftTab='add'|'navigator'|'pages'|'templates'|'assets'|'components'|'cms'
 type RightTab='style'|'settings'|'interactions'
@@ -218,6 +227,44 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const redo=useBuilderStore(s=>s.redo)
 
   const [leftTab,setLeftTab]=useState<LeftTab>('add')
+  const [sidebarWidth,setSidebarWidth]=useState(()=>{
+    try{
+      const saved=Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY))
+      return Number.isFinite(saved)&&saved>=SIDEBAR_MIN_WIDTH&&saved<=520?saved:SIDEBAR_DEFAULT_WIDTH
+    }catch{return SIDEBAR_DEFAULT_WIDTH}
+  })
+  const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1440:window.innerWidth)
+  const [sidebarDragging,setSidebarDragging]=useState(false)
+  const sidebarDragRef=useRef<{pointerId:number;x:number;width:number}|null>(null)
+  const maxSidebarWidth=sidebarWidthLimit(viewportWidth)
+  const activeSidebarWidth=Math.min(sidebarWidth,maxSidebarWidth)
+  const resizeSidebar=(width:number)=>setSidebarWidth(Math.round(Math.max(SIDEBAR_MIN_WIDTH,Math.min(maxSidebarWidth,width))))
+  const onSidebarPointerDown=(event:React.PointerEvent<HTMLDivElement>)=>{
+    if(event.button!==0)return
+    event.preventDefault()
+    event.stopPropagation()
+    sidebarDragRef.current={pointerId:event.pointerId,x:event.clientX,width:activeSidebarWidth}
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setSidebarDragging(true)
+  }
+  const onSidebarPointerMove=(event:React.PointerEvent<HTMLDivElement>)=>{
+    const drag=sidebarDragRef.current
+    if(!drag||drag.pointerId!==event.pointerId)return
+    resizeSidebar(drag.width+event.clientX-drag.x)
+  }
+  const onSidebarPointerEnd=(event:React.PointerEvent<HTMLDivElement>)=>{
+    if(sidebarDragRef.current?.pointerId!==event.pointerId)return
+    sidebarDragRef.current=null
+    setSidebarDragging(false)
+    if(event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+  const onSidebarKeyDown=(event:React.KeyboardEvent<HTMLDivElement>)=>{
+    if(event.key==='Home'){event.preventDefault();resizeSidebar(SIDEBAR_DEFAULT_WIDTH);return}
+    if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return
+    event.preventDefault()
+    resizeSidebar(activeSidebarWidth+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?40:20))
+  }
   const [rightTab,setRightTab]=useState<RightTab>('style')
   const [preview,setPreview]=useState(false)
   const [zoomMode,setZoomMode]=useState<'fit'|'actual'>('fit')
@@ -319,6 +366,19 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ?Math.min(1,Math.max(.3,(stageWidth-42)/frameWidth))
     :1
   const zoom=Math.round(scale*100)
+
+  useEffect(()=>{
+    const onResize=()=>setViewportWidth(window.innerWidth)
+    window.addEventListener('resize',onResize)
+    return()=>window.removeEventListener('resize',onResize)
+  },[])
+  useEffect(()=>{
+    try{window.localStorage.setItem(SIDEBAR_WIDTH_KEY,String(sidebarWidth))}catch{}
+  },[sidebarWidth])
+  useEffect(()=>{
+    document.documentElement.classList.toggle('vb-sidebar-resizing',sidebarDragging)
+    return()=>document.documentElement.classList.remove('vb-sidebar-resizing')
+  },[sidebarDragging])
 
   useEffect(()=>{
     const stage=stageRef.current
@@ -610,8 +670,20 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           {onPublish&&<button className="vb-publish" onClick={()=>setLaunchReviewOpen(true)} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
       </header>
-      <div className="vb-workspace">
+      <div className="vb-workspace" style={{'--vb-left-width':activeSidebarWidth+'px'} as React.CSSProperties}>
         <aside className="vb-left">
+          <div className={'vb-sidebar-resizer '+(sidebarDragging?'is-dragging':'')}
+            role="separator" aria-orientation="vertical" aria-label="Resize Navigator sidebar"
+            aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={Math.round(maxSidebarWidth)}
+            aria-valuenow={activeSidebarWidth} tabIndex={0}
+            title="Drag to widen Navigator · Double-click to reset"
+            onPointerDown={onSidebarPointerDown} onPointerMove={onSidebarPointerMove}
+            onPointerUp={onSidebarPointerEnd} onPointerCancel={onSidebarPointerEnd}
+            onLostPointerCapture={()=>{sidebarDragRef.current=null;setSidebarDragging(false)}}
+            onDoubleClick={()=>resizeSidebar(SIDEBAR_DEFAULT_WIDTH)}
+            onKeyDown={onSidebarKeyDown}>
+            <span className="vb-sidebar-grip" aria-hidden="true"/>
+          </div>
           <div className="vb-left-tabs">
             {([
               ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
