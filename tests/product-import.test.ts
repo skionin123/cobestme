@@ -52,8 +52,8 @@ describe('supplier-aware product import', () => {
     const plan=planProductCsvImport('SKU,Name,Price,Tags\nA,Lamp,20,supplier:cj|featured',[],'Generic')
     expect(plan.hasErrors).toBe(false)
     expect(plan.rows[0].payload.tags).toEqual(['featured'])
-    const update=planProductCsvImport('SKU,Tags\nB,supplier:cj|featured',
-      [{id:1,sku:'B',name:'Table',tags:['supplier:doba']}],'Generic')
+    const update=planProductCsvImport('SKU,Inventory,Tags\nB,1,supplier:cj|featured',
+      [{id:1,sku:'B',name:'Table',inventory:1,tags:['supplier:doba']}],'Generic')
     expect(update.rows[0].payload.tags).toEqual(['supplier:doba','featured'])
   })
 
