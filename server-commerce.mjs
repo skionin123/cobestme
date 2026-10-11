@@ -3,10 +3,17 @@ export function calculateCheckout(snapshot, body, now=Date.now()) {
   const requested = Array.isArray(body?.items) ? body.items : []
   const items = []
   const inventoryIssues = []
+  const variantIssues = []
 
   for (const row of requested) {
     const product = catalog.find(p => String(p.id) === String(row?.product_id) && p.status === 'Active')
     if (!product) continue
+    // Never charge the parent product price for a customer-selected option we
+    // cannot record or reserve correctly in the current checkout RPC.
+    if (Array.isArray(product.variants) && product.variants.length) {
+      variantIssues.push({product_id:product.id,name:product.name})
+      continue
+    }
 
     const rawQuantity = Number(row?.quantity)
     const requestedQuantity = Number.isFinite(rawQuantity)
@@ -75,5 +82,5 @@ export function calculateCheckout(snapshot, body, now=Date.now()) {
   const taxAmount = taxableBase * taxRate / 100
   const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
 
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
+  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues, variantIssues }
 }
