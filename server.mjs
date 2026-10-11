@@ -97,7 +97,10 @@ async function getAccessContext(token, user) {
 }
 
 async function resolveSiteId(req,token,ownerId){
-  const requested=Number(req.headers['x-cobest-site-id']||0)
+  const rawSelection=String(req.headers['x-cobest-site-id']||'').trim()
+  if(rawSelection&&!/^[1-9]\d*$/.test(rawSelection))return null
+  const requested=rawSelection?Number(rawSelection):0
+  if(rawSelection&&!Number.isSafeInteger(requested))return null
   if(requested){
     const found=await supabaseFetch(`/rest/v1/workspaces?id=eq.${requested}&user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`,{headers:apiHeaders(token)})
     // Never silently write to a different site when the requested site is not accessible.
