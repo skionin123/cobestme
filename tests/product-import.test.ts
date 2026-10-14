@@ -88,6 +88,10 @@ describe('supplier-aware product import', () => {
     expect(p.rows[0].payload).not.toHaveProperty('cost')
   })
 
+  it('refuses a variant-only SKU feed in the parent product import workflow',()=>{
+    expect(()=>planProductCsvImport('Variant SKU,Price\\nSHIRT-BLACK,19',[],'CJ',{mode:'create'})).toThrow(/Variant SKU feeds must be updated/)
+  })
+
   it('rejects unknown import modes',()=>{
     expect(()=>planProductCsvImport('SKU,Quantity\nA,2',[],'Doba',{mode:'replace-all'})).toThrow(/Invalid import mode/)
   })
