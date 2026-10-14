@@ -54,3 +54,28 @@ test('tap a ready-made design section on phone and retain it after save',async({
   await tools.getByRole('button',{name:'Phone Save'}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
 })
+
+test('touch-and-drag a design block into the page on a phone viewport',async({page})=>{
+  await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Phone Add elements'}).click()
+  const item=page.locator('.vb-section-library .vb-palette-item').first()
+  await item.scrollIntoViewIfNeeded()
+  const source=await item.boundingBox()
+  const target=await page.locator('.vb-canvas-drop').boundingBox()
+  expect(source).toBeTruthy()
+  expect(target).toBeTruthy()
+  const before=await canvas(page).locator('[data-builder-node]').count()
+  const start={x:source!.x+source!.width/2,y:source!.y+source!.height/2}
+  // Move into the canvas past the open drawer's right edge.
+  const end={x:Math.min(378,target!.x+target!.width-12),y:Math.max(160,Math.min(650,target!.y+230))}
+  const session=await page.context().newCDPSession(page)
+  await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]})
+  await page.waitForTimeout(240)
+  for(let i=1;i<=7;i++){
+    const x=start.x+(end.x-start.x)*i/7
+    const y=start.y+(end.y-start.y)*i/7
+    await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y}]})
+  }
+  await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+  await expect.poll(async()=>canvas(page).locator('[data-builder-node]').count()).toBeGreaterThan(before)
+})
