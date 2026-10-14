@@ -766,12 +766,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         </aside>
       </div>
       <nav className="vb-mobile-actions" aria-label="Phone website editing tools">
-        <button type="button" className={mobilePanel==='add'?'active':''} aria-pressed={mobilePanel==='add'} onClick={()=>{setLeftTab('add');setMobilePanel(mobilePanel==='add'?null:'add')}}><PanelLeft size={18}/> Add</button>
-        <button type="button" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
-        <button type="button" className={mobilePanel==='style'?'active':''} aria-pressed={mobilePanel==='style'} onClick={()=>{setRightTab('style');setMobilePanel(mobilePanel==='style'?null:'style')}}><Settings2 size={18}/> Style</button>
-        <button type="button" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
-        <button type="button" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
-        <button type="button" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
+        <button type="button" aria-label="Phone Add elements" className={mobilePanel==='add'?'active':''} aria-pressed={mobilePanel==='add'} onClick={()=>{setLeftTab('add');setMobilePanel(mobilePanel==='add'?null:'add')}}><PanelLeft size={18}/> Add</button>
+        <button type="button" aria-label="Phone Layers" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
+        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'?'active':''} aria-pressed={mobilePanel==='style'} onClick={()=>{setRightTab('style');setMobilePanel(mobilePanel==='style'?null:'style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" aria-label="Phone Undo" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
+        <button type="button" aria-label="Phone Redo" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
+        <button type="button" aria-label="Phone Save" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
       </nav>
       {mobilePanel&&<button type="button" className="vb-mobile-backdrop" aria-label="Close edit tools" onClick={()=>setMobilePanel(null)}/>}
       {launchReviewOpen&&<div className="vb-launch-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setLaunchReviewOpen(false)}}>
