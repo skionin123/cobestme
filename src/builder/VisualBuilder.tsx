@@ -589,7 +589,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     const next={...starter,id:current.id,name:current.name}
     replaceProject(next,true,'Start over with starter design')
     selectNode(starter.pages[0].root.id)
-    setBreakpoint('desktop')
+    // Keep the canvas usable after reset on a real phone.
+    setBreakpoint(window.innerWidth<=680?'mobilePortrait':'desktop')
     setLeftTab('add')
     setMobilePanel(null)
     setPreview(false)
@@ -621,9 +622,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     if(active?.kind==='new-element'){
       addNode(target.parentId,createElement(active.type),target.index)
       setLeftTab('navigator')
+      if(window.innerWidth<=680)setMobilePanel(null)
     }else if(active?.kind==='new-section'){
       addNode(target.parentId,createPrebuiltSection(active.type),target.index)
       setLeftTab('navigator')
+      if(window.innerWidth<=680)setMobilePanel(null)
     }else if(active?.kind==='node'){
       if(active.nodeId===target.parentId)return
       moveNode(active.nodeId,target.parentId,target.index)
