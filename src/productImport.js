@@ -185,7 +185,7 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
         name:proposed.name, sku, description:proposed.description || '',
         price:proposed.price, compare_at_price:proposed.compare_at_price ?? null,
         inventory:proposed.inventory ?? 0, category:proposed.category || 'Uncategorized',
-        brand:proposed.brand || '', status:proposed.status || 'Draft',
+        brand:proposed.brand || '', status:'Draft',
         image_url:proposed.image_url || '', images:proposed.images || [],
         tags:proposed.tags || [], variants:[]
       }
