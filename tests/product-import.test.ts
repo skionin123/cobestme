@@ -72,8 +72,8 @@ describe('supplier-aware product import', () => {
   it('creates only new Draft products in create mode',()=>{
     const fresh=planProductCsvImport('SKU,Name,Price,Status\nNEW,Desk,100,Active',[], 'CJ',{mode:'create'})
     expect(fresh.counts.create).toBe(1)
-    // Explicit Active is supported only after merchant-reviewed confirmation.
-    expect(fresh.rows[0].payload.status).toBe('Active')
+    // New supplier items must be activated manually, even if a CSV requests Active.
+    expect(fresh.rows[0].payload.status).toBe('Draft')
     const duplicate=planProductCsvImport('SKU,Name,Price\nKNOWN,Desk,100',
       [{id:9,sku:'KNOWN',name:'Existing'}],'CJ',{mode:'create'})
     expect(duplicate.hasErrors).toBe(true)
