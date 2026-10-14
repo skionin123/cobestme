@@ -4,7 +4,7 @@
  * complete preview has been checked and confirmed by the merchant.
  */
 const HEADER_ALIASES = {
-  sku: ['sku', 'product sku', 'item sku', 'supplier sku', 'item no', 'item number', 'item_no', 'variant sku'],
+  sku: ['sku', 'product sku', 'item sku', 'supplier sku', 'item no', 'item number', 'item_no'],
   name: ['name', 'title', 'product name', 'product title'],
   description: ['description', 'product description'],
   price: ['price', 'selling price', 'retail price', 'sale price'],
@@ -91,7 +91,10 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     if (index[name] !== undefined) throw new Error(`Multiple CSV columns match ${name}. Keep just one.`)
     index[name] = position
   })
-  if (index.sku === undefined) throw new Error('A SKU column is required to match products safely and avoid duplicate imports.')
+  if (index.sku === undefined && records[0].some(header => /^variant[\\s_-]*sku$/i.test(String(header).trim()))) {
+    throw new Error('Variant SKU feeds must be updated through variant management, not the product importer. Use a Product SKU feed.')
+  }
+  if (index.sku === undefined) throw new Error('A Product SKU column is required to match products safely and avoid duplicate imports.')
   if (index.name === undefined && index.price === undefined && index.inventory === undefined) {
     throw new Error('Add at least one product field (name, price, or inventory) alongside SKU.')
   }
