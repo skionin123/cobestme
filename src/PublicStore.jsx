@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
 import { createPublishedDocument } from './builder/publicDocument'
+import { visibleVariants } from './variantVisibility.js'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
 const keyFor = slug => `cobest-public-cart-${slug||'store'}`
@@ -80,12 +81,13 @@ export default function PublicStore({slug:slugProp,host}) {
     const paypalOrder=params.get('token')
     const payment=params.get('payment')
     if(paypalReturn&&paypalOrder){
-      publicAction('paypal-capture',{paypal_order_id:paypalOrder}).then(()=>{
-        setCart([]);setNotice('PayPal payment completed. Your order is confirmed.')
+      publicAction('paypal-capture',{paypal_order_id:paypalOrder}).then(result=>{
+        if(result?.status!=='COMPLETED')throw new Error('Provider confirmation is still pending.')
+        setCart([]);setNotice('PayPal reports a completed payment. Check the order status for confirmation.')
         window.history.replaceState({},document.title,window.location.pathname)
-      }).catch(err=>setNotice(`PayPal capture needs attention: ${err.message}`))
+      }).catch(err=>setNotice(`PayPal verification needs attention: ${err.message}`))
     }else if(payment==='success'){
-      setCart([]);setNotice('Payment completed. Your order status will update automatically.')
+      setCart([]);setNotice('Checkout returned successfully. Payment will be confirmed after provider verification; check your order status.')
       window.history.replaceState({},document.title,window.location.pathname)
     }else if(payment==='cancelled'){
       setNotice('Payment was cancelled. Your pending order remains available for follow-up.')
@@ -122,6 +124,11 @@ export default function PublicStore({slug:slugProp,host}) {
     if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:name}}).catch(()=>{})
   }
   const add=p=>{
+    if(Array.isArray(p.variants)&&p.variants.length){
+      setNotice('This product has options that require confirmation. Please contact the store before ordering.')
+      setTimeout(()=>setNotice(''),4500)
+      return
+    }
     const stock=p.inventory==null?null:Math.max(0,Math.floor(Number(p.inventory)||0))
     if(stock===0){setNotice(`${p.name} is out of stock.`);setTimeout(()=>setNotice(''),2600);return}
     let added=false
@@ -229,14 +236,14 @@ function ProductGrid({products,currency,onAdd,onOpen}) {
   return <div className="public-products">{products.map(p=><article key={p.id} className="public-product-card">
     <button className="public-product-image" onClick={()=>onOpen?.(p)}>{p.image_url||p.images?.[0]?<img src={p.image_url||p.images?.[0]} alt={p.name}/>:<span>{p.name?.slice(0,1)||'P'}</span>}</button>
     <div><button className="public-product-name" onClick={()=>onOpen?.(p)}>{p.name}</button><p>{p.category||'Product'}</p><strong>{money(p.price,currency)}</strong>{p.compare_at_price&&Number(p.compare_at_price)>Number(p.price)&&<del>{money(p.compare_at_price,currency)}</del>}</div>
-    <button className="public-add" onClick={()=>onAdd(p)}>Add to cart</button>
+    <button className="public-add" onClick={()=>Array.isArray(p.variants)&&p.variants.length?onOpen?.(p):onAdd(p)}>{Array.isArray(p.variants)&&p.variants.length?'View options':'Add to cart'}</button>
   </article>)}
   {!products.length&&<div className="public-empty">No products match your search.</div>}</div>
 }
 
 function ProductModal({product,reviews=[],currency,slug,onClose,onAdd}) {
   const [reviewOpen,setReviewOpen]=useState(false)
-  return <Modal title={product.name} onClose={onClose}><div className="public-product-detail">{product.image_url||product.images?.[0]?<img src={product.image_url||product.images?.[0]} alt={product.name}/>:null}<p>{product.description||'Product details will appear here.'}</p><div className="public-detail-price"><strong>{money(product.price,currency)}</strong>{product.inventory!=null&&<span>{product.inventory} in stock</span>}</div>{reviews.length>0&&<div className="public-reviews"><strong>Reviews</strong>{reviews.map(r=><article key={r.id}><span>{'★'.repeat(Number(r.rating||0))}</span><b>{r.author_name}</b><p>{r.body}</p></article>)}</div>}<div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setReviewOpen(true)}>Write review</button><button className="btn btn-primary" onClick={onAdd}>Add to cart</button></div>{reviewOpen&&<ReviewForm slug={slug} product={product} onDone={()=>setReviewOpen(false)}/>}</div></Modal>
+  return <Modal title={product.name} onClose={onClose}><div className="public-product-detail">{product.image_url||product.images?.[0]?<img src={product.image_url||product.images?.[0]} alt={product.name}/>:null}<p>{product.description||'Product details will appear here.'}</p><div className="public-detail-price"><strong>{money(product.price,currency)}</strong>{product.inventory!=null&&!(product.variants||[]).length&&<span>{product.inventory} in stock</span>}</div>{Array.isArray(product.variants)&&product.variants.length>0&&<div className="public-variant-notice"><strong>Available options</strong><p>Only options enabled by the merchant are shown. Online variant checkout is being prepared; please contact the merchant to confirm the option price and availability before ordering.</p>{visibleVariants(product).length===0&&<p>There are no currently visible options for this product.</p>}{visibleVariants(product).map((variant,i)=><div className="metric-row" key={variant.sku||i}><span>{variant.option||variant.title||'Option '+(i+1)}{variant.sku&&<small> · {variant.sku}</small>}</span><strong>{money(variant.price??product.price,currency)} · {variant.inventory??0} in stock</strong></div>)}</div>}{reviews.length>0&&<div className="public-reviews"><strong>Reviews</strong>{reviews.map(r=><article key={r.id}><span>{'★'.repeat(Number(r.rating||0))}</span><b>{r.author_name}</b><p>{r.body}</p></article>)}</div>}<div className="modal-actions"><button className="btn btn-secondary" onClick={()=>setReviewOpen(true)}>Write review</button><button className="btn btn-primary" disabled={Array.isArray(product.variants)&&product.variants.length>0} onClick={onAdd}>{Array.isArray(product.variants)&&product.variants.length?'Contact store for option availability':'Add to cart'}</button></div>{reviewOpen&&<ReviewForm slug={slug} product={product} onDone={()=>setReviewOpen(false)}/>}</div></Modal>
 }
 
 function CartDrawer({cart,currency,subtotal,onClose,qty,remove,onCheckout}) {

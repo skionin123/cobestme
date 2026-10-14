@@ -27,12 +27,21 @@ function slugClass(value:string){
 const canvasContainerTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
 
 function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:string;label:string;note?:string;section?:boolean}){
+  // HTML drag works with a desktop mouse. Touch browsers do not reliably
+  // support it, so use the same editor drop target via the dnd-kit TouchSensor.
+  const {setNodeRef,listeners,isDragging}=useDraggable({
+    id:`palette:${section?'section':'element'}:${type}`,
+    data:{kind:section?'new-section':'new-element',type}
+  })
+  const didTouchDrag=useRef(false)
+  if(isDragging)didTouchDrag.current=true
   const project=useBuilderStore(s=>s.project)
   const selected=useBuilderStore(s=>s.selectedNodeId)
   const addNode=useBuilderStore(s=>s.addNode)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const selectedNode=findNode(page.root,selected)
   const clickAdd=()=>{
+    if(didTouchDrag.current){didTouchDrag.current=false;return}
     const node=section?createPrebuiltSection(type):createElement(type as any)
     if(section){addNode(page.root.id,node);return}
     const parent=selectedNode&&canvasContainerTypes.has(selectedNode.type)
@@ -46,7 +55,10 @@ function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:st
     event.dataTransfer.setData('application/x-cobest-builder',payload)
     event.dataTransfer.setData('text/plain','cobest:'+payload)
   }
-  return <button draggable onDragStart={dragStart} onClick={clickAdd} title={`Click to add ${labelText}, or drag it onto the page`} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
+  return <button ref={setNodeRef} draggable onDragStart={dragStart}
+    onTouchStart={listeners?.onTouchStart as React.TouchEventHandler<HTMLButtonElement> | undefined} onClick={clickAdd}
+    title={`Tap to add ${labelText}, or touch-and-drag onto the page`}
+    aria-label={`Add ${labelText}`} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
     <strong className="text-[11px] font-semibold text-zinc-100">{labelText}</strong>
     <span className="mt-1 text-[8px] font-medium text-zinc-600">{note||'Click to add · drag to place'}</span>
   </button>

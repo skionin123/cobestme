@@ -1,17 +1,39 @@
 export function calculateCheckout(snapshot, body, now=Date.now()) {
   const catalog = Array.isArray(snapshot?.products) ? snapshot.products : []
-  const requested = Array.isArray(body?.items) ? body.items : []
+  const rawRequested = Array.isArray(body?.items) ? body.items : []
   const items = []
   const inventoryIssues = []
+  const variantIssues = []
+  const quantityIssues = []
+  // Consolidate duplicate line items before validating inventory. Otherwise
+  // two requests for the same SKU could each pass an independent stock check.
+  const grouped = new Map()
+  for (const row of rawRequested) {
+    const productId = row?.product_id
+    if (productId == null || String(productId).trim() === '') continue
+    const raw = Number(row?.quantity)
+    const quantity = Number.isFinite(raw) ? Math.max(1, Math.min(99, Math.floor(raw))) : 1
+    const key = String(productId)
+    const previous = grouped.get(key)
+    const combined = (previous?.quantity || 0) + quantity
+    grouped.set(key, {product_id:productId, quantity:combined})
+    if (combined > 99 && !quantityIssues.some(issue => String(issue.product_id) === key)) {
+      quantityIssues.push({product_id:productId,requested:combined,maximum:99})
+    }
+  }
+  const requested = Array.from(grouped.values())
 
   for (const row of requested) {
     const product = catalog.find(p => String(p.id) === String(row?.product_id) && p.status === 'Active')
     if (!product) continue
+    // Never charge the parent product price for a customer-selected option we
+    // cannot record or reserve correctly in the current checkout RPC.
+    if (Array.isArray(product.variants) && product.variants.length) {
+      variantIssues.push({product_id:product.id,name:product.name})
+      continue
+    }
 
-    const rawQuantity = Number(row?.quantity)
-    const requestedQuantity = Number.isFinite(rawQuantity)
-      ? Math.max(1, Math.min(99, Math.floor(rawQuantity)))
-      : 1
+    const requestedQuantity = row.quantity
 
     const rawInventory = product.inventory
     const inventoryNumber = rawInventory == null || rawInventory === '' ? null : Number(rawInventory)
@@ -75,5 +97,5 @@ export function calculateCheckout(snapshot, body, now=Date.now()) {
   const taxAmount = taxableBase * taxRate / 100
   const total = Math.max(0, taxableBase + shippingAmount + taxAmount)
 
-  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues }
+  return { items, subtotal, discountCode, discountAmount, shippingAmount, taxAmount, total, inventoryIssues, variantIssues, quantityIssues }
 }

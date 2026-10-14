@@ -1,9 +1,10 @@
 import { createServer } from 'node:http'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
+import { stripeOrderTransition, verifyStripeSignature, paypalCapturedOrder } from './server-payment-safety.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -12,6 +13,15 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || ''
 const internalSecret = process.env.COBEST_INTERNAL_SECRET || ''
 const stripeSecret = process.env.STRIPE_SECRET_KEY || ''
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
+/*
+ * Platform subscription billing is not merchant checkout.
+ * Shared-platform commerce is opt-in and must not be activated by adding a
+ * Stripe billing key alone. Multi-merchant production requires Connect or
+ * another properly onboarded merchant-specific payment architecture.
+ */
+const commercePaymentsEnabled = process.env.COBEST_ENABLE_COMMERCE_PAYMENTS === 'true'
+const canStripeCommerce = () => commercePaymentsEnabled && Boolean(stripeSecret && stripeWebhookSecret)
+const canPayPalCommerce = () => commercePaymentsEnabled && Boolean(paypalClientId && paypalClientSecret)
 const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
 const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
 const paypalBase = (process.env.PAYPAL_ENV || 'sandbox').toLowerCase() === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
@@ -96,10 +106,14 @@ async function getAccessContext(token, user) {
 }
 
 async function resolveSiteId(req,token,ownerId){
-  const requested=Number(req.headers['x-cobest-site-id']||0)
+  const rawSelection=String(req.headers['x-cobest-site-id']||'').trim()
+  if(rawSelection&&!/^[1-9]\d*$/.test(rawSelection))return null
+  const requested=rawSelection?Number(rawSelection):0
+  if(rawSelection&&!Number.isSafeInteger(requested))return null
   if(requested){
     const found=await supabaseFetch(`/rest/v1/workspaces?id=eq.${requested}&user_id=eq.${encodeURIComponent(ownerId)}&select=id&limit=1`,{headers:apiHeaders(token)})
-    if(found.ok&&Array.isArray(found.data)&&found.data[0])return Number(found.data[0].id)
+    // Never silently write to a different site when the requested site is not accessible.
+    return found.ok&&Array.isArray(found.data)&&found.data[0]?Number(found.data[0].id):null
   }
   const first=await supabaseFetch(`/rest/v1/workspaces?user_id=eq.${encodeURIComponent(ownerId)}&select=id&order=id.asc&limit=1`,{headers:apiHeaders(token)})
   return first.ok&&Array.isArray(first.data)&&first.data[0]?Number(first.data[0].id):null
@@ -185,8 +199,16 @@ async function createStripePortal({req,customer}) {
 }
 
 function requestOrigin(req) {
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
-  return `${proto}://${req.headers.host || 'cobest.me'}`
+  // Payment, invitation and portal callbacks must never be built from Host.
+  const configured=String(process.env.COBEST_PUBLIC_BASE_URL||'').trim()
+  if(!configured)throw new Error('COBEST_PUBLIC_BASE_URL must be configured before enabling external redirects.')
+  let target
+  try{target=new URL(configured)}catch{throw new Error('COBEST_PUBLIC_BASE_URL is invalid.')}
+  if(target.protocol!=='https:'&&!(target.protocol==='http:'&&['localhost','127.0.0.1'].includes(target.hostname))) {
+    throw new Error('COBEST_PUBLIC_BASE_URL must use HTTPS.')
+  }
+  if(target.username||target.password)throw new Error('COBEST_PUBLIC_BASE_URL must not contain credentials.')
+  return target.origin
 }
 
 async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
@@ -248,24 +270,13 @@ async function capturePayPal(paypalOrderId) {
   const access=await paypalAccessToken()
   if(!access) throw new Error('PayPal is not configured.')
   const response=await fetch(`${paypalBase}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`,{
-    method:'POST',headers:{authorization:`Bearer ${access}`,'content-type':'application/json'},body:'{}'
+    method:'POST',headers:{authorization:`Bearer ${access}`,'content-type':'application/json','paypal-request-id':`cobest-capture-${paypalOrderId}`},body:'{}'
   })
   const data=await response.json().catch(()=>({}))
   if(!response.ok) throw new Error(data?.message||'PayPal capture failed.')
-  const orderId=Number(data?.purchase_units?.[0]?.custom_id)
-  if(data.status==='COMPLETED'&&orderId) await internalPaymentUpdate(orderId,'Paid','paypal',paypalOrderId)
-  return data
-}
-
-function verifyStripeSignature(raw, header) {
-  if(!stripeWebhookSecret||!header)return false
-  const parts=Object.fromEntries(String(header).split(',').map(x=>x.split('=').map(v=>v.trim())))
-  const timestamp=parts.t
-  const signature=parts.v1
-  if(!timestamp||!signature)return false
-  if(Math.abs(Date.now()/1000-Number(timestamp))>300)return false
-  const digest=createHmac('sha256',stripeWebhookSecret).update(`${timestamp}.${raw.toString('utf8')}`).digest('hex')
-  try{return timingSafeEqual(Buffer.from(digest,'hex'),Buffer.from(signature,'hex'))}catch{return false}
+  const confirmed=paypalCapturedOrder(data,paypalOrderId)
+  if(confirmed)await internalPaymentUpdate(confirmed.orderId,confirmed.status,confirmed.provider,confirmed.reference)
+  return {status:confirmed?'COMPLETED':'PENDING',verified:Boolean(confirmed)}
 }
 
 async function sendEmail(to, subject, html) {
@@ -326,10 +337,14 @@ function validateResourceMutation(table, body, method='POST') {
       next.usage_limit = value
     }
   }
+  if (table === 'orders' && method === 'POST' && next.payment_status && next.payment_status !== 'Pending') {
+    return { error: 'New orders must start Pending until payment is verified by the provider.' }
+  }
   if (table === 'orders' && method === 'PATCH') {
-    const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
+    // Payment state is provider-owned. Merchant updates may only change fulfillment details.
+    if (Object.hasOwn(next,'payment_status')) return { error: 'Payment status cannot be manually changed. Confirm it with the payment provider.' }
+    const allowed = new Set(['fulfillment_status','tracking_number','carrier','notes'])
     for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
-    if (next.payment_status != null && !['Pending','Paid','Refunded','Failed'].includes(next.payment_status)) return { error: 'Invalid payment status.' }
     if (next.fulfillment_status != null && !['Unfulfilled','Processing','Fulfilled','Cancelled'].includes(next.fulfillment_status)) return { error: 'Invalid fulfillment status.' }
     if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
   }
@@ -354,14 +369,14 @@ async function handlePublicApi(req, res, url) {
   if (storeMatch && req.method === 'GET') {
     const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...store, payment_options: { stripe: canStripeCommerce(), paypal: canPayPalCommerce() } })
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
     const store = host ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...store, payment_options: { stripe: canStripeCommerce(), paypal: canPayPalCommerce() } })
   }
 
   const body = req.method === 'POST' ? await readJson(req) : {}
@@ -455,8 +470,9 @@ async function handlePublicApi(req, res, url) {
   }
 
   if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
-    if(!body?.paypal_order_id)return sendJson(res,400,{error:'PayPal order ID is required.'})
-    try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:true,status:data.status})}
+    if(!canPayPalCommerce())return sendJson(res,503,{error:'PayPal checkout is not available.'})
+    if(!body?.paypal_order_id||!/^[A-Z0-9-]{8,50}$/i.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'A valid PayPal order ID is required.'})
+    try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:data.verified,status:data.status})}
     catch(error){return sendJson(res,502,{error:error.message})}
   }
 
@@ -465,7 +481,13 @@ async function handlePublicApi(req, res, url) {
     if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
+    const requestedProvider=String(body.payment_provider||'').toLowerCase()
+    if (!['','manual','stripe','paypal'].includes(requestedProvider)) return sendJson(res,400,{error:'Unsupported payment provider.'})
+    if (requestedProvider==='stripe'&&!canStripeCommerce()) return sendJson(res,503,{error:'Card payments are not configured for this store.'})
+    if (requestedProvider==='paypal'&&!canPayPalCommerce()) return sendJson(res,503,{error:'PayPal is not configured for this store.'})
     const totals = calculateCheckout(store, body)
+    if (totals.quantityIssues?.length) return sendJson(res, 409, { error: 'A product was requested more than 99 times across multiple cart entries.', quantity_issues: totals.quantityIssues })
+    if (totals.variantIssues?.length) return sendJson(res, 409, { error: 'This product has variants that require option selection. Variant checkout is not yet available; contact the store before ordering.', variant_issues: totals.variantIssues })
     if (totals.inventoryIssues?.length) return sendJson(res, 409, { error: 'One or more products do not have enough inventory.', inventory_issues: totals.inventoryIssues })
     if (!totals.items.length) return sendJson(res, 400, { error: 'Cart is empty or products are unavailable.' })
     const result = await rpc('public_place_order', {
@@ -487,13 +509,13 @@ async function handlePublicApi(req, res, url) {
     if(resendApiKey&&body.buyer?.email){
       sendEmail(body.buyer.email,`Order ${order.order_number} received`,`<p>Hi ${escapeHtml(body.buyer.name)},</p><p>We received order <strong>${escapeHtml(order.order_number)}</strong>.</p><p>Total: <strong>${escapeHtml(String(totals.total))} ${escapeHtml(String(store?.settings?.currency||'PHP'))}</strong></p><p>Payment status: Pending.</p>`).catch(()=>{})
     }
-    const provider=String(body.payment_provider||'').toLowerCase()
+    const provider=requestedProvider
     try{
-      if(provider==='stripe'&&stripeSecret){
+      if(provider==='stripe'&&canStripeCommerce()){
         const payment=await createStripeCheckout({req,order,buyer:body.buyer,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
         return sendJson(res,200,{order,totals,payment})
       }
-      if(provider==='paypal'&&paypalClientId&&paypalClientSecret){
+      if(provider==='paypal'&&canPayPalCommerce()){
         const payment=await createPayPalCheckout({req,order,total:totals.total,currency:store?.settings?.currency||'PHP',slug:body.slug})
         return sendJson(res,200,{order,totals,payment})
       }
@@ -514,12 +536,11 @@ async function handlePublicApi(req, res, url) {
 async function handleApi(req, res, url) {
   if (url.pathname === '/api/webhooks/stripe' && req.method === 'POST') {
     const raw=await readBuffer(req,2*1024*1024)
-    if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
+    if(!verifyStripeSignature(raw,req.headers['stripe-signature'],stripeWebhookSecret)) return sendJson(res,400,{error:'Invalid Stripe signature.'})
     const event=JSON.parse(raw.toString('utf8'))
     const object=event?.data?.object||{}
-    const orderId=Number(object?.metadata?.order_id)
-    if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',object.id||'')
-    if(orderId&&event.type==='checkout.session.expired') await internalPaymentUpdate(orderId,'Failed','stripe',object.id||'')
+    const transition=stripeOrderTransition(event)
+    if(transition)await internalPaymentUpdate(transition.orderId,transition.status,transition.provider,transition.reference)
 
     if(event.type==='checkout.session.completed'&&object?.metadata?.billing==='subscription'){
       const subscription=object.subscription?await stripeRequest(`/v1/subscriptions/${encodeURIComponent(object.subscription)}`):null
@@ -642,8 +663,10 @@ async function handleApi(req, res, url) {
 
   if (url.pathname === '/api/integrations/status' && req.method === 'GET') {
     return sendJson(res, 200, {
-      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
-      paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
+      stripe: canStripeCommerce(),
+      stripe_billing: Boolean(stripeSecret && stripeWebhookSecret),
+      paypal: canPayPalCommerce(),
+      commerce_enabled: commercePaymentsEnabled,
       email: Boolean(resendApiKey),
       shipstation: Boolean(process.env.SHIPSTATION_API_KEY),
       amazon: Boolean(process.env.AMAZON_SELLING_PARTNER_CLIENT_ID && process.env.AMAZON_SELLING_PARTNER_CLIENT_SECRET),
@@ -683,6 +706,9 @@ async function handleApi(req, res, url) {
   }
 
   const siteId = await resolveSiteId(req,token,ownerId)
+  if (req.headers['x-cobest-site-id'] && !siteId) {
+    return sendJson(res, 403, { error: 'Selected site was not found or access was denied. Choose a site you can access.' })
+  }
 
   if (url.pathname === '/api/team' && req.method === 'GET') {
     const [members, invites] = await Promise.all([
@@ -898,6 +924,13 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'DELETE' && id) {
+      if(table==='orders'){
+        const lookup=await supabaseFetch(`/rest/v1/orders?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=id,payment_status&limit=1`,{headers:apiHeaders(token)})
+        if(!lookup.ok)return sendJson(res,lookup.status,lookup.data)
+        const order=Array.isArray(lookup.data)?lookup.data[0]:null
+        if(!order)return sendJson(res,404,{error:'Order not found.'})
+        if(['Paid','Refunded'].includes(order.payment_status))return sendJson(res,409,{error:'Paid and refunded orders must be retained for reporting and payment reconciliation.'})
+      }
       if(table==='media_assets'){
         const lookup=await supabaseFetch(`/rest/v1/media_assets?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(ownerId)}&site_id=eq.${siteId}&select=storage_path&limit=1`,{headers:apiHeaders(token)})
         const path=lookup.ok&&Array.isArray(lookup.data)?lookup.data[0]?.storage_path:null
