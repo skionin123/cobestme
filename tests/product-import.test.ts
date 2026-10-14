@@ -57,6 +57,41 @@ describe('supplier-aware product import', () => {
     expect(update.rows[0].payload.tags).toEqual(['supplier:doba','featured'])
   })
 
+
+  it('only updates existing SKUs for supplier inventory feeds',()=>{
+    const csv='SKU,Quantity,Price\nKNOWN,0,17'
+    const plan=planProductCsvImport(csv,[{id:5,sku:'KNOWN',name:'Lamp',inventory:3,price:19,status:'Active'}],'Doba',{mode:'update'})
+    expect(plan.counts).toMatchObject({create:0,update:1,error:0})
+    expect(plan.rows[0].payload).toMatchObject({inventory:0,price:17})
+    expect(plan.rows[0].payload).not.toHaveProperty('status')
+    const unknown=planProductCsvImport('SKU,Quantity\nUNKNOWN,4',[], 'Doba',{mode:'update'})
+    expect(unknown.hasErrors).toBe(true)
+    expect(unknown.rows[0].message).toMatch(/never creates products/)
+  })
+
+  it('creates only new Draft products in create mode',()=>{
+    const fresh=planProductCsvImport('SKU,Name,Price,Status\nNEW,Desk,100,Active',[], 'CJ',{mode:'create'})
+    expect(fresh.counts.create).toBe(1)
+    // Explicit Active is supported only after merchant-reviewed confirmation.
+    expect(fresh.rows[0].payload.status).toBe('Active')
+    const duplicate=planProductCsvImport('SKU,Name,Price\nKNOWN,Desk,100',
+      [{id:9,sku:'KNOWN',name:'Existing'}],'CJ',{mode:'create'})
+    expect(duplicate.hasErrors).toBe(true)
+    expect(duplicate.rows[0].message).toMatch(/already exists/)
+  })
+
+  it('warns when source price/cost/shipping-group columns cannot be persisted',()=>{
+    const p=planProductCsvImport('SKU,Quantity,Cost,Shipping Group,Price 25 + Shipping\nA,2,10,Air,20',
+      [{id:8,sku:'A',name:'Table',inventory:3}],'CJ',{mode:'update'})
+    expect(p.hasErrors).toBe(false)
+    expect(p.unsupportedBusinessFields).toEqual(['Cost','Shipping Group','Price 25 + Shipping'])
+    expect(p.rows[0].payload).not.toHaveProperty('cost')
+  })
+
+  it('rejects unknown import modes',()=>{
+    expect(()=>planProductCsvImport('SKU,Quantity\nA,2',[],'Doba',{mode:'replace-all'})).toThrow(/Invalid import mode/)
+  })
+
   it('handles empty unchanged updates and enforces safety limits', () => {
     const noChange=planProductCsvImport('SKU,Quantity\nX,2',[{id:1,sku:'X',inventory:2}])
     expect(noChange.counts.skip).toBe(1)
