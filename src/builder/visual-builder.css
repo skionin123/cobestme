@@ -534,3 +534,72 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-search-preview span{font-size:10px;line-height:1.5;color:#bcc3d3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .vb-launch-footer>div{flex-wrap:wrap}
 @media(max-width:500px){.vb-search-preview{padding-left:16px;padding-right:16px}}
+
+
+/* Merchant-first editing: always give users a visible escape, reversible reset,
+   and real controls on narrow touch devices rather than hiding Save/Undo. */
+.vb-top-actions .vb-undo-action,
+.vb-top-actions .vb-redo-action{width:auto;min-width:62px;padding:0 9px}
+.vb-top-actions .vb-undo-action span,
+.vb-top-actions .vb-redo-action span{font-size:10px}
+.vb-start-over-action{border-color:#4a4651!important;background:#28242d!important;color:#f2dce5!important}
+.vb-start-over-action:hover{border-color:#c18c9c!important}
+.vb-mobile-actions,.vb-mobile-close,.vb-mobile-backdrop{display:none}
+@media(max-width:1180px){
+  .vb-top-actions .vb-undo-action span,.vb-top-actions .vb-redo-action span,
+  .vb-start-over-action span{display:none}
+  .vb-top-actions .vb-undo-action,.vb-top-actions .vb-redo-action{min-width:34px;width:34px;padding:0}
+}
+@media(max-width:680px){
+  .vb-shell{min-height:0;height:100dvh;overflow:hidden}
+  .vb-topbar{height:auto;min-height:102px;flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:8px 9px;align-content:center}
+  .vb-project{flex:1 1 min(53%,230px);gap:6px;min-width:0}
+  .vb-back-dashboard{min-width:35px;min-height:36px;padding:0 8px}
+  .vb-back-dashboard span{display:none}
+  .vb-project-copy small{font-size:8px}
+  .vb-project-copy input{font-size:12px}
+  .vb-page-picker{flex:0 1 132px;min-width:94px;height:36px}
+  .vb-breakpoints{display:none}
+  .vb-top-actions{order:3;width:100%;justify-content:space-between;gap:5px;overflow-x:auto;scrollbar-width:none}
+  .vb-top-actions::-webkit-scrollbar{display:none}
+  .vb-top-actions button{height:37px;min-width:36px;padding:0 7px}
+  .vb-top-actions .vb-undo-action,.vb-top-actions .vb-redo-action{display:none}
+  .vb-top-actions .vb-save-status{display:inline-flex;align-items:center;flex:0 0 auto;margin-right:auto;font-size:10px}
+  .vb-top-actions .vb-save-status::before{top:50%}
+  .vb-top-actions .vb-preview-action{display:inline-flex;width:auto!important;padding:0 8px!important;font-size:10px!important}
+  .vb-top-actions .vb-preview-action svg{width:16px;height:16px}
+  .vb-top-actions .vb-save-action{display:none}
+  .vb-top-actions .vb-start-over-action{display:inline-flex;min-width:86px;justify-content:center}
+  .vb-top-actions .vb-start-over-action span{display:inline}
+  .vb-top-actions .vb-publish{min-width:65px}
+  .vb-workspace{display:block;min-height:0;flex:1;position:relative}
+  .vb-stage{height:100%;min-height:0;overflow:auto;padding:10px 6px 76px;align-items:center}
+  .vb-stage-meta{min-height:32px;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .vb-stage-crumb{gap:4px}
+  .vb-stage-crumb span,.vb-stage-crumb strong{font-size:9px;padding:5px}
+  .vb-stage-view{gap:2px}
+  .vb-stage-view button{padding:6px;font-size:10px}
+  .vb-stage-view span{min-width:30px}
+  .vb-canvas-drop{min-height:calc(100% - 38px);padding-bottom:30px}
+  .vb-selection-path{max-width:100%;min-height:32px}
+  .vb-selection-path button{max-width:110px}
+  .vb-left,.vb-right{display:none;position:fixed;top:102px;bottom:60px;left:0;right:auto;width:min(88vw,370px);height:auto!important;z-index:110;box-shadow:12px 0 38px rgba(0,0,0,.42);border:1px solid #3a3f4c}
+  .vb-right{left:auto;right:0;flex-direction:column;border-right:0}
+  .vb-left.vb-mobile-open,.vb-right.vb-mobile-open{display:flex}
+  .vb-left-tabs{width:49px;flex:0 0 49px}
+  .vb-left-tabs button{width:39px;height:42px}
+  .vb-mobile-close{display:grid!important;place-items:center;border:1px solid #4e5360!important;color:#fff!important}
+  .vb-right-tabs{grid-template-columns:42px 1fr 1fr}
+  .vb-right-tabs .vb-mobile-close{height:100%;padding:0}
+  .vb-left-content,.vb-right-content{min-height:0;overflow-y:auto}
+  .vb-palette-item{min-height:52px!important;touch-action:none;user-select:none}
+  .vb-palette-item span{display:block!important;font-size:9px!important;color:#a3abc0!important}
+  .vb-mobile-actions{position:fixed;left:0;right:0;bottom:0;bottom:env(safe-area-inset-bottom,0px);z-index:135;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;padding:6px 4px;background:#1d2026;border-top:1px solid #424656}
+  .vb-mobile-actions button{min-width:0;height:45px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:7px;color:#bcc3d5;background:transparent;font-size:10px;font-weight:650}
+  .vb-mobile-actions button.active{color:#fff;background:#453e96}
+  .vb-mobile-actions button:disabled{opacity:.35}
+  .vb-mobile-backdrop{display:block;position:fixed;inset:102px 0 55px;z-index:100;background:rgba(0,0,0,.35);border:0}
+  .vb-preview-stage{padding:8px;justify-content:flex-start}
+  .vb-preview-bar{gap:10px}
+  .vb-preview-bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
