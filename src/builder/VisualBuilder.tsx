@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent, KeyboardSensor, PointerSensor,
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent, KeyboardSensor, PointerSensor, TouchSensor,
   useDroppable, useSensor, useSensors
 } from '@dnd-kit/core'
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
   Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
-  Sparkles, Upload, X, ZoomIn, ZoomOut
+  RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
+import { createDefaultProject } from './defaultProject'
 import { applyNodeGeometry } from './geometry'
 import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
 import { duplicateWithIndependentGeometry } from './duplicate'
@@ -227,6 +228,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const redo=useBuilderStore(s=>s.redo)
 
   const [leftTab,setLeftTab]=useState<LeftTab>('add')
+  const [mobilePanel,setMobilePanel]=useState<'add'|'navigator'|'style'|null>(null)
   const [sidebarWidth,setSidebarWidth]=useState(()=>{
     try{
       const saved=Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY))
@@ -285,7 +287,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const copiedNodeRef=useRef<{node:BuilderNode;styles:StyleMap}|null>(null)
   const saveQueueRef=useRef(createSaveQueue())
 
-  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
+  const sensors=useSensors(
+    useSensor(PointerSensor,{activationConstraint:{distance:6}}),
+    useSensor(TouchSensor,{activationConstraint:{delay:180,tolerance:8}}),
+    useSensor(KeyboardSensor)
+  )
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const launchIssues=useMemo(()=>reviewWebsiteLaunch(project),[project])
   const launchBlockers=launchIssues.filter(issue=>issue.level==='blocker')
@@ -369,6 +375,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ?Math.min(1,Math.max(.3,(stageWidth-42)/frameWidth))
     :1
   const zoom=Math.round(scale*100)
+
+  useEffect(()=>{
+    if(window.innerWidth<=680)setBreakpoint('mobilePortrait')
+  },[])
 
   useEffect(()=>{
     const onResize=()=>setViewportWidth(window.innerWidth)
@@ -571,6 +581,21 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
+  const startOver=()=>{
+    if(!window.confirm('Start over with the CoBest starter design? This replaces all your draft pages and edits. Your published website stays unchanged until you publish again. You can Undo to restore this draft.'))return
+    const current=useBuilderStore.getState().project
+    const starter=createDefaultProject()
+    // Preserve the merchant site identity and name; replace the DESIGN only.
+    const next={...starter,id:current.id,name:current.name}
+    replaceProject(next,true,'Start over with starter design')
+    selectNode(starter.pages[0].root.id)
+    setBreakpoint('desktop')
+    setLeftTab('add')
+    setMobilePanel(null)
+    setPreview(false)
+    setPublishNotice(null)
+  }
+
   const returnToDashboard=async()=>{
     if(!onBack)return
     if(saveStatus!=='saved'){
@@ -657,7 +682,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
 
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={()=>{setDragging(false);setDragLabel('')}}>
-    <div className="vb-shell" onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
+    <div className="vb-shell" data-mobile-panel={mobilePanel||'none'} onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
       <header className="vb-topbar">
         <div className="vb-project">
           {onBack&&<button type="button" className="vb-back-dashboard" title="Back to dashboard" aria-label="Back to dashboard" onClick={returnToDashboard}>
@@ -668,8 +693,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
-          <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/></button>
-          <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/></button>
+          <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
+          <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo last undone change (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
+          <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Restore CoBest starter design (Undo is available)"><RotateCcw size={15}/><span>Start over</span></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
@@ -678,7 +704,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         </div>
       </header>
       <div className="vb-workspace" style={{'--vb-left-width':activeSidebarWidth+'px'} as React.CSSProperties}>
-        <aside className="vb-left">
+        <aside className={'vb-left '+(mobilePanel==='add'||mobilePanel==='navigator'?'vb-mobile-open':'')}>
           <div className={'vb-sidebar-resizer '+(sidebarDragging?'is-dragging':'')}
             role="separator" aria-orientation="vertical" aria-label="Resize Navigator sidebar"
             aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={Math.round(maxSidebarWidth)}
@@ -692,6 +718,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             <span className="vb-sidebar-grip" aria-hidden="true"/>
           </div>
           <div className="vb-left-tabs">
+            <button className="vb-mobile-close" title="Close editing panel" aria-label="Close editing panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>
             {([
               ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
             ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} data-label={labelText} aria-label={labelText} onClick={()=>setLeftTab(id)}><Icon size={16}/></button>)}
@@ -733,11 +760,20 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             </div>
           </CanvasDropZone>
         </main>
-        <aside className="vb-right">
-          <div className="vb-right-tabs">{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
+        <aside className={'vb-right '+(mobilePanel==='style'?'vb-mobile-open':'')}>
+          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
+      <nav className="vb-mobile-actions" aria-label="Phone website editing tools">
+        <button type="button" className={mobilePanel==='add'?'active':''} aria-pressed={mobilePanel==='add'} onClick={()=>{setLeftTab('add');setMobilePanel(mobilePanel==='add'?null:'add')}}><PanelLeft size={18}/> Add</button>
+        <button type="button" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
+        <button type="button" className={mobilePanel==='style'?'active':''} aria-pressed={mobilePanel==='style'} onClick={()=>{setRightTab('style');setMobilePanel(mobilePanel==='style'?null:'style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
+        <button type="button" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
+        <button type="button" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
+      </nav>
+      {mobilePanel&&<button type="button" className="vb-mobile-backdrop" aria-label="Close edit tools" onClick={()=>setMobilePanel(null)}/>}
       {launchReviewOpen&&<div className="vb-launch-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setLaunchReviewOpen(false)}}>
         <section className="vb-launch-dialog" role="dialog" aria-modal="true" aria-label="Website launch review">
           <header className="vb-launch-header">
