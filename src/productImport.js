@@ -91,7 +91,7 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     if (index[name] !== undefined) throw new Error(`Multiple CSV columns match ${name}. Keep just one.`)
     index[name] = position
   })
-  if (index.sku === undefined && records[0].some(header => /^variant[\\s_-]*sku$/i.test(String(header).trim()))) {
+  if (index.sku === undefined && records[0].some(header => /^variant[\s_-]*sku$/i.test(String(header).trim()))) {
     throw new Error('Variant SKU feeds must be updated through variant management, not the product importer. Use a Product SKU feed.')
   }
   if (index.sku === undefined) throw new Error('A Product SKU column is required to match products safely and avoid duplicate imports.')
