@@ -3,6 +3,12 @@ Updated: 2026-10-11
 Repository: skionin123/cobestme
 Branch: feat/cobest-mvp-five-milestones
 
+## Product scope (owner-confirmed 2026-10-15)
+
+**CoBest is a Shopify-style, multi-merchant ecommerce website builder.** Any merchant can register, build their own store, list and sell products, manage customers/orders, accept payouts to their own connected account and fulfill sales. Dropshipping is one supported business model, alongside own-inventory and hybrid stores. All catalog, order, storefront and payment data must stay scoped to the correct merchant. This is **not** a single store for the project owner.
+
+For the full merchant journey and source-document mapping, read [docs/PRODUCT_DIRECTION.md](docs/PRODUCT_DIRECTION.md). Prioritize real store launch and sales operations over nonessential advanced builder/SaaS features.
+
 ## Joint user-testing workflow (as of 2026-10-12)
 
 - Start with [QA master issue #26](https://github.com/skionin123/cobestme/issues/26) and `docs/QA_RUNBOOK.md`. **T01.1 is NOT RUN**. No live/manual test is claimed to have passed.
