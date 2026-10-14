@@ -8,8 +8,14 @@ This is an implementation guide for the current **development branch**, not a cl
 - Each product needs a unique SKU. A new product must have **SKU, name and a nonnegative price**. Quantity defaults to zero and new records start as **Draft** so they are not immediately for sale.
 - Existing SKUs can be updated with **SKU and price** or **SKU and inventory**. Blank columns leave existing values unchanged.
 - Supported names include `SKU`, `Product Name`, `Price`, `Quantity`, `Available Stock`, `Inventory`, and product metadata. Supplier export column mappings vary; inspect them rather than assuming any live provider format.
+- **Back up first.** Download both **Backup products CSV** and **Backup variants CSV** from the Products page before making supplier updates, following the separate export process in the Doba and CJ reference guides.
+- Choose **Update existing SKUs** for routine Doba/CJ inventory and price files. Selecting Doba or CJ defaults to this safe mode; unknown SKUs are errors, not silent new products. Choose **Add new Draft products only** when onboarding supplier items. A third **Add new / update matching SKUs** mode is provided for deliberate mixed imports.
+- Every newly imported product is **Draft** even when a CSV requests Active; review it and enable it manually before selling.
 - Suppliers are selected as **Generic, Doba or CJ** before uploading. The selected source is stored as a product tag. The importer rejects a supplier mismatch, a variant SKU mistaken for a parent product, duplicate SKUs, negative prices and malformed rows.
 - Supplier-related text inside the CSV tags field cannot override the selected source.
+- CoBest currently imports **parent-product** CSVs, not separate variant supplier feeds. A CSV whose only identifier is `Variant SKU` must not be passed into this importer. Variant import by SKU is tracked in issue #32.
+- Source export headers such as **Cost**, **Shipping Group** and supplier-specific selling-price formulas are identified as ignored/unsupported. CoBest does not automatically store those fields or apply the Warhead examples' optional 25% markup. Merchants must reconcile supplier cost, freight and selling price outside CoBest until schema/price logic is built.
+- Merchants can now set **Show on store** on each product variant, adapting the `showInResults` field described in the variant hiding guide. Hiding only affects public variant visibility, **not** its presence in the catalog. Variant checkout is still blocked until proper price/stock matching is complete.
 - Always inspect the entire preview. You can cancel without writing anything. A valid preview is rechecked against the latest catalog before applying.
 - Imports presently save rows in sequence. An interrupted import may save **some**, not all, rows. CoBest refreshes the catalog and rebuilds the preview of remaining differences where possible. True database transaction and audit history remain development tasks.
 
@@ -18,7 +24,7 @@ This is an implementation guide for the current **development branch**, not a cl
 1. Open **Catalog → Suppliers**.
 2. Review product counts, out-of-stock counts and products without a known supplier.
 3. Assign the appropriate supplier to each product, or leave it unassigned when uncertain.
-4. Update stock and selling prices using a reviewed CSV import. Zero stock and supplier discontinuation are different business states—do not delete products automatically.
+4. Update stock and selling prices using a reviewed CSV import. The Doba guide recommends regular (e.g. weekly) feed updates, but this is a **manual merchant task** and the exact schedule depends on the supplier. Zero stock and supplier discontinuation are different business states—do not delete products automatically.
 5. Keep supplier invoices/order references in the order's internal notes until dedicated supplier-order fields and a full timeline are implemented.
 
 **No supplier purchases, stock syncing, warehouse integration or returns authorization are performed automatically.**
