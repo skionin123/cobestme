@@ -694,8 +694,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
           <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
-          <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo last undone change (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
-          <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Restore CoBest starter design (Undo is available)"><RotateCcw size={15}/><span>Start over</span></button>
+          <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
+          <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Replace draft with starter design (reversible)"><RotateCcw size={15}/><span>Start over</span></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
