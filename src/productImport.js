@@ -70,11 +70,22 @@ function parseTags(value) {
   return String(value || '').split(/[|,]/).map(x => x.trim()).filter(Boolean)
 }
 
-export function planProductCsvImport(csvText, existingProducts = [], supplier = 'Generic') {
+/**
+ * mode is intentionally explicit for supplier workflows. "update" requires
+ * already-known SKUs; "create" requires new SKUs. "upsert" remains compatible
+ * with older CoBest generic imports, with new products always set to Draft.
+ */
+export function planProductCsvImport(csvText, existingProducts = [], supplier = 'Generic', options = {}) {
+  const mode = options.mode || 'upsert'
+  if (!['upsert','update','create'].includes(mode)) throw new Error('Invalid import mode.')
   const records = parseCsvRecords(csvText)
   if (records.length < 2) throw new Error('The CSV file has no product rows.')
   const fields = records[0].map(canonicalHeader)
   const index = {}
+  const ignoredHeaders = records[0].filter((header, i) => String(header).trim() && !fields[i])
+  // These fields occur in the Doba/CJ guides but CoBest cannot persist them
+  // safely without a schema, API and storefront cost/shipping model.
+  const unsupportedBusinessFields = ignoredHeaders.filter(header => /^(cost|supplier cost|unit cost|shipping group|shipping cost|price 25 \+ shipping)$/i.test(String(header).trim()))
   fields.forEach((name, position) => {
     if (!name) return
     if (index[name] !== undefined) throw new Error(`Multiple CSV columns match ${name}. Keep just one.`)
@@ -120,6 +131,8 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     if (incoming.has(key)) return fail('This SKU appears more than once in the file.')
     incoming.add(key)
     if (current.length > 1) return fail('More than one existing product has this SKU. Resolve it manually first.')
+    if (mode === 'update' && !existing) return fail('SKU was not found. Update-only mode never creates products; import it separately as a new Draft product.')
+    if (mode === 'create' && existing) return fail('SKU already exists. Create-only mode will not overwrite an existing product.')
     if (variantSkus.has(key)) return fail('This SKU belongs to an existing variant. Update it through variant management, not the product importer.')
     const existingSupplierTag = (existing?.tags || []).find(x => /^supplier:[^:]+$/i.test(String(x)))
     if (existingSupplierTag && tag && String(existingSupplierTag).toLowerCase().replace('cj-dropshipping','cj') !== tag) {
@@ -188,5 +201,5 @@ export function planProductCsvImport(csvText, existingProducts = [], supplier = 
     skip:rows.filter(x => x.action === 'skip').length,
     error:rows.filter(x => x.action === 'error').length
   }
-  return {rows, counts, supplier, hasErrors:counts.error > 0}
+  return {rows, counts, supplier, mode, ignoredHeaders, unsupportedBusinessFields, hasErrors:counts.error > 0}
 }
