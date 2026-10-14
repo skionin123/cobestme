@@ -89,7 +89,7 @@ describe('supplier-aware product import', () => {
   })
 
   it('refuses a variant-only SKU feed in the parent product import workflow',()=>{
-    expect(()=>planProductCsvImport('Variant SKU,Price\\nSHIRT-BLACK,19',[],'CJ',{mode:'create'})).toThrow(/Variant SKU feeds must be updated/)
+    expect(()=>planProductCsvImport('Variant SKU,Price\nSHIRT-BLACK,19',[],'CJ',{mode:'create'})).toThrow(/Variant SKU feeds must be updated/)
   })
 
   it('rejects unknown import modes',()=>{
