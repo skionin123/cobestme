@@ -27,6 +27,7 @@ test('phone editing has visible Add, Style, Undo, Redo, Save and safe start over
   page.once('dialog',d=>d.accept())
   await page.getByRole('button',{name:'Start over with starter design'}).click()
   await expect(headings).toHaveCount(original)
+  await expect(page.locator('.vb-stage-crumb')).toContainText('Mobile portrait 478')
   await tools.getByRole('button',{name:'Phone Undo'}).click()
   await expect(headings).toHaveCount(original+1)
 
@@ -78,4 +79,5 @@ test('touch-and-drag a design block into the page on a phone viewport',async({pa
   }
   await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
   await expect.poll(async()=>canvas(page).locator('[data-builder-node]').count()).toBeGreaterThan(before)
+  await expect(page.locator('.vb-left.vb-mobile-open')).toHaveCount(0)
 })
