@@ -17,7 +17,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high
       - run: node --check server.mjs
       - run: node --check server-payment-safety.mjs
       - run: npm run typecheck
@@ -37,6 +36,8 @@ jobs:
           grep '"ok":true' /tmp/health.json
       - name: Smoke SPA fallback
         run: curl --fail --silent http://127.0.0.1:4173/some-client-route | grep '<div id="root"></div>'
+      - name: Dependency security gate (must pass to release)
+        run: npm audit --audit-level=high
       - name: Diagnose server startup on failure
         if: failure()
         run: |
