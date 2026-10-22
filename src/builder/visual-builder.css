@@ -603,3 +603,30 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
   .vb-preview-bar{gap:10px}
   .vb-preview-bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+
+/* Shopify-inspired structured section editing — touch and keyboard friendly. */
+.vb-section-insert{padding:3px 9px 5px 30px;position:relative}
+.vb-section-insert-trigger{width:100%;min-height:27px;display:flex;gap:6px;align-items:center;justify-content:center;border:1px dashed #535b6c;border-radius:7px;background:#20242d;color:#d2caff;font-weight:650;font-size:10px}
+.vb-section-insert-trigger:hover,.vb-section-insert-trigger:focus-visible{background:#302c50;border-color:#8e83f3;color:white}
+.vb-section-insert-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:6px;background:#222630;border:1px solid #414655;border-radius:9px;padding:7px}
+.vb-section-insert-options button{display:flex;align-items:center;gap:5px;min-height:33px;padding:6px;text-align:left;border:1px solid #454b5c;border-radius:6px;background:#2c303d;color:#f0f0f4;font-size:10px}
+.vb-section-insert-options button:hover{background:#413d6a;border-color:#8e80f8}
+.vb-section-row-actions{display:flex;gap:5px;padding:0 8px 6px 33px}
+.vb-section-row-actions button{min-height:27px;flex:1;border-radius:6px;border:1px solid #3d4351;background:#242a33;color:#e5e7f0;font-size:10px}
+.vb-section-row-actions button:disabled{opacity:.34;cursor:not-allowed}
+.vb-section-row-actions button:hover:not(:disabled){background:#403d67;border-color:#857bde}
+.vb-top-actions .vb-history-action{background:#272a37;border-color:#464961}
+.vb-version-popover{max-width:calc(100vw - 18px)}
+@media(max-width:680px){
+  .vb-section-insert{padding:6px 8px 6px 15px}
+  .vb-section-insert-trigger{min-height:40px;font-size:11px}
+  .vb-section-insert-options{grid-template-columns:1fr}
+  .vb-section-insert-options button{min-height:43px;font-size:11px}
+  .vb-section-row-actions{padding-left:17px}
+  .vb-section-row-actions button{min-height:41px;font-size:11px}
+  .vb-mobile-actions{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .vb-mobile-actions button{font-size:9px}
+  .vb-top-actions .vb-history-action{min-width:34px;padding:0 6px}
+  .vb-history-action span{display:none}
+  .vb-version-popover{position:fixed!important;top:103px!important;right:9px!important;max-height:65dvh;overflow:auto;width:min(90vw,345px)!important}
+}
