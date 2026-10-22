@@ -96,8 +96,33 @@ function DropLine({id}:{id:string}){
   return <div ref={setNodeRef} data-drop-id={id} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
 }
 
+function SectionInsert({rootId,index,placement}:{rootId:string;index:number;placement:string}){
+  const [open,setOpen]=useState(false)
+  const addNode=useBuilderStore(s=>s.addNode)
+  const templates=sectionCatalog.filter(section=>section.id!=='footer')
+  return <div className="vb-section-insert">
+    <button type="button" className="vb-section-insert-trigger" aria-expanded={open}
+      aria-label={`Add section ${placement}`} onClick={()=>setOpen(value=>!value)}>
+      <Plus size={13}/> Add section here
+    </button>
+    {open&&<div className="vb-section-insert-options" role="group" aria-label={`Choose section ${placement}`}>
+      {templates.map(template=><button type="button" key={template.id}
+        aria-label={`Insert ${template.label} ${placement}`}
+        onClick={()=>{addNode(rootId,createPrebuiltSection(template.id),index);setOpen(false)}}>
+        <Plus size={11}/>{template.label}
+      </button>)}
+    </div>}
+  </div>
+}
+
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
+  const project=useBuilderStore(s=>s.project)
+  const activePage=project.pages.find(page=>page.id===project.activePageId)||project.pages[0]
+  const sectionIndex=depth===1?activePage.root.children.findIndex(child=>child.id===node.id):-1
+  const reorderSection=useBuilderStore(s=>s.reorderSection)
+  const canMoveUp=sectionIndex>0&&node.type==='section'&&activePage.root.children[sectionIndex-1]?.type==='section'
+  const canMoveDown=sectionIndex>=0&&node.type==='section'&&activePage.root.children[sectionIndex+1]?.type==='section'
   const selectNode=useBuilderStore(s=>s.selectNode)
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const deleteNode=useBuilderStore(s=>s.deleteNode)
@@ -117,7 +142,22 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
         {depth>0&&<div className="hidden items-center gap-0.5 group-hover:flex"><button title="Duplicate" className="rounded p-1 text-zinc-500 hover:bg-zinc-700 hover:text-white" onClick={()=>duplicateNode(node.id)}><Copy size={10}/></button><button title="Delete" className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300" onClick={()=>deleteNode(node.id)}><Trash2 size={10}/></button></div>}
       </div>
     </div>
-    {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
+    {sectionIndex>=0&&node.type==='section'&&<div className="vb-section-row-actions" role="group" aria-label={`Rearrange ${node.name}`}>
+      <button type="button" aria-label={`Move section ${node.name} up`} disabled={!canMoveUp}
+        onClick={()=>reorderSection(node.id,-1)}>↑ Move up</button>
+      <button type="button" aria-label={`Move section ${node.name} down`} disabled={!canMoveDown}
+        onClick={()=>reorderSection(node.id,1)}>↓ Move down</button>
+    </div>}
+    {open&&childCount>0&&<div>{node.children.map((child,index)=><React.Fragment key={child.id}>
+      {depth===0&&child.type==='section'&&index===node.children.findIndex(item=>item.type==='section')&&
+        <SectionInsert rootId={node.id} index={index} placement={`before ${child.name}`}/>}
+      <NavigatorNode node={child} depth={depth+1}/>
+      {depth===0&&child.type==='section'&&
+        <SectionInsert rootId={node.id} index={index+1} placement={`after ${child.name}`}/>}
+    </React.Fragment>)}
+      {depth===0&&!node.children.some(child=>child.type==='section')&&
+        <SectionInsert rootId={node.id} index={Math.max(0,node.children.findIndex(child=>child.type==='footer'))||node.children.length} placement="at end of page"/>}
+    </div>}
     {depth>0&&<DropLine id={`after:${node.id}`}/>}
   </div>
 }
