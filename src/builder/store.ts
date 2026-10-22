@@ -48,6 +48,7 @@ interface BuilderState {
   deleteNode:(nodeId:string)=>void
   duplicateNode:(nodeId:string)=>void
   moveNode:(nodeId:string,parentId:string,index?:number)=>void
+  reorderSection:(nodeId:string,direction:-1|1)=>void
   addClass:(nodeId:string,className:string)=>void
   removeClass:(nodeId:string,className:string)=>void
   renameClass:(oldName:string,newName:string)=>void
@@ -276,6 +277,20 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
         draftPage.root=moveNode(draftPage.root,nodeId,parentId,index)
       })
     },
+    // Structured sections reorder within the page. Keep the navigation and
+    // footer boundaries intact rather than moving a section across them.
+    reorderSection:(nodeId,direction)=>{
+      const state=get()
+      const page=currentPage(state.project)
+      const siblings=page.root.children||[]
+      const index=siblings.findIndex(node=>node.id===nodeId)
+      const target=index+direction
+      if(index<0||target<0||target>=siblings.length)return
+      if(siblings[index].type!=='section'||siblings[target].type!=='section')return
+      if(siblings[index].locked||siblings[target].locked)return
+      const targetIndex=direction>0?index+2:index-1
+      state.moveNode(nodeId,page.root.id,targetIndex)
+    },
     addClass:(nodeId,className)=>commit('Add class',draft=>{
       const page=currentPage(draft)
       page.root=updateNode(page.root,nodeId,node=>({...node,classes:Array.from(new Set([...(node.classes||[]),className]))}))
@@ -359,7 +374,14 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     }),
     restoreVersion:versionId=>{
       const state=get();const version=state.project.versions.find(v=>v.id===versionId);if(!version)return
-      const restored:BuilderProject={...clone(version.project),versions:clone(state.project.versions)}
+      // Restoring a historical design is a new edit, not a rollback of the
+      // saved revision number. Preserve an additional recovery point so an
+      // older cloud snapshot cannot overwrite the restored design on reload.
+      const restored:BuilderProject={...clone(version.project),versions:[
+        makeVersion(state.project,'Before version restore'),
+        ...clone(state.project.versions),
+      ].slice(0,20)}
+      advanceRevision(state.project,restored)
       set({
         project:restored,
         history:[...state.history,clone(state.project)].slice(-20),
