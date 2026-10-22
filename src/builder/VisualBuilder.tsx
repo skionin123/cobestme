@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/core'
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
-  Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
+  History, Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
   RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -100,7 +100,7 @@ function resolveDropTarget(root:BuilderNode,overId:string){
 function VersionPopover({onClose}:{onClose:()=>void}){
   const project=useBuilderStore(s=>s.project)
   const restoreVersion=useBuilderStore(s=>s.restoreVersion)
-  return <div className="absolute right-3 top-12 z-[80] w-80 rounded-xl border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
+  return <div className="vb-version-popover absolute right-3 top-12 z-[80] w-80 rounded-xl border border-zinc-700 bg-zinc-900 p-2 shadow-2xl" role="dialog" aria-label="Saved design versions">
     <div className="flex items-center justify-between p-2"><div><span className="block text-[9px] font-semibold uppercase tracking-[.12em] text-zinc-500">Version history</span><strong className="text-xs text-zinc-100">Last {project.versions.length} snapshots</strong></div><button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={14}/></button></div>
     <div className="max-h-80 overflow-auto">{project.versions.length?project.versions.map(v=><button key={v.id} onClick={()=>{if(confirm('Restore this version? Your current state remains available in undo history.')){restoreVersion(v.id);onClose()}}} className="mb-1 w-full rounded-lg p-2 text-left hover:bg-zinc-800"><strong className="block text-[10px] text-zinc-200">{v.label}</strong><span className="text-[9px] text-zinc-500">{new Date(v.createdAt).toLocaleString()}</span></button>):<div className="p-4 text-center text-[10px] text-zinc-500">Versions appear as you edit.</div>}</div>
   </div>
@@ -699,12 +699,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
           <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
           <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Replace draft with starter design (reversible)"><RotateCcw size={15}/><span>Start over</span></button>
+          <button type="button" className="vb-history-action" aria-label="Version history" aria-expanded={versionsOpen} onClick={()=>setVersionsOpen(open=>!open)}
+            title="Restore an earlier draft"><History size={16}/><span>History</span></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
           {onPublish&&<button className="vb-publish" onClick={()=>setLaunchReviewOpen(true)} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
+        {versionsOpen&&<VersionPopover onClose={()=>setVersionsOpen(false)}/>}
       </header>
       <div className="vb-workspace" style={{'--vb-left-width':activeSidebarWidth+'px'} as React.CSSProperties}>
         <aside className={'vb-left '+(mobilePanel==='add'||mobilePanel==='navigator'?'vb-mobile-open':'')}>
@@ -771,7 +774,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       <nav className="vb-mobile-actions" aria-label="Phone website editing tools">
         <button type="button" aria-label="Phone Add elements" className={mobilePanel==='add'?'active':''} aria-pressed={mobilePanel==='add'} onClick={()=>{setLeftTab('add');setMobilePanel(mobilePanel==='add'?null:'add')}}><PanelLeft size={18}/> Add</button>
         <button type="button" aria-label="Phone Layers" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
-        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'?'active':''} aria-pressed={mobilePanel==='style'} onClick={()=>{setRightTab('style');setMobilePanel(mobilePanel==='style'?null:'style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" aria-label="Phone Edit content" className={mobilePanel==='style'&&rightTab==='settings'?'active':''}
+          aria-pressed={mobilePanel==='style'&&rightTab==='settings'} onClick={()=>{setRightTab('settings');setMobilePanel('style')}}><PanelLeft size={18}/> Content</button>
+        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Style</button>
         <button type="button" aria-label="Phone Undo" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
         <button type="button" aria-label="Phone Redo" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
         <button type="button" aria-label="Phone Save" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
