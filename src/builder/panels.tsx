@@ -439,6 +439,26 @@ export function StylePanel(){
       <div className="vb-inspector-name"><strong>{node.name}</strong><span>{node.type}</span></div>
       <p>Edit directly on the page or refine its layout here.</p>
     </section>
+    {['heading','paragraph','button','link','richText','quote'].includes(node.type)&&
+      <section className="vb-inspector-quick vb-quick-content">
+        <div className="vb-inspector-heading"><strong>Content</strong><span>Click and edit</span></div>
+        <label className="vb-basic-field"><span>Text</span>
+          {['paragraph','richText','quote'].includes(node.type)?
+            <textarea aria-label="Quick edit text" rows={3} className={control} value={node.content||''}
+              onChange={e=>useBuilderStore.getState().updateNode(node.id,{content:e.target.value})}/>:
+            <input aria-label="Quick edit text" className={control} value={node.content||''}
+              onChange={e=>useBuilderStore.getState().updateNode(node.id,{content:e.target.value})}/>}
+        </label>
+        {['button','link'].includes(node.type)&&<label className="vb-basic-field"><span>Button / link destination</span>
+          <input aria-label="Quick edit link destination" className={control}
+            value={node.attributes.href||''} placeholder="/shop or https://example.com"
+            onChange={e=>useBuilderStore.getState().updateNodeAttribute(node.id,'href',e.target.value)}/>
+        </label>}
+      </section>}
+    {node.type==='image'&&<section className="vb-inspector-quick vb-quick-content">
+      <div className="vb-inspector-heading"><strong>Image</strong><span>Replace photo</span></div>
+      <ImageSettings node={node}/>
+    </section>}
     <DesignControls/>
     {editable&&<section className="vb-inspector-quick">
       <div className="vb-inspector-heading"><strong>Position</strong><span>{breakpoint.replace('mobilePortrait','Mobile').replace('mobileLandscape','Landscape')}</span></div>
