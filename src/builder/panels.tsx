@@ -66,9 +66,17 @@ function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:st
 
 export function AddPanel(){
   const [query,setQuery]=useState('')
+  const [showThemes,setShowThemes]=useState(false)
   const q=query.trim().toLowerCase()
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
+      <span className={label}>Build your store</span>
+      <button type="button" aria-expanded={showThemes} onClick={()=>setShowThemes(value=>!value)}
+        className="vb-theme-entry">
+        <span><strong>Choose a website theme</strong><small>Online Store · Simple · Professional</small></span>
+        <ChevronRight size={16}/>
+      </button>
+      {showThemes&&<div className="vb-theme-picker-inline"><TemplatesPanel/></div>}
       <span className={label}>Add elements</span>
       <strong className="mb-2 block text-[11px] text-zinc-200">Building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
@@ -168,8 +176,8 @@ export function TemplatesPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Starting theme</span>
-      <strong className="block text-[12px] text-zinc-100">Choose one of two directions.</strong>
-      <p className="mt-1 text-[9px] leading-4 text-zinc-500">Both are intentionally simple. Pick a base, then make the real design decisions directly on the canvas.</p>
+      <strong className="block text-[12px] text-zinc-100">Start with a ready-made design.</strong>
+      <p className="mt-1 text-[9px] leading-4 text-zinc-500">Choose an Online Store layout or a clean business design. Replacing a design requires confirmation and remains in version history.</p>
     </div>
     <div className="space-y-3 p-3">{builderTemplates.map(template=><article key={template.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
       <div className="h-28 p-3" style={{background:`linear-gradient(135deg,${template.accent}20,#13161b)`}}>
