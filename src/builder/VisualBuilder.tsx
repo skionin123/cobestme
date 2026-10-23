@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/core'
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
-  History, Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
+  History, Layers, LayoutTemplate, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
   RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -739,7 +739,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           <div className="vb-left-tabs">
             <button className="vb-mobile-close" title="Close editing panel" aria-label="Close editing panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>
             {([
-              ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
+              ['add',PanelLeft,'Add'],['templates',LayoutTemplate,'Themes'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
             ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} data-label={labelText} aria-label={labelText} onClick={()=>setLeftTab(id)}><Icon size={16}/></button>)}
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
