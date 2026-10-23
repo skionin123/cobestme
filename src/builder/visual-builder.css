@@ -630,3 +630,13 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
   .vb-history-action span{display:none}
   .vb-version-popover{position:fixed!important;top:103px!important;right:9px!important;max-height:65dvh;overflow:auto;width:min(90vw,345px)!important}
 }
+
+/* Merchant-first theme chooser, reachable from desktop navigation or phone Add. */
+.vb-theme-entry{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;background:#272d36;color:#f4f5f8;border:1px solid #515968;border-radius:9px;padding:10px 12px;margin-bottom:14px}
+.vb-theme-entry strong{font-size:11px;display:block}
+.vb-theme-entry small{font-size:9px;color:#aeb8c6;display:block;margin-top:4px}
+.vb-theme-entry:hover,.vb-theme-entry:focus-visible{background:#38404d;border-color:#8881e3}
+.vb-theme-entry[aria-expanded="true"] svg{transform:rotate(90deg)}
+.vb-theme-picker-inline{max-height:min(58vh,510px);overflow:auto;border:1px solid #414954;border-radius:9px;margin-bottom:16px}
+.vb-theme-picker-inline>div{height:auto!important;overflow:visible!important}
+@media(max-width:680px){.vb-theme-entry{min-height:57px}.vb-theme-entry strong{font-size:12px}.vb-theme-entry small{font-size:10px}}
