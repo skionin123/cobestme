@@ -29,7 +29,7 @@ describe('MVP builder surface',()=>{
   })
 
   it('keeps only MVP left and right panel tabs visible',()=>{
-    expect(visualBuilder).toContain("['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets']")
+    expect(visualBuilder).toContain("['add',PanelLeft,'Add'],['templates',LayoutTemplate,'Themes'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets']")
     expect(visualBuilder).toContain("[['style','Style'],['settings','Settings']]")
     expect(visualBuilder).not.toContain("['cms',Database,'CMS'],")
     expect(visualBuilder).not.toContain("['components',Component,'Components'],")
