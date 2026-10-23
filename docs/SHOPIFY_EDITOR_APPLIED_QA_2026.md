@@ -52,3 +52,20 @@ The original `npm audit` was placed before tests and prevented all functional ch
 - [ ] M02.7 — Test publish-draft separation and two independently authenticated merchant workspaces against real backend.
 
 **Next interactive step:** M01.1 — user opens https://cobest.me and shares whether it loads, with a redacted screenshot if possible. Only record observed result. The development improvements cannot be tested by clicking production until staged or deployed safely.
+
+
+## October 24, 2026 — additional work implemented (Shopify section/theme lessons)
+
+**Development branch only, not deployed to production.**
+
+- **Storefront sections:** Added merchant-editable Store Announcement, Image With Text, Shop Introduction, and Shopping Information layouts in the existing Add library. These are design/layout blocks, not simulated products or live integrations.
+- **Online Store starting theme:** Added a complete starter page with announcement, shop-introduction anchor, brand story, shopping information, CTA and existing header/footer. The palette is editable. This is **not** a fully integrated product grid or proof that /shop and /contact routes are present; links must be reviewed for the merchant site before publishing.
+- **Theme picker discoverability:** The existing theme picker is now accessible through a primary **Themes** sidebar button, and from **Add → Choose a website theme** on phones. Applying a theme still prompts for confirmation and remains reversible through the existing history mechanism.
+- **Beginner content inspector:** A selected Heading, paragraph, button/link, rich text, quote or image now offers **Content/Text, Link destination or Replace Image** above the advanced style tools. Selecting these elements directly on the preview opens the edit drawer on phone.
+- **Regression checks:** New unit tests in `tests/storefront-builder-sections.test.ts`, updated `tests/builder-templates.test.ts` and `tests/builder-mvp.test.ts`, and browser tests `tests/e2e/editor-storefront-theme.pw.ts`. The editor remains a no-code editing workflow.
+- **CI evidence:** [GitHub Actions run #40007244171](https://github.com/skionin123/cobestme/actions/runs/40007244171) — 29 unit test files / 132 unit tests passed, 28 browser tests passed, build/server smoke passed. Final job **fails** the mandatory high-severity `npm audit` gate (3 dependency advisories: 1 high, 2 moderate), tracked as [#36](https://github.com/skionin123/cobestme/issues/36). Do not merge/deploy while the gate is red.
+- **Still to build/verify:** binding a featured product/collection section to **real merchant catalog records**, cross-merchant website isolation in staging, review of all template navigation paths, physical Android/iOS touch editing, and real merchant-publishing QA.
+
+### Test together — next human step
+
+Open the **current** production https://cobest.me in a private browser and send a screenshot of the welcome page (M01.1 in this log). Then open the existing website editor on a **test store** and share a screenshot (M01.2). After a safe, separate development preview environment is available, test **Themes → Online Store → choose**, **Add → Store Announcement**, **Layers → Add section here**, **Move Up/Down**, **tap heading → edit text**, **Undo/Redo**, **History restore**, **Save and Preview** one by one. **Do not mark any of these human tests PASS before observing them.**
