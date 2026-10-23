@@ -454,7 +454,20 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         if(allowed.includes(msg.action))executeShortcut(msg.action as EditorShortcut)
         return
       }
-      if(msg.type==='select')selectNode(msg.id||null)
+      if(msg.type==='select'){
+        selectNode(msg.id||null)
+        if(msg.id){
+          const active=useBuilderStore.getState().project
+          const page=active.pages.find(item=>item.id===active.activePageId)||active.pages[0]
+          const node=page?findNode(page.root,String(msg.id)):null
+          if(node&&['heading','paragraph','richText','button','link','quote','image'].includes(node.type)){
+            // Beginner-first: selecting real content opens its content controls.
+            // Desktop keeps the inspector visible, phone opens its editing drawer.
+            setRightTab('style')
+            if(window.innerWidth<=680)setMobilePanel('style')
+          }
+        }
+      }
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
       if(msg.type==='canvas-resize'&&Number(msg.height)){
