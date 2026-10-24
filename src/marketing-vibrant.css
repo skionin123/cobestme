@@ -230,3 +230,7 @@
   .landing .audience-strip div{justify-content:flex-start}
 
 }
+
+/* Final production accent polish: visible contrast on interactive marketing links. */
+.landing .landing-footer a:hover,.landing .landing-footer button:hover{color:#5144cf}
+.landing .marketing-resources a:hover{color:#137c78}
