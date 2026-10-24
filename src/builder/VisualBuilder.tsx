@@ -282,6 +282,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
   const [sectionInsert,setSectionInsert]=useState<{targetId:string;mode:'before'|'after'}|null>(null)
   const [quickOpen,setQuickOpen]=useState(false)
+  const [scanRequested,setScanRequested]=useState(false)
+  const [scanReport,setScanReport]=useState<{viewport:number;issues:{id:string;name:string;detail:string;kind:string}[]}|null>(null)
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
@@ -472,6 +474,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           }
         }
       }
+      if(msg.type==='layout-scan'&&Array.isArray(msg.issues)){
+        setScanReport({viewport:Number(msg.viewport)||478,issues:msg.issues.slice(0,35)})
+        setScanRequested(false)
+        return
+      }
       if(msg.type==='section-insert-request'&&typeof msg.targetId==='string'&&
          ['before','after'].includes(msg.mode)){
         const latest=useBuilderStore.getState().project
@@ -541,6 +548,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   useEffect(()=>{
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
   },[selectedNodeId,hoveredNodeId,editorDocumentHtml])
+  useEffect(()=>{
+    if(!selectedNodeId)return
+    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'reveal-node',id:selectedNodeId},'*')
+  },[selectedNodeId])
+  useEffect(()=>{
+    if(scanRequested&&breakpoint==='mobilePortrait')
+      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'scan-layout'},'*')
+  },[scanRequested,breakpoint,editorDocumentHtml])
   useEffect(()=>{
     try{window.localStorage.setItem('cobest-designer-snap',snappingEnabled?'on':'off')}catch{}
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'snapping',enabled:snappingEnabled},'*')
@@ -666,6 +681,12 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     window.addEventListener('keydown',handler)
     return()=>window.removeEventListener('keydown',handler)
   },[])
+
+  const checkMobileLayout=()=>{
+    setScanReport(null)
+    setScanRequested(true)
+    if(breakpoint!=='mobilePortrait')setBreakpoint('mobilePortrait')
+  }
 
   const startOver=()=>{
     if(!window.confirm('Start over with the CoBest starter design? This replaces all your draft pages and edits. Your published website stays unchanged until you publish again. You can Undo to restore this draft.'))return
@@ -825,6 +846,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <button type="button" className={zoomMode==='fit'?'active':''} onClick={()=>setZoomMode('fit')} aria-label="Fit canvas to workspace">Fit</button>
               <span data-testid="canvas-zoom">{zoom}%</span>
               <button type="button" className={zoomMode==='actual'?'active':''} onClick={()=>setZoomMode('actual')} aria-label="Show canvas at actual size">100%</button>
+              <button type="button" className="vb-mobile-check-action" aria-label="Check mobile layout" onClick={checkMobileLayout}><Smartphone size={13}/> Check mobile</button>
               <button type="button" className={'vb-snap-toggle '+(snappingEnabled?'active':'')}
                 aria-label="Toggle alignment snapping" title="Snap to 8px grid and nearby element edges (hold Alt while dragging to bypass)"
                 aria-pressed={snappingEnabled} onClick={()=>setSnappingEnabled(enabled=>!enabled)}>
@@ -846,6 +868,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>
                 <div className="vb-canvas-wrap" style={{width:frameWidth,height:canvasHeight}}>
                   <iframe ref={iframeRef} title="CoBest visual builder canvas" sandbox="allow-scripts allow-forms allow-popups" srcDoc={editorDocumentHtml} className="vb-canvas" style={{height:canvasHeight,pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
+                    if(scanRequested&&breakpoint==='mobilePortrait')
+                      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'scan-layout'},'*')
                     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
                   }}/>
                 </div>
@@ -924,7 +948,25 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         canPaste={Boolean(copiedNodeRef.current)}/>}
 
       {sectionInsert&&<SectionChooser placement={'Insert '+sectionInsert.mode+' selected section'} onInsert={insertAtCanvas} onClose={()=>setSectionInsert(null)}/>}
-      {quickOpen&&<QuickAdd project={project} onClose={()=>setQuickOpen(false)} onPick={pickQuickAdd}/>} 
+      {quickOpen&&<QuickAdd project={project} onClose={()=>setQuickOpen(false)} onPick={pickQuickAdd}/>}
+      {scanReport&&<div className="vb-scan-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setScanReport(null)}}>
+        <section className="vb-scan-dialog" role="dialog" aria-modal="true" aria-label="Mobile layout review">
+          <header><div><strong>Mobile layout check</strong><p>Measured in a {scanReport.viewport}px preview, not a real phone.</p></div>
+            <button type="button" aria-label="Close mobile layout check" onClick={()=>setScanReport(null)}><X size={17}/></button></header>
+          <div className="vb-scan-results">
+            {scanReport.issues.length===0?<p role="status">No horizontal overflow was detected in this preview. Also test on an actual phone at narrower widths.</p>:
+              scanReport.issues.map((issue,index)=><div key={issue.id+'-'+index}>
+                <strong>{issue.name}</strong><p>{issue.detail}</p>
+                <button type="button" onClick={()=>{
+                  selectNode(issue.id);setRightTab('style');setScanReport(null);
+                  if(window.innerWidth<=680)setMobilePanel('style')
+                }}>Inspect element</button>
+              </div>)}
+          </div>
+          <footer>Checks geometry only. Also review small phones, button behavior, contrast, actual product data and checkout before publishing.</footer>
+        </section>
+      </div>}
+
       {exportOpen&&<ExportModal onClose={()=>setExportOpen(false)}/>}
     </div>
     <DragOverlay>{dragging?<div className="vb-drag-overlay">{dragLabel}</div>:null}</DragOverlay>
