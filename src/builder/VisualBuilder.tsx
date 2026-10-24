@@ -5,12 +5,13 @@ import {
 } from '@dnd-kit/core'
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
-  History, Layers, LayoutTemplate, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
+  History, Layers, LayoutTemplate, Monitor, PackageOpen, PanelLeft, Redo2, Save, Search, Settings2, Smartphone, Tablet, Undo2,
   RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { SectionChooser } from './SectionChooser'
+import { QuickAdd } from './QuickAdd'
 import { createDefaultProject } from './defaultProject'
 import { applyNodeGeometry } from './geometry'
 import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
@@ -280,6 +281,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [dragging,setDragging]=useState(false)
   const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
   const [sectionInsert,setSectionInsert]=useState<{targetId:string;mode:'before'|'after'}|null>(null)
+  const [quickOpen,setQuickOpen]=useState(false)
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
@@ -618,6 +620,53 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     setSectionInsert(null)
   }
 
+  const pickQuickAdd=(result:{kind:'section'|'element'|'page'|'layer';id:string;name:string})=>{
+    const state=useBuilderStore.getState()
+    const page=state.project.pages.find(item=>item.id===state.project.activePageId)||state.project.pages[0]
+    if(result.kind==='page'){state.setActivePage(result.id);setLeftTab('pages')}
+    if(result.kind==='layer'){
+      state.selectNode(result.id)
+      setLeftTab('navigator')
+      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'reveal-node',id:result.id},'*')
+    }
+    if(page&&result.kind==='section'){
+      let index=page.root.children.findIndex(node=>node.type==='footer')
+      if(index<0)index=page.root.children.length
+      const selected=state.selectedNodeId?findNode(page.root,state.selectedNodeId):null
+      if(selected){
+        let top=selected
+        let parent=findParent(page.root,top.id)
+        while(parent&&parent.id!==page.root.id){top=parent;parent=findParent(page.root,top.id)}
+        const selectedIndex=page.root.children.findIndex(node=>node.id===top.id&&node.type==='section')
+        if(selectedIndex>=0)index=selectedIndex+1
+      }
+      state.addNode(page.root.id,createPrebuiltSection(result.id),index)
+      setLeftTab('navigator')
+    }
+    if(page&&result.kind==='element'){
+      const created=createElement(result.id as Parameters<typeof createElement>[0])
+      let parent=state.selectedNodeId?findNode(page.root,state.selectedNodeId):null
+      while(parent&&!canAcceptChild(parent,created))parent=findParent(page.root,parent.id)
+      if(!parent)parent=page.root
+      if(canAcceptChild(parent,created))state.addNode(parent.id,created)
+      setLeftTab('navigator')
+    }
+    setQuickOpen(false)
+  }
+
+  useEffect(()=>{
+    const handler=(event:KeyboardEvent)=>{
+      const element=event.target as HTMLElement|null
+      if(element?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(element?.tagName||''))return
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){
+        event.preventDefault()
+        setQuickOpen(true)
+      }
+    }
+    window.addEventListener('keydown',handler)
+    return()=>window.removeEventListener('keydown',handler)
+  },[])
+
   const startOver=()=>{
     if(!window.confirm('Start over with the CoBest starter design? This replaces all your draft pages and edits. Your published website stays unchanged until you publish again. You can Undo to restore this draft.'))return
     const current=useBuilderStore.getState().project
@@ -733,6 +782,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
+          <button type="button" className="vb-quick-trigger" aria-label="Search or add elements" title="Find an element or add section (Ctrl+K)" onClick={()=>setQuickOpen(true)}><Search size={15}/><span>Search / Add</span></button>
           <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
           <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
           <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Replace draft with starter design (reversible)"><RotateCcw size={15}/><span>Start over</span></button>
@@ -874,6 +924,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         canPaste={Boolean(copiedNodeRef.current)}/>}
 
       {sectionInsert&&<SectionChooser placement={'Insert '+sectionInsert.mode+' selected section'} onInsert={insertAtCanvas} onClose={()=>setSectionInsert(null)}/>}
+      {quickOpen&&<QuickAdd project={project} onClose={()=>setQuickOpen(false)} onPick={pickQuickAdd}/>} 
       {exportOpen&&<ExportModal onClose={()=>setExportOpen(false)}/>}
     </div>
     <DragOverlay>{dragging?<div className="vb-drag-overlay">{dragLabel}</div>:null}</DragOverlay>
