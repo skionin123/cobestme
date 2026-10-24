@@ -133,7 +133,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const canMoveDown=sectionIndex>=0&&node.type==='section'&&activePage.root.children[sectionIndex+1]?.type==='section'
   const selectNode=useBuilderStore(s=>s.selectNode)
   const hoverNode=useBuilderStore(s=>s.hoverNode)
-  const rowRef=useRef<HTMLDivElement>(null)
+  const rowRef=useRef<HTMLDivElement|null>(null)
   React.useEffect(()=>{
     if(selected!==node.id)return
     const row=rowRef.current
