@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import { getStoreReadiness } from './storeReadiness.js'
+import SuppliersManager from './SuppliersManager.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
 const StoreOverview = React.lazy(()=>import('./StoreOverview'))
@@ -382,16 +384,16 @@ function Landing({ onStart, onLogin }) {
       <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
-        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start Building Free</Button></div>
+        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
       </nav>
 
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
-          <h1>Build your website, your way.</h1>
-          <p>Pick one of two beautiful starting templates, then customize every detail in a simple visual website editor. No coding required.</p>
+          <h1>Build your website, <span className="hero-gradient">your way.</span></h1>
+          <p>Choose a beautiful starting design, then make it yours with our easy visual website editor. No coding required.</p>
           <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
-          <div className="trust-row"><span><Check size={15}/> Two starting templates</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
+          <div className="trust-row"><span><Check size={15}/> Three starting themes</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
         </div>
         <div className="hero-product-shell">
           <div className="mini-window-bar"><span/><span/><span/><b>app.cobest.me</b></div>
@@ -450,6 +452,7 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
+            ['Online Store','Online Store','A fresh design for your first storefront'],
             ['Simple','Simple','Clean, neutral, professional'],
             ['Professional','Professional','Refined, typography-led, focused']
           ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use theme <ArrowRight size={13}/></button></article>)}
@@ -572,7 +575,7 @@ function Review({data}) {
 const navGroups = [
   {label:'',items:[['dashboard','Overview',LayoutDashboard]]},
   {label:'Sales',items:[['orders','Orders',ShoppingBag],['customers','Customers',Users],['sales-report','Sales report',BarChart3]]},
-  {label:'Catalog',items:[['products','Products',Package],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
+  {label:'Catalog',items:[['products','Products',Package],['suppliers','Suppliers',BriefcaseBusiness],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
   {label:'Online store',items:[['website','Website themes',Palette],['editor','Website editor',Pencil],['settings','Publish & domain',Settings]]},
   {label:'Workspace',items:[['sites','My websites',Store]]},
 ]
@@ -607,7 +610,7 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
 }
 
 function Dashboard({ data, products, customers=[], orders=[], setPage }) {
-  const completeness = Math.min(96, 48 + data.pages.length * 4 + data.styles.length * 5 + products.length * 3)
+  const completeness = getStoreReadiness({data,products}).percent
   const paidSales = orders.filter(o=>o.payment_status==='Paid').reduce((sum,o)=>sum+Number(o.total||0),0)
   return <div className="page-wrap">
     <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
@@ -620,20 +623,8 @@ function Dashboard({ data, products, customers=[], orders=[], setPage }) {
 
 
 function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[],blogPosts=[],orders=[],customers=[],contacts=[],subscribers=[],setPage}) {
-  const policies=workspace?.settings||{}
-  const setup=[
-    {title:'Business direction',note:'Business, audience, goals, brand direction, and required features.',done:!!data.businessName&&!!data.websiteType,action:'Review brief',page:'brief'},
-    {title:'Choose a theme',note:'Pick the visual foundation before fine-tuning sections.',done:!!editor.theme?.name,action:'Theme library',page:'themes'},
-    {title:'Build pages',note:'Create the customer-facing page structure and visibility.',done:(data.pages||[]).length>=3,action:'Manage pages',page:'pages'},
-    {title:'Set navigation',note:'Choose the main-menu and footer links customers use.',done:(editor.header?.menu||[]).length>0,action:'Edit navigation',page:'navigation'},
-    {title:'Build the catalog',note:'Add products, prices, inventory, images, variants, categories, and collections.',done:products.length>0,action:'Products',page:'products'},
-    {title:'Add content',note:'Upload media and prepare blog/content used across the storefront.',done:media.length>0||blogPosts.length>0,action:'Content',page:'media'},
-    {title:'Store policies & defaults',note:'Set contact details, SEO defaults, shipping, tax, privacy, terms, and refunds.',done:!!(policies.privacyPolicy&&policies.termsPolicy&&policies.refundPolicy),action:'Store settings',page:'settings'},
-    {title:'Publish the store',note:'Publish the current approved draft to the public storefront.',done:!!workspace?.is_published,action:workspace?.is_published?'Publishing settings':'Publish',page:'settings'}
-  ]
-  const complete=setup.filter(x=>x.done).length
-  const percent=Math.round((complete/setup.length)*100)
-  const next=setup.find(x=>!x.done)
+  const readiness=getStoreReadiness({data,editor,workspace,products,media,blogPosts})
+  const {steps:setup,completed:complete,percent,next,manualChecks}=readiness
   const operations=[
     {title:'Orders',value:orders.length+' total',note:'Review payment, fulfillment, tracking, and order notes.',page:'orders',icon:ShoppingBag},
     {title:'Customers',value:customers.length+' records',note:'Manage customer profiles, purchase history, tags, and consent.',page:'customers',icon:Users},
@@ -642,9 +633,10 @@ function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[
   ]
   return <div className="page-wrap process-center">
     <div className="page-head"><div><p className="overline">STORE OPERATING SYSTEM</p><h1>Setup & workflow</h1><p>Work through CoBest in the right order, then run day-to-day operations from the same workspace.</p></div>{next&&<Button onClick={()=>setPage(next.page)}>Next: {next.title} <ArrowRight size={15}/></Button>}</div>
-    <div className="process-summary panel"><div className="process-progress"><div className="progress-ring" style={{'--p':(percent*3.6)+'deg'}}><span>{percent}%</span></div><div><span className="overline">LAUNCH READINESS</span><h2>{complete} of {setup.length} setup steps complete</h2><p>{next?'Recommended next step: '+next.title+'.':'Core setup is complete. Continue operating and improving the store.'}</p></div></div><div className="process-summary-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview</Button><Button variant="secondary" onClick={()=>setPage('settings')}><Settings size={15}/> Publishing</Button></div></div>
+    <div className="process-summary panel"><div className="process-progress"><div className="progress-ring" style={{'--p':(percent*3.6)+'deg'}}><span>{percent}%</span></div><div><span className="overline">INTERNAL SETUP PROGRESS</span><h2>{complete} of {setup.length} setup steps complete</h2><p>{next?'Recommended next step: '+next.title+'.':'Saved setup fields are complete; external checks are still required.'}</p></div></div><div className="process-summary-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview</Button><Button variant="secondary" onClick={()=>setPage('settings')}><Settings size={15}/> Publishing</Button></div></div>
     <div className="process-layout"><section className="panel"><div className="panel-head"><div><span>Launch process</span><h3>Build → organize → publish</h3></div></div><div className="process-step-list">{setup.map((x,i)=><div className={'process-step '+(x.done?'done':'')} key={x.title}><div className="process-step-number">{x.done?<Check size={15}/>:String(i+1).padStart(2,'0')}</div><div><strong>{x.title}</strong><p>{x.note}</p></div><button onClick={()=>setPage(x.page)}>{x.done?'Review':x.action}<ArrowRight size={14}/></button></div>)}</div></section>
     <section className="panel"><div className="panel-head"><div><span>Daily operations</span><h3>Run the business</h3></div></div><div className="process-ops">{operations.map(x=>{const I=x.icon;return <button key={x.title} onClick={()=>setPage(x.page)}><div className="process-op-icon"><I size={18}/></div><div><strong>{x.title}</strong><span>{x.value}</span><p>{x.note}</p></div><ArrowRight size={15}/></button>})}</div></section></div>
+    <section className="panel" style={{padding:20,marginTop:18}}><div className="panel-head"><div><span>Before accepting real orders</span><h3>Manual verification still required</h3></div></div><p>These checks cannot be certified by a filled form or a successful deployment. Review them against a real test store before launch.</p><ul>{manualChecks.map(x=><li key={x}>{x}</li>)}</ul></section>
     <div className="process-flow-strip"><span>01 Discover</span><b>→</b><span>02 Theme</span><b>→</b><span>03 Pages</span><b>→</b><span>04 Navigation</span><b>→</b><span>05 Catalog</span><b>→</b><span>06 Content</span><b>→</b><span>07 Settings</span><b>→</b><span>08 Publish</span><b>→</b><span>09 Operate</span></div>
   </div>
 }
@@ -1379,13 +1371,14 @@ export default function App() {
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
+  if(page==='suppliers') content=<SuppliersManager products={products} setProducts={setProducts}/>
   if(page==='taxonomy') content=<React.Suspense fallback={<div className="page-wrap">Loading categories…</div>}><CatalogCategories items={catalogTerms} setItems={setCatalogTerms} products={products} setProducts={setProducts}/></React.Suspense>
   if(page==='pages') content=<OnlineStorePage pages={safeOnboarding.pages} setPages={pages=>setOnboarding(prev=>({...prev,pages}))} setPage={setPage} editor={safeEditor} setEditor={setEditor}/>
   if(page==='themes') content=<ThemeLibrary editor={safeEditor} setEditor={setEditor} setPage={setPage}/>
   if(page==='navigation') content=<NavigationManager pages={safeOnboarding.pages} editor={safeEditor} setEditor={setEditor}/>
   if(page==='media') content=<MediaManager items={mediaAssets} setItems={setMediaAssets}/>
   if(page==='blog') content=<BlogManager items={blogPosts} setItems={setBlogPosts} media={mediaAssets}/>
-  if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers}/>
+  if(page==='orders') content=<OrdersManager orders={orders} setOrders={setOrders} customers={customers} products={products}/>
   if(page==='collections') content=<CollectionsManager items={collections} setItems={setCollections} products={products}/>
   if(page==='customers') content=<CustomersManager customers={customers} setCustomers={setCustomers} orders={orders}/>
   if(page==='sales-report') content=<React.Suspense fallback={<div className="page-wrap">Loading sales report…</div>}><SalesReport orders={orders} products={products} currency={workspace?.currency||'PHP'}/></React.Suspense>

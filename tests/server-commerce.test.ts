@@ -47,6 +47,34 @@ describe('checkout calculation',()=>{
     expect(x.total).toBeCloseTo(210.4)
   })
 
+  it('combines duplicate cart rows before checking available inventory',()=>{
+    const x=calculateCheckout(store,{items:[{product_id:1,quantity:3},{product_id:1,quantity:3}]})
+    expect(x.items).toHaveLength(0)
+    expect(x.inventoryIssues).toEqual([{product_id:1,name:'Starter',requested:6,available:5}])
+  })
+
+  it('uses one line item for a repeated product within inventory',()=>{
+    const x=calculateCheckout(store,{items:[{product_id:1,quantity:2},{product_id:1,quantity:3}]})
+    expect(x.items).toEqual([{product_id:1,name:'Starter',quantity:5,unit_price:100,line_total:500}])
+    expect(x.subtotal).toBe(500)
+    expect(x.inventoryIssues).toHaveLength(0)
+  })
+
+  it('rejects accumulated cart quantities beyond the line limit',()=>{
+    const snapshot={...store,products:[{id:1,name:'Starter',status:'Active',price:100,inventory:500}]}
+    const x=calculateCheckout(snapshot,{items:[{product_id:1,quantity:60},{product_id:1,quantity:60}]})
+    expect(x.quantityIssues).toEqual([{product_id:1,requested:120,maximum:99}])
+  })
+
+  it('does not allow checkout to charge the wrong SKU when a product has variants',()=>{
+    const catalog={...store,products:[{id:8,name:'Variant shirt',status:'Active',price:200,inventory:99,
+      variants:[{title:'Blue / S',sku:'BLUE-S',price:250,inventory:1}]}]}
+    const totals=calculateCheckout(catalog,{items:[{product_id:8,quantity:2}]})
+    expect(totals.variantIssues).toEqual([{product_id:8,name:'Variant shirt'}])
+    expect(totals.items).toHaveLength(0)
+    expect(totals.total).toBe(0)
+  })
+
   it('ignores inactive, expired, over-limit, and invalid discounts',()=>{
     const now=Date.parse('2026-10-07T00:00:00Z')
     for(const d of [

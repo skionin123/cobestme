@@ -48,6 +48,8 @@ test('real application shell saves each site and reopens its own builder documen
   await expect(page.getByRole('button',{name:'Sales report',exact:true})).toBeVisible()
   await expect(page.locator('.app-nav').getByRole('button',{name:'Categories & subcategories',exact:true})).toBeVisible()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Use Online Store'})).toBeVisible()
+  await expect(page.locator('.website-start-count')).toHaveText('3 themes')
   await expect(page.getByRole('button',{name:'Use Simple'})).toBeVisible()
   await expect(page.getByRole('button',{name:'Use Professional'})).toBeVisible()
   await page.getByRole('button',{name:'Use Simple'}).click()

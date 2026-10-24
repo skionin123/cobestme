@@ -47,6 +47,10 @@ export const mvpElementCatalog=[
 
 export const sectionCatalog=[
   {id:'hero',label:'Hero'},
+  {id:'announcement',label:'Store announcement'},
+  {id:'imageText',label:'Image with text'},
+  {id:'shopIntro',label:'Shop collection intro'},
+  {id:'storeBenefits',label:'Shopping information'},
   {id:'features',label:'Features grid'},
   {id:'testimonials',label:'Testimonials'},
   {id:'pricing',label:'Pricing'},
@@ -233,6 +237,61 @@ export function createPrebuiltSection(id:string):BuilderNode{
         {...base('link','a','Nav Link','Contact'),attributes:{href:'/contact'},classes:['nav-link']},
       ]},
       {...base('button','button','Mobile Menu Button','☰'),classes:['nav-menu-button']},
+    ]
+    return n
+  }
+  // Ready-made sections are intentionally content/layout only.
+  // They never simulate orders, product prices, or functioning subscriptions.
+  if(id==='announcement'){
+    const n=base('section','section','Store Announcement')
+    n.classes=['section']
+    n.children=[
+      {...base('paragraph','p','Announcement Text','Welcome to our shop — discover what is new.'),classes:['paragraph']},
+      {...base('link','a','Announcement Link','Explore our store'),classes:['button'],attributes:{href:'/shop'}},
+    ]
+    return n
+  }
+  if(id==='imageText'){
+    const n=base('section','section','Image With Text')
+    n.classes=['section']
+    n.children=[{
+      ...base('columns','div','Image and Text Columns'),classes:['columns'],
+      children:[
+        {...createElement('image'),name:'Brand Photo'},
+        {...base('container','div','Story Text'),classes:['container'],children:[
+          {...base('heading','h2','Story Heading','Tell your customers what makes your store special.'),classes:['heading']},
+          {...base('paragraph','p','Story Description','Replace this sample text and photo with information about your own products and business.'),classes:['paragraph']},
+          {...base('link','a','Read More','Learn more'),classes:['button'],attributes:{href:'/about'}},
+        ]},
+      ],
+    }]
+    return n
+  }
+  if(id==='shopIntro'){
+    const n=base('section','section','Shop Introduction')
+    n.classes=['section']
+    n.children=[
+      {...base('heading','h2','Shop Heading','Explore our collection'),classes:['section-title']},
+      {...base('paragraph','p','Shop Description','Discover products chosen for your store. Edit this introduction to describe your real catalog.'),classes:['paragraph']},
+      {...base('link','a','Browse Products','Shop now'),classes:['button'],attributes:{href:'/shop'}},
+    ]
+    return n
+  }
+  if(id==='storeBenefits'){
+    const n=base('section','section','Shopping Information')
+    n.classes=['section']
+    n.children=[
+      {...base('heading','h2','Section Heading','Information for shoppers'),classes:['section-title']},
+      {...base('grid','div','Information Cards'),classes:['feature-grid'],children:[
+        ['Delivery options','Explain how shipping and delivery work for your store.'],
+        ['Returns and exchanges','Link to your own current return and refund policy.'],
+        ['Questions?','Tell customers how to reach your business for help.'],
+      ].map(([title,description])=>({
+        ...base('div','article',title),classes:['card'],children:[
+          {...base('heading','h3','Card Heading',title),classes:['heading']},
+          {...base('paragraph','p','Card Description',description),classes:['paragraph']},
+        ],
+      }))},
     ]
     return n
   }

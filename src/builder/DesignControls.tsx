@@ -204,6 +204,40 @@ export function DesignControls(){
       {frame&&<NumberField name="Content gap" value={read('gap')||'0px'}
         onChange={n=>apply('Content gap',{gap:n+'px'})}/>}
     </section>}
+    {['container','div','grid','flex','columns'].includes(node.type)&&
+      <section className="vb-design-group vb-easy-layout" aria-label="Quick responsive layout">
+        <div className="vb-design-heading"><strong>Easy responsive layouts</strong><small>Desktop & phone</small></div>
+        <p className="vb-basic-note">Let items flow naturally. No need to drag every item into an exact position.</p>
+        <div className="vb-easy-layout-grid">
+          <button type="button" aria-label="Use vertical stack layout"
+            onClick={()=>mutate('Vertical responsive stack',draft=>{
+              for(const device of ['desktop','mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'flex',flexDirection:'column',alignItems:'stretch',gap:'20px',minWidth:'0'
+                })
+            })}>Vertical stack</button>
+          <button type="button" aria-label="Use row that stacks on phone"
+            onClick={()=>mutate('Row that stacks on phone',draft=>{
+              updateElementAppearance(draft,node.id,'desktop',{
+                display:'flex',flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:'24px',minWidth:'0'
+              })
+              for(const device of ['mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'flex',flexDirection:'column',alignItems:'stretch',gap:'16px',minWidth:'0'
+                })
+            })}>Row → phone stack</button>
+          <button type="button" aria-label="Use two columns that stack on phone"
+            onClick={()=>mutate('Responsive two columns',draft=>{
+              updateElementAppearance(draft,node.id,'desktop',{
+                display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'24px',minWidth:'0'
+              })
+              for(const device of ['mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:'16px',minWidth:'0'
+                })
+            })}>2 columns → 1</button>
+        </div>
+      </section>}
     {frame&&<section className="vb-design-group">
       <div className="vb-design-heading"><strong>Responsive layout</strong><small>{breakpoint}</small></div>
       {(node.type==='flex'||node.type==='grid'||node.type==='container'||node.type==='div')&&

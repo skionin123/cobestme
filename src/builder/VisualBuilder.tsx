@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent, KeyboardSensor, PointerSensor,
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent, KeyboardSensor, PointerSensor, TouchSensor,
   useDroppable, useSensor, useSensors
 } from '@dnd-kit/core'
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
-  Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
-  Sparkles, Upload, X, ZoomIn, ZoomOut
+  History, Layers, LayoutTemplate, Monitor, PackageOpen, PanelLeft, Redo2, Save, Search, Settings2, Smartphone, Tablet, Undo2,
+  RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
+import { SectionChooser } from './SectionChooser'
+import { QuickAdd } from './QuickAdd'
+import { createDefaultProject } from './defaultProject'
 import { applyNodeGeometry } from './geometry'
 import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
 import { duplicateWithIndependentGeometry } from './duplicate'
@@ -99,7 +102,7 @@ function resolveDropTarget(root:BuilderNode,overId:string){
 function VersionPopover({onClose}:{onClose:()=>void}){
   const project=useBuilderStore(s=>s.project)
   const restoreVersion=useBuilderStore(s=>s.restoreVersion)
-  return <div className="absolute right-3 top-12 z-[80] w-80 rounded-xl border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
+  return <div className="vb-version-popover absolute right-3 top-12 z-[80] w-80 rounded-xl border border-zinc-700 bg-zinc-900 p-2 shadow-2xl" role="dialog" aria-label="Saved design versions">
     <div className="flex items-center justify-between p-2"><div><span className="block text-[9px] font-semibold uppercase tracking-[.12em] text-zinc-500">Version history</span><strong className="text-xs text-zinc-100">Last {project.versions.length} snapshots</strong></div><button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={14}/></button></div>
     <div className="max-h-80 overflow-auto">{project.versions.length?project.versions.map(v=><button key={v.id} onClick={()=>{if(confirm('Restore this version? Your current state remains available in undo history.')){restoreVersion(v.id);onClose()}}} className="mb-1 w-full rounded-lg p-2 text-left hover:bg-zinc-800"><strong className="block text-[10px] text-zinc-200">{v.label}</strong><span className="text-[9px] text-zinc-500">{new Date(v.createdAt).toLocaleString()}</span></button>):<div className="p-4 text-center text-[10px] text-zinc-500">Versions appear as you edit.</div>}</div>
   </div>
@@ -227,6 +230,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const redo=useBuilderStore(s=>s.redo)
 
   const [leftTab,setLeftTab]=useState<LeftTab>('add')
+  const [mobilePanel,setMobilePanel]=useState<'add'|'navigator'|'style'|null>(null)
   const [sidebarWidth,setSidebarWidth]=useState(()=>{
     try{
       const saved=Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY))
@@ -276,6 +280,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [dragLabel,setDragLabel]=useState('')
   const [dragging,setDragging]=useState(false)
   const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
+  const [sectionInsert,setSectionInsert]=useState<{targetId:string;mode:'before'|'after'}|null>(null)
+  const [quickOpen,setQuickOpen]=useState(false)
+  const [scanRequested,setScanRequested]=useState(false)
+  const [scanReport,setScanReport]=useState<{viewport:number;issues:{id:string;name:string;detail:string;kind:string}[]}|null>(null)
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
@@ -285,7 +293,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const copiedNodeRef=useRef<{node:BuilderNode;styles:StyleMap}|null>(null)
   const saveQueueRef=useRef(createSaveQueue())
 
-  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor))
+  const sensors=useSensors(
+    useSensor(PointerSensor,{activationConstraint:{distance:6}}),
+    useSensor(TouchSensor,{activationConstraint:{delay:180,tolerance:8}}),
+    useSensor(KeyboardSensor)
+  )
   const activePage=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const launchIssues=useMemo(()=>reviewWebsiteLaunch(project),[project])
   const launchBlockers=launchIssues.filter(issue=>issue.level==='blocker')
@@ -371,6 +383,10 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const zoom=Math.round(scale*100)
 
   useEffect(()=>{
+    if(window.innerWidth<=680)setBreakpoint('mobilePortrait')
+  },[])
+
+  useEffect(()=>{
     const onResize=()=>setViewportWidth(window.innerWidth)
     window.addEventListener('resize',onResize)
     return()=>window.removeEventListener('resize',onResize)
@@ -444,7 +460,34 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         if(allowed.includes(msg.action))executeShortcut(msg.action as EditorShortcut)
         return
       }
-      if(msg.type==='select')selectNode(msg.id||null)
+      if(msg.type==='select'){
+        selectNode(msg.id||null)
+        if(msg.id){
+          const active=useBuilderStore.getState().project
+          const page=active.pages.find(item=>item.id===active.activePageId)||active.pages[0]
+          const node=page?findNode(page.root,String(msg.id)):null
+          if(node&&['heading','paragraph','richText','button','link','quote','image'].includes(node.type)){
+            // Beginner-first: selecting real content opens its content controls.
+            // Desktop keeps the inspector visible, phone opens its editing drawer.
+            setRightTab('style')
+            if(window.innerWidth<=680)setMobilePanel('style')
+          }
+        }
+      }
+      if(msg.type==='layout-scan'&&Array.isArray(msg.issues)){
+        setScanReport({viewport:Number(msg.viewport)||478,issues:msg.issues.slice(0,35)})
+        setScanRequested(false)
+        return
+      }
+      if(msg.type==='section-insert-request'&&typeof msg.targetId==='string'&&
+         ['before','after'].includes(msg.mode)){
+        const latest=useBuilderStore.getState().project
+        const page=latest.pages.find(item=>item.id===latest.activePageId)||latest.pages[0]
+        // An on-canvas insertion is always adjacent to a top-level page section.
+        if(page?.root.children.some(node=>node.id===msg.targetId&&node.type==='section'))
+          setSectionInsert({targetId:msg.targetId,mode:msg.mode})
+        return
+      }
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
       if(msg.type==='canvas-resize'&&Number(msg.height)){
@@ -505,6 +548,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   useEffect(()=>{
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
   },[selectedNodeId,hoveredNodeId,editorDocumentHtml])
+  useEffect(()=>{
+    if(!selectedNodeId)return
+    iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'reveal-node',id:selectedNodeId},'*')
+  },[selectedNodeId])
+  useEffect(()=>{
+    if(scanRequested&&breakpoint==='mobilePortrait')
+      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'scan-layout'},'*')
+  },[scanRequested,breakpoint,editorDocumentHtml])
   useEffect(()=>{
     try{window.localStorage.setItem('cobest-designer-snap',snappingEnabled?'on':'off')}catch{}
     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'snapping',enabled:snappingEnabled},'*')
@@ -571,6 +622,88 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     }
   }
 
+  const insertAtCanvas= (sectionType:string)=>{
+    const request=sectionInsert
+    if(!request)return
+    const state=useBuilderStore.getState()
+    const page=state.project.pages.find(item=>item.id===state.project.activePageId)||state.project.pages[0]
+    const index=page?.root.children.findIndex(node=>node.id===request.targetId)??-1
+    if(index<0||!page)return
+    const insertIndex=index+(request.mode==='after'?1:0)
+    // A section must remain in the page tree; the existing store records Undo.
+    state.addNode(page.root.id,createPrebuiltSection(sectionType),insertIndex)
+    setSectionInsert(null)
+  }
+
+  const pickQuickAdd=(result:{kind:'section'|'element'|'page'|'layer';id:string;name:string})=>{
+    const state=useBuilderStore.getState()
+    const page=state.project.pages.find(item=>item.id===state.project.activePageId)||state.project.pages[0]
+    if(result.kind==='page'){state.setActivePage(result.id);setLeftTab('pages')}
+    if(result.kind==='layer'){
+      state.selectNode(result.id)
+      setLeftTab('navigator')
+      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'reveal-node',id:result.id},'*')
+    }
+    if(page&&result.kind==='section'){
+      let index=page.root.children.findIndex(node=>node.type==='footer')
+      if(index<0)index=page.root.children.length
+      const selected=state.selectedNodeId?findNode(page.root,state.selectedNodeId):null
+      if(selected){
+        let top=selected
+        let parent=findParent(page.root,top.id)
+        while(parent&&parent.id!==page.root.id){top=parent;parent=findParent(page.root,top.id)}
+        const selectedIndex=page.root.children.findIndex(node=>node.id===top.id&&node.type==='section')
+        if(selectedIndex>=0)index=selectedIndex+1
+      }
+      state.addNode(page.root.id,createPrebuiltSection(result.id),index)
+      setLeftTab('navigator')
+    }
+    if(page&&result.kind==='element'){
+      const created=createElement(result.id as Parameters<typeof createElement>[0])
+      let parent=state.selectedNodeId?findNode(page.root,state.selectedNodeId):null
+      while(parent&&!canAcceptChild(parent,created))parent=findParent(page.root,parent.id)
+      if(!parent)parent=page.root
+      if(canAcceptChild(parent,created))state.addNode(parent.id,created)
+      setLeftTab('navigator')
+    }
+    setQuickOpen(false)
+  }
+
+  useEffect(()=>{
+    const handler=(event:KeyboardEvent)=>{
+      const element=event.target as HTMLElement|null
+      if(element?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(element?.tagName||''))return
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){
+        event.preventDefault()
+        setQuickOpen(true)
+      }
+    }
+    window.addEventListener('keydown',handler)
+    return()=>window.removeEventListener('keydown',handler)
+  },[])
+
+  const checkMobileLayout=()=>{
+    setScanReport(null)
+    setScanRequested(true)
+    if(breakpoint!=='mobilePortrait')setBreakpoint('mobilePortrait')
+  }
+
+  const startOver=()=>{
+    if(!window.confirm('Start over with the CoBest starter design? This replaces all your draft pages and edits. Your published website stays unchanged until you publish again. You can Undo to restore this draft.'))return
+    const current=useBuilderStore.getState().project
+    const starter=createDefaultProject()
+    // Preserve the merchant site identity and name; replace the DESIGN only.
+    const next={...starter,id:current.id,name:current.name}
+    replaceProject(next,true,'Start over with starter design')
+    selectNode(starter.pages[0].root.id)
+    // Keep the canvas usable after reset on a real phone.
+    setBreakpoint(window.innerWidth<=680?'mobilePortrait':'desktop')
+    setLeftTab('add')
+    setMobilePanel(null)
+    setPreview(false)
+    setPublishNotice(null)
+  }
+
   const returnToDashboard=async()=>{
     if(!onBack)return
     if(saveStatus!=='saved'){
@@ -596,9 +729,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     if(active?.kind==='new-element'){
       addNode(target.parentId,createElement(active.type),target.index)
       setLeftTab('navigator')
+      if(window.innerWidth<=680)setMobilePanel(null)
     }else if(active?.kind==='new-section'){
       addNode(target.parentId,createPrebuiltSection(active.type),target.index)
       setLeftTab('navigator')
+      if(window.innerWidth<=680)setMobilePanel(null)
     }else if(active?.kind==='node'){
       if(active.nodeId===target.parentId)return
       moveNode(active.nodeId,target.parentId,target.index)
@@ -657,7 +792,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   if(preview)return <div className="vb-preview-mode"><div className="vb-preview-bar"><span>{project.name} · {activePage.name} · {breakpointLabels[breakpoint]} × {viewportHeights[breakpoint]}</span><button onClick={()=>setPreview(false)}>Exit preview <X size={14}/></button></div><div className="vb-preview-stage"><iframe ref={iframeRef} title="CoBest preview" sandbox="allow-scripts allow-forms allow-popups" srcDoc={previewDocumentHtml} className="vb-preview-frame" style={{width:frameWidth,height:viewportHeights[breakpoint]}}/></div></div>
 
   return <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={()=>{setDragging(false);setDragLabel('')}}>
-    <div className="vb-shell" onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
+    <div className="vb-shell" data-mobile-panel={mobilePanel||'none'} onDragStart={beginNativeDrag} onDragEnd={endNativeDrag}>
       <header className="vb-topbar">
         <div className="vb-project">
           {onBack&&<button type="button" className="vb-back-dashboard" title="Back to dashboard" aria-label="Back to dashboard" onClick={returnToDashboard}>
@@ -668,17 +803,22 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
-          <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/></button>
-          <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/></button>
+          <button type="button" className="vb-quick-trigger" aria-label="Search or add elements" title="Find an element or add section (Ctrl+K)" onClick={()=>setQuickOpen(true)}><Search size={15}/><span>Search / Add</span></button>
+          <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
+          <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
+          <button className="vb-start-over-action" onClick={startOver} aria-label="Start over with starter design" title="Replace draft with starter design (reversible)"><RotateCcw size={15}/><span>Start over</span></button>
+          <button type="button" className="vb-history-action" aria-label="Version history" aria-expanded={versionsOpen} onClick={()=>setVersionsOpen(open=>!open)}
+            title="Restore an earlier draft"><History size={16}/><span>History</span></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
           <button className="vb-save-action" onClick={manualSave}><Save size={15}/> Save</button>
           {onPublish&&<button className="vb-publish" onClick={()=>setLaunchReviewOpen(true)} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
+        {versionsOpen&&<VersionPopover onClose={()=>setVersionsOpen(false)}/>}
       </header>
       <div className="vb-workspace" style={{'--vb-left-width':activeSidebarWidth+'px'} as React.CSSProperties}>
-        <aside className="vb-left">
+        <aside className={'vb-left '+(mobilePanel==='add'||mobilePanel==='navigator'?'vb-mobile-open':'')}>
           <div className={'vb-sidebar-resizer '+(sidebarDragging?'is-dragging':'')}
             role="separator" aria-orientation="vertical" aria-label="Resize Navigator sidebar"
             aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={Math.round(maxSidebarWidth)}
@@ -692,8 +832,9 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             <span className="vb-sidebar-grip" aria-hidden="true"/>
           </div>
           <div className="vb-left-tabs">
+            <button className="vb-mobile-close" title="Close editing panel" aria-label="Close editing panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>
             {([
-              ['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
+              ['add',PanelLeft,'Add'],['templates',LayoutTemplate,'Themes'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets'],
             ] as [LeftTab,any,string][]).map(([id,Icon,labelText])=><button key={id} title={labelText} className={leftTab===id?'active':''} data-label={labelText} aria-label={labelText} onClick={()=>setLeftTab(id)}><Icon size={16}/></button>)}
           </div>
           <div className="vb-left-content"><LeftPanel tab={leftTab}/></div>
@@ -705,6 +846,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <button type="button" className={zoomMode==='fit'?'active':''} onClick={()=>setZoomMode('fit')} aria-label="Fit canvas to workspace">Fit</button>
               <span data-testid="canvas-zoom">{zoom}%</span>
               <button type="button" className={zoomMode==='actual'?'active':''} onClick={()=>setZoomMode('actual')} aria-label="Show canvas at actual size">100%</button>
+              <button type="button" className="vb-mobile-check-action" aria-label="Check mobile layout" onClick={checkMobileLayout}><Smartphone size={13}/> Check mobile</button>
               <button type="button" className={'vb-snap-toggle '+(snappingEnabled?'active':'')}
                 aria-label="Toggle alignment snapping" title="Snap to 8px grid and nearby element edges (hold Alt while dragging to bypass)"
                 aria-pressed={snappingEnabled} onClick={()=>setSnappingEnabled(enabled=>!enabled)}>
@@ -726,6 +868,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               <div className="vb-canvas-zoom" style={{width:frameWidth,transform:`scale(${scale})`,transformOrigin:'top left'}}>
                 <div className="vb-canvas-wrap" style={{width:frameWidth,height:canvasHeight}}>
                   <iframe ref={iframeRef} title="CoBest visual builder canvas" sandbox="allow-scripts allow-forms allow-popups" srcDoc={editorDocumentHtml} className="vb-canvas" style={{height:canvasHeight,pointerEvents:dragging?'none':'auto'}} onLoad={()=>{
+                    if(scanRequested&&breakpoint==='mobilePortrait')
+                      iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'scan-layout'},'*')
                     iframeRef.current?.contentWindow?.postMessage({source:'cobest-editor',type:'selection',selected:selectedNodeId,hovered:hoveredNodeId},'*')
                   }}/>
                 </div>
@@ -733,11 +877,22 @@ export default function VisualBuilder({projectKey='local-default',initialProject
             </div>
           </CanvasDropZone>
         </main>
-        <aside className="vb-right">
-          <div className="vb-right-tabs">{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
+        <aside className={'vb-right '+(mobilePanel==='style'?'vb-mobile-open':'')}>
+          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
+      <nav className="vb-mobile-actions" aria-label="Phone website editing tools">
+        <button type="button" aria-label="Phone Add elements" className={mobilePanel==='add'?'active':''} aria-pressed={mobilePanel==='add'} onClick={()=>{setLeftTab('add');setMobilePanel(mobilePanel==='add'?null:'add')}}><PanelLeft size={18}/> Add</button>
+        <button type="button" aria-label="Phone Layers" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
+        <button type="button" aria-label="Phone Edit content" className={mobilePanel==='style'&&rightTab==='settings'?'active':''}
+          aria-pressed={mobilePanel==='style'&&rightTab==='settings'} onClick={()=>{setRightTab('settings');setMobilePanel('style')}}><PanelLeft size={18}/> Content</button>
+        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" aria-label="Phone Undo" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
+        <button type="button" aria-label="Phone Redo" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
+        <button type="button" aria-label="Phone Save" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
+      </nav>
+      {mobilePanel&&<button type="button" className="vb-mobile-backdrop" aria-label="Close edit tools" onClick={()=>setMobilePanel(null)}/>}
       {launchReviewOpen&&<div className="vb-launch-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setLaunchReviewOpen(false)}}>
         <section className="vb-launch-dialog" role="dialog" aria-modal="true" aria-label="Website launch review">
           <header className="vb-launch-header">
@@ -791,6 +946,26 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         onNavigator={()=>setLeftTab('navigator')}
         onCopy={()=>executeShortcut('copy')} onPaste={()=>executeShortcut('paste')}
         canPaste={Boolean(copiedNodeRef.current)}/>}
+
+      {sectionInsert&&<SectionChooser placement={'Insert '+sectionInsert.mode+' selected section'} onInsert={insertAtCanvas} onClose={()=>setSectionInsert(null)}/>}
+      {quickOpen&&<QuickAdd project={project} onClose={()=>setQuickOpen(false)} onPick={pickQuickAdd}/>}
+      {scanReport&&<div className="vb-scan-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setScanReport(null)}}>
+        <section className="vb-scan-dialog" role="dialog" aria-modal="true" aria-label="Mobile layout review">
+          <header><div><strong>Mobile layout check</strong><p>Measured in a {scanReport.viewport}px preview, not a real phone.</p></div>
+            <button type="button" aria-label="Close mobile layout check" onClick={()=>setScanReport(null)}><X size={17}/></button></header>
+          <div className="vb-scan-results">
+            {scanReport.issues.length===0?<p role="status">No horizontal overflow was detected in this preview. Also test on an actual phone at narrower widths.</p>:
+              scanReport.issues.map((issue,index)=><div key={issue.id+'-'+index}>
+                <strong>{issue.name}</strong><p>{issue.detail}</p>
+                <button type="button" onClick={()=>{
+                  selectNode(issue.id);setRightTab('style');setScanReport(null);
+                  if(window.innerWidth<=680)setMobilePanel('style')
+                }}>Inspect element</button>
+              </div>)}
+          </div>
+          <footer>Checks geometry only. Also review small phones, button behavior, contrast, actual product data and checkout before publishing.</footer>
+        </section>
+      </div>}
 
       {exportOpen&&<ExportModal onClose={()=>setExportOpen(false)}/>}
     </div>
