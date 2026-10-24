@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import PublicStore from './PublicStore.jsx'
 import './styles.css'
+import './marketing-vibrant.css'
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
