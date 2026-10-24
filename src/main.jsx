@@ -4,6 +4,7 @@ import App from './App.jsx'
 import PublicStore from './PublicStore.jsx'
 import './styles.css'
 import './marketing-vibrant.css'
+import './marketing-reimagined.css'
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
