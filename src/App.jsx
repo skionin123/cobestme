@@ -384,7 +384,7 @@ function Landing({ onStart, onLogin }) {
       <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
-        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start Building Free</Button></div>
+        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
       </nav>
 
       <main className="hero-wrap container" id="product">
