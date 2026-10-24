@@ -693,3 +693,7 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-easy-layout-grid{display:grid;grid-template-columns:1fr;gap:7px;margin:10px 0}
 .vb-easy-layout-grid button{border:1px solid #575c72;border-radius:8px;padding:10px;background:#30374a;color:#f0efff;font-size:11px;min-height:37px;text-align:left}
 .vb-easy-layout-grid button:hover,.vb-easy-layout-grid button:focus-visible{border-color:#8f86fc;background:#4a436a}
+
+.vb-nav-row .vb-nav-visibility{min-width:29px!important;min-height:29px!important;display:grid!important;place-items:center!important;border-radius:6px!important;color:#a5adc0!important;flex:0 0 29px}
+.vb-nav-row .vb-nav-visibility:hover,.vb-nav-row .vb-nav-visibility:focus-visible{background:#41445d!important;color:#fff!important}
+@media(max-width:680px){.vb-nav-row .vb-nav-visibility{min-width:38px!important;min-height:38px!important}}
