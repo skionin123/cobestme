@@ -148,6 +148,9 @@
 }
 .landing .builder-points svg{color:#168a81}
 .landing .builder-visual{box-shadow:0 20px 48px rgba(45,58,104,.16)}
+.landing .marketing-template-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));max-width:1100px;gap:17px;
+}
 .landing .marketing-templates .marketing-template-grid article{
   border-color:#dfe4f5;
   box-shadow:0 12px 26px rgba(40,61,100,.05);
@@ -191,7 +194,11 @@
 .landing .landing-cta .btn-secondary{background:transparent;color:#fff;border-color:#bbc4ef}
 .landing .landing-footer{color:#53607e;border-color:#e0e6f5}
 .landing .landing-footer .logo{color:#25335f}
+@media(max-width:950px) and (min-width:641px){
+  .landing .marketing-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media(max-width:640px){
+  .landing .marketing-template-grid{grid-template-columns:1fr}
   .landing .announcement{padding:9px 12px;text-align:center;flex-wrap:wrap;gap:5px}
   .landing .hero-wrap::before{inset:-5% 0 1%;border-radius:18px}
   .landing .builder-showcase{border-radius:18px}
