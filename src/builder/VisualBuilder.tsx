@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
+import { SectionChooser } from './SectionChooser'
 import { createDefaultProject } from './defaultProject'
 import { applyNodeGeometry } from './geometry'
 import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
@@ -278,6 +279,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [dragLabel,setDragLabel]=useState('')
   const [dragging,setDragging]=useState(false)
   const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
+  const [sectionInsert,setSectionInsert]=useState<{targetId:string;mode:'before'|'after'}|null>(null)
   const [versionsOpen,setVersionsOpen]=useState(false)
   const [exportOpen,setExportOpen]=useState(false)
   const [context,setContext]=useState<{x:number;y:number;nodeId:string}|null>(null)
@@ -468,6 +470,15 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           }
         }
       }
+      if(msg.type==='section-insert-request'&&typeof msg.targetId==='string'&&
+         ['before','after'].includes(msg.mode)){
+        const latest=useBuilderStore.getState().project
+        const page=latest.pages.find(item=>item.id===latest.activePageId)||latest.pages[0]
+        // An on-canvas insertion is always adjacent to a top-level page section.
+        if(page?.root.children.some(node=>node.id===msg.targetId&&node.type==='section'))
+          setSectionInsert({targetId:msg.targetId,mode:msg.mode})
+        return
+      }
       if(msg.type==='hover')hoverNode(msg.id||null)
       if(msg.type==='text-change'&&msg.id)updateNode(msg.id,{content:String(msg.content||'')})
       if(msg.type==='canvas-resize'&&Number(msg.height)){
@@ -592,6 +603,19 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       alert(error?.message||'Project could not be saved.')
       return false
     }
+  }
+
+  const insertAtCanvas= (sectionType:string)=>{
+    const request=sectionInsert
+    if(!request)return
+    const state=useBuilderStore.getState()
+    const page=state.project.pages.find(item=>item.id===state.project.activePageId)||state.project.pages[0]
+    const index=page?.root.children.findIndex(node=>node.id===request.targetId)??-1
+    if(index<0||!page)return
+    const insertIndex=index+(request.mode==='after'?1:0)
+    // A section must remain in the page tree; the existing store records Undo.
+    state.addNode(page.root.id,createPrebuiltSection(sectionType),insertIndex)
+    setSectionInsert(null)
   }
 
   const startOver=()=>{
@@ -849,6 +873,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         onCopy={()=>executeShortcut('copy')} onPaste={()=>executeShortcut('paste')}
         canPaste={Boolean(copiedNodeRef.current)}/>}
 
+      {sectionInsert&&<SectionChooser placement={'Insert '+sectionInsert.mode+' selected section'} onInsert={insertAtCanvas} onClose={()=>setSectionInsert(null)}/>}
       {exportOpen&&<ExportModal onClose={()=>setExportOpen(false)}/>}
     </div>
     <DragOverlay>{dragging?<div className="vb-drag-overlay">{dragLabel}</div>:null}</DragOverlay>
