@@ -207,3 +207,14 @@
   .landing .feature-grid article,.landing .btn{transition:none}
   .landing .feature-grid article:hover{transform:none}
 }
+
+/* On very small phones keep BOTH Login and Start visible without side scrolling. */
+.landing .nav-cta-short{display:none}
+@media(max-width:560px){
+  .landing .landing-nav-links{gap:6px}
+  .landing .landing-nav-links .btn{padding:9px 10px;font-size:11px}
+  .landing .nav-cta-long{display:none}
+  .landing .nav-cta-short{display:inline}
+  .landing .landing-nav .logo{font-size:16px;gap:7px}
+  .landing .landing-nav .logo-mark{width:28px;height:28px}
+}
