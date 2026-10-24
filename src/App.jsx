@@ -382,13 +382,13 @@ function Landing({ onStart, onLogin }) {
       <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
-        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}>Start Building Free</Button></div>
+        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
       </nav>
 
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
-          <h1>Build your website, your way.</h1>
+          <h1>Build your website, <span className="hero-gradient">your way.</span></h1>
           <p>Pick one of two beautiful starting templates, then customize every detail in a simple visual website editor. No coding required.</p>
           <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
           <div className="trust-row"><span><Check size={15}/> Two starting templates</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
