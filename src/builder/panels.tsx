@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import { isAuthenticated, uploadMedia } from '../api.js'
 import {
   ChevronDown, ChevronRight, Copy, File, FolderPlus, GripVertical, Image as ImageIcon,
-  Layers, Plus, Save, Trash2, Upload, X
+  Eye, EyeOff, Layers, Plus, Save, Trash2, Upload, X
 } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
@@ -142,6 +142,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   },[selected,node.id])
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const deleteNode=useBuilderStore(s=>s.deleteNode)
+  const updateNode=useBuilderStore(s=>s.updateNode)
   const [open,setOpen]=useState(true)
   const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id},disabled:depth===0})
   const acceptsChildren=canAcceptChildren(node)
@@ -155,6 +156,11 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
         <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
         <button className="vb-nav-name min-w-0 flex-1 truncate text-left" title={node.name} aria-label={"Select "+node.name+" layer"} onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
         {node.componentId&&<span title="Component" className="rounded bg-violet-500/15 px-1 text-[8px] text-violet-300">C</span>}
+        {depth>0&&<button type="button" aria-label={(node.hidden?'Show ':'Hide ')+node.name}
+          title={node.hidden?'Show on website':'Hide from website'}
+          className="vb-nav-visibility" onClick={()=>updateNode(node.id,{hidden:!node.hidden})}>
+          {node.hidden?<EyeOff size={13}/>:<Eye size={13}/>}
+        </button>}
         {depth>0&&<div className="hidden items-center gap-0.5 group-hover:flex"><button title="Duplicate" className="rounded p-1 text-zinc-500 hover:bg-zinc-700 hover:text-white" onClick={()=>duplicateNode(node.id)}><Copy size={10}/></button><button title="Delete" className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300" onClick={()=>deleteNode(node.id)}><Trash2 size={10}/></button></div>}
       </div>
     </div>
