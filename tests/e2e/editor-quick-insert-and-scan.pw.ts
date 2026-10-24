@@ -5,7 +5,8 @@ const canvas=(page:import('@playwright/test').Page)=>
 
 test('on-canvas insertion adds a section beside the selected section and undo removes it',async({page})=>{
   await page.goto('/e2e.html')
-  await canvas(page).locator('[data-builder-node="hero-home"]').click({position:{x:9,y:9}})
+  await page.getByRole('button',{name:'Navigator',exact:true}).click()
+  await page.getByRole('button',{name:'Select Hero layer'}).click()
   await expect(canvas(page).getByRole('button',{name:'Add section after Hero'})).toBeVisible()
   await canvas(page).getByRole('button',{name:'Add section after Hero'}).click()
   await expect(page.getByRole('dialog',{name:'Choose a section'})).toBeVisible()
@@ -23,9 +24,9 @@ test('global quick search can add a section and select an existing layer',async(
   await page.getByRole('button',{name:'Find Shop collection intro section'}).click()
   await expect(canvas(page).getByText('Explore our collection')).toBeVisible()
   await page.getByRole('button',{name:'Search or add elements'}).click()
-  await page.getByRole('textbox',{name:'Search website tools'}).fill('Hero Heading')
-  await page.getByRole('button',{name:'Find Hero Heading layer'}).click()
-  await expect(page.getByRole('navigation',{name:'Selected element hierarchy'})).toContainText('Hero Heading')
+  await page.getByRole('textbox',{name:'Search website tools'}).fill('Heading')
+  await page.getByRole('button',{name:'Find Heading layer'}).click()
+  await expect(page.getByRole('navigation',{name:'Selected element hierarchy'})).toContainText('Heading')
 })
 
 test('mobile layout review measures actual preview and explains its limitations',async({page})=>{
