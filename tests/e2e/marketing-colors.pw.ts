@@ -5,7 +5,7 @@ test('CoBest homepage has a colorful and readable beginner-first entrance',async
   const landing=page.locator('.landing')
   await expect(landing).toBeVisible()
   await expect(page.getByRole('heading',{name:/Build your website, your way/i})).toBeVisible()
-  await expect(page.getByRole('button',{name:'Start Building Free'})).toBeVisible()
+  await expect(landing.locator('.hero-actions').getByRole('button',{name:'Start Building Free'})).toBeVisible()
   await expect(landing.locator('.announcement')).toHaveCSS('background-image',/linear-gradient/)
   await expect(landing.locator('.hero-copy .hero-gradient')).toHaveText('your way.')
   await expect(landing.locator('.hero-actions .btn-primary')).toHaveCSS('background-image',/linear-gradient/)
