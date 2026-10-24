@@ -234,3 +234,26 @@
 /* Final production accent polish: visible contrast on interactive marketing links. */
 .landing .landing-footer a:hover,.landing .landing-footer button:hover{color:#5144cf}
 .landing .marketing-resources a:hover{color:#137c78}
+
+/* Production homepage polish: make the new palette immediately visible. */
+.landing .landing-nav{
+  background:rgba(255,255,255,.96);
+  box-shadow:0 4px 24px rgba(40,53,115,.06);
+}
+.landing .landing-nav::after{
+  content:"";
+  position:absolute;bottom:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#5144cf 0%,#3279cf 40%,#18a596 72%,#f28b70 100%);
+}
+.landing .hero-copy .eyebrow-pill{box-shadow:0 4px 15px rgba(74,57,188,.10)}
+.landing .hero-actions .btn-primary{
+  background:linear-gradient(115deg,#5144cf 0%,#306fcb 100%);
+  border-color:#4642bc;
+  box-shadow:0 14px 30px rgba(69,72,188,.24);
+}
+.landing .hero-actions .btn-primary:hover{
+  background:linear-gradient(115deg,#6758e7 0%,#3286db 100%);
+}
+@media(prefers-reduced-motion:reduce){
+  .landing .hero-actions .btn-primary{transition:none}
+}
