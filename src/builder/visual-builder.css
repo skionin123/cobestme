@@ -697,3 +697,17 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-nav-row .vb-nav-visibility{min-width:29px!important;min-height:29px!important;display:grid!important;place-items:center!important;border-radius:6px!important;color:#a5adc0!important;flex:0 0 29px}
 .vb-nav-row .vb-nav-visibility:hover,.vb-nav-row .vb-nav-visibility:focus-visible{background:#41445d!important;color:#fff!important}
 @media(max-width:680px){.vb-nav-row .vb-nav-visibility{min-width:38px!important;min-height:38px!important}}
+
+/* Keep core actions in view: one icon for Search; collapse nonessential labels on laptops. */
+.vb-top-actions .vb-quick-trigger span{display:none}
+.vb-top-actions .vb-quick-trigger{flex:0 0 34px;width:34px;padding:0}
+@media(min-width:681px) and (max-width:1500px){
+  .vb-top-actions .vb-undo-action span,.vb-top-actions .vb-redo-action span,
+  .vb-top-actions .vb-start-over-action span,.vb-top-actions .vb-history-action span{display:none}
+  .vb-top-actions .vb-undo-action,.vb-top-actions .vb-redo-action,
+  .vb-top-actions .vb-start-over-action,.vb-top-actions .vb-history-action{min-width:34px;width:34px;padding:0}
+  .vb-top-actions button{padding:0 7px}
+}
+@media(min-width:681px) and (max-width:1180px){
+  .vb-top-actions button:nth-of-type(7){display:none}
+}
