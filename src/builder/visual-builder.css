@@ -689,3 +689,7 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-scan-results button{min-height:34px;padding:5px 10px;background:#45467f;color:white;border-radius:6px;font-size:11px}
 .vb-scan-dialog footer{padding:12px 15px;border-top:1px solid #454e60;color:#c8ccd9;font-size:10px}
 @media(max-width:680px){.vb-mobile-check-action{padding:5px;font-size:9px}}
+
+.vb-easy-layout-grid{display:grid;grid-template-columns:1fr;gap:7px;margin:10px 0}
+.vb-easy-layout-grid button{border:1px solid #575c72;border-radius:8px;padding:10px;background:#30374a;color:#f0efff;font-size:11px;min-height:37px;text-align:left}
+.vb-easy-layout-grid button:hover,.vb-easy-layout-grid button:focus-visible{border-color:#8f86fc;background:#4a436a}
