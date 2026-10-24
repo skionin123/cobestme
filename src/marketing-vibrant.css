@@ -54,7 +54,7 @@
 }
 .landing .hero-wrap::before{
   content:"";position:absolute;z-index:-1;pointer-events:none;
-  inset:-7% -7% 2% -6%;
+  inset:-7% 0 2%;
   background:
     radial-gradient(ellipse at 78% 23%,rgba(129,134,243,.24),transparent 43%),
     radial-gradient(ellipse at 85% 90%,rgba(79,209,184,.19),transparent 33%),
@@ -193,7 +193,7 @@
 .landing .landing-footer .logo{color:#25335f}
 @media(max-width:640px){
   .landing .announcement{padding:9px 12px;text-align:center;flex-wrap:wrap;gap:5px}
-  .landing .hero-wrap::before{inset:-5% -12% 1%;border-radius:18px}
+  .landing .hero-wrap::before{inset:-5% 0 1%;border-radius:18px}
   .landing .builder-showcase{border-radius:18px}
 }
 @media(prefers-reduced-motion:reduce){
