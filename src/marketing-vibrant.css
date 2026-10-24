@@ -217,4 +217,16 @@
   .landing .nav-cta-short{display:inline}
   .landing .landing-nav .logo{font-size:16px;gap:7px}
   .landing .landing-nav .logo-mark{width:28px;height:28px}
+  .landing .mini-app{grid-template-columns:40px minmax(0,1fr)}
+  .landing .mini-app section{min-width:0;padding:14px}
+  .landing .mini-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .landing .mini-cards div{min-width:0;padding:7px}
+  .landing .mini-cards b{font-size:clamp(10px,2.7vw,14px);overflow-wrap:anywhere}
+  .landing .mini-cards span{overflow-wrap:anywhere}
+  .landing .mini-editor{grid-template-columns:45px minmax(0,1fr)}
+  .landing .mini-canvas{min-width:0;padding:8px}
+  .landing .mini-products{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  .landing .audience-strip{flex-wrap:wrap;padding:14px 0}
+  .landing .audience-strip div{justify-content:flex-start}
+
 }
