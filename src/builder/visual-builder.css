@@ -675,3 +675,17 @@ html.vb-sidebar-resizing,html.vb-sidebar-resizing *{cursor:col-resize!important;
 .vb-quick-results button span{font-size:12px}.vb-quick-results button small{font-size:10px;color:#c0bdd8}
 .vb-quick-dialog footer{padding:11px 15px;border-top:1px solid #3d4657;color:#b3b8c5;font-size:10px}
 @media(max-width:680px){.vb-quick-trigger{padding:0 8px;min-width:36px}.vb-quick-trigger span{display:none}.vb-quick-backdrop{padding-top:7vh}.vb-quick-dialog{max-height:84dvh}}
+
+.vb-mobile-check-action{display:flex;align-items:center;gap:5px;font-size:10px;border:1px solid #525a6a;padding:6px 9px;border-radius:6px;background:#222b37;color:#d6edff}
+.vb-mobile-check-action:hover,.vb-mobile-check-action:focus-visible{background:#39465a;border-color:#7796c5}
+.vb-scan-backdrop{position:fixed;inset:0;z-index:260;background:rgba(9,11,18,.7);display:grid;place-items:center;padding:15px}
+.vb-scan-dialog{width:min(560px,96vw);max-height:84dvh;display:flex;flex-direction:column;overflow:hidden;color:#f0f3f8;background:#1d222c;border:1px solid #667184;border-radius:13px}
+.vb-scan-dialog header{padding:15px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:1px solid #434c5b}
+.vb-scan-dialog header strong{font-size:16px}.vb-scan-dialog header p{font-size:11px;margin-top:4px;color:#aeb7c4}
+.vb-scan-dialog header button{min-width:35px;min-height:35px;border-radius:7px;background:#303747;display:grid;place-items:center}
+.vb-scan-results{overflow-y:auto;flex:1;padding:12px;display:grid;align-content:start;gap:9px}
+.vb-scan-results>div{padding:12px;border:1px solid #545e71;border-radius:8px;background:#292e39}
+.vb-scan-results strong{font-size:12px}.vb-scan-results p{color:#bac3d3;font-size:11px;margin:6px 0}
+.vb-scan-results button{min-height:34px;padding:5px 10px;background:#45467f;color:white;border-radius:6px;font-size:11px}
+.vb-scan-dialog footer{padding:12px 15px;border-top:1px solid #454e60;color:#c8ccd9;font-size:10px}
+@media(max-width:680px){.vb-mobile-check-action{padding:5px;font-size:9px}}
