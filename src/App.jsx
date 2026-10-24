@@ -387,23 +387,32 @@ function Landing({ onStart, onLogin }) {
 
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
-          <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
-          <h1>Build your website, <span className="hero-gradient">your way.</span></h1>
-          <p>Pick one of two beautiful starting templates, then customize every detail in a simple visual website editor. No coding required.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
-          <div className="trust-row"><span><Check size={15}/> Two starting templates</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
+          <div className="eyebrow-pill"><Sparkles size={14}/> YOUR IDEA DESERVES TO STAND OUT</div>
+          <h1>Make your business <span className="hero-gradient">impossible to ignore.</span></h1>
+          <p>Create a website that feels like your brand. Pick a starting design, make it your own, and bring your products and story together—without writing code.</p>
+          <div className="hero-actions"><Button onClick={onStart}>Create my website <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore designs <ArrowRight size={15}/></a></div>
+          <div className="trust-row"><span><Check size={15}/> Start for free</span><span><Check size={15}/> Visual editing</span><span><Check size={15}/> Preview before publishing</span></div>
         </div>
-        <div className="hero-product-shell">
-          <div className="mini-window-bar"><span/><span/><span/><b>app.cobest.me</b></div>
-          <div className="mini-app">
-            <aside><div className="mini-logo">C</div><span className="active-mini"/><span/><span/><span/><span/></aside>
-            <section>
-              <small>STORE HOME</small><h3>Aurelia Goods</h3>
-              <div className="mini-progress"><div style={{width:'76%'}}/></div>
-              <div className="mini-cards"><div><b>₱18.4K</b><span>Sales</span></div><div><b>12</b><span>Orders</span></div><div><b>3.2%</b><span>Conversion</span></div></div>
-              <div className="mini-editor"><div className="mini-sidebar"><i/><i/><i/><i/></div><div className="mini-canvas"><div className="mini-hero"><span>Objects for quieter living.</span></div><div className="mini-products"><i/><i/><i/></div></div></div>
-            </section>
+        <div className="hero-stage">
+          <div className="cb-float cb-float-top" aria-hidden="true"><Sparkles size={17}/> Made to feel like your brand</div>
+          <div className="hero-product-shell" role="img" aria-label="Example website editor with a colorful storefront preview">
+            <div className="mini-window-bar"><span/><span/><span/><b>CoBest · website preview</b></div>
+            <div className="mini-app">
+              <aside><div className="mini-logo">C</div><span className="active-mini"/><span/><span/><span/><span/></aside>
+              <section>
+                <small>DESIGN YOUR WEBSITE</small><h3>Aurelia Studio <span aria-hidden="true">✦</span></h3>
+                <div className="mini-progress"><div style={{width:'76%'}}/></div>
+                <div className="mini-cards"><div><b>02</b><span>Starter themes</span></div><div><b>Live</b><span>Page preview</span></div><div><b>∞</b><span>Your creativity</span></div></div>
+                <div className="cb-demo-store">
+                  <div className="cb-demo-store-copy"><small>MADE FOR EVERYDAY JOY</small><h4>Little things. Big personality.</h4><span className="cb-demo-pill">Explore the collection</span></div>
+                  <div className="cb-demo-products"><div className="cb-demo-product"/><div className="cb-demo-product"/></div>
+                </div>
+                <div className="cb-demo-store-foot"><span/><span/><span/></div>
+              </section>
+            </div>
           </div>
+          <div className="cb-float cb-float-bottom" aria-hidden="true"><Palette size={17}/> Pick a color. Make it yours.</div>
+          <div className="cb-demo-caption">Illustrative demo storefront · Your design will be unique</div>
         </div>
       </main>
 
@@ -412,12 +421,12 @@ function Landing({ onStart, onLogin }) {
       </section>
 
       <section className="landing-section container" id="features">
-        <p className="section-kicker">SELL AND MANAGE</p><h2>Everything you need behind the storefront.</h2>
+        <p className="section-kicker">YOUR SPACE TO CREATE</p><h2>From your first idea to your online storefront.</h2><p className="cb-section-lead">Design something worth sharing, then organize the products and business details behind it—all in one place.</p>
         <div className="feature-grid four">
-          <article><span>01</span><h3>Products</h3><p>Create products, organize categories, manage pricing and inventory, and surface the same catalog across the storefront.</p></article>
-          <article><span>02</span><h3>Orders</h3><p>Keep purchases, payment state, fulfillment status, and customer details together in one clear order workflow.</p></article>
-          <article><span>03</span><h3>Customers</h3><p>Understand who buys from the business with customer profiles, order history, contact details, and notes.</p></article>
-          <article><span>04</span><h3>Analytics</h3><p>See store activity, sales signals, conversion, and website performance from the same business dashboard.</p></article>
+          <article><div className="cb-feature-icon"><Palette size={25}/></div><span className="cb-feature-number">01 / DESIGN</span><h3>Make it yours</h3><p>Start with a professional theme and customize your pages, colors, and content to match your brand.</p></article>
+          <article><div className="cb-feature-icon"><Package size={25}/></div><span className="cb-feature-number">02 / PRODUCTS</span><h3>Show what you sell</h3><p>Organize your catalog, categories, prices, and product details together.</p></article>
+          <article><div className="cb-feature-icon"><ShoppingBag size={25}/></div><span className="cb-feature-number">03 / BUSINESS</span><h3>Stay organized</h3><p>Work with your orders and customers without losing track of your website.</p></article>
+          <article><div className="cb-feature-icon"><BarChart3 size={25}/></div><span className="cb-feature-number">04 / INSIGHTS</span><h3>See the big picture</h3><p>Keep useful store information and performance views in the same workspace.</p></article>
         </div>
       </section>
 
@@ -450,23 +459,34 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
-            ['Simple','Simple','Clean, neutral, professional'],
-            ['Professional','Professional','Refined, typography-led, focused']
-          ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use theme <ArrowRight size={13}/></button></article>)}
+            ['Simple','Simple','Fresh, bright and welcoming'],
+            ['Professional','Professional','Warm, elevated and elegant']
+          ].map(([category,name,note],i)=><article key={category}>
+            <div className={`marketing-template-art template-art-${i+1}`} aria-label={`${name} design illustration`}>
+              <div className="cb-theme-browser">
+                <div className="cb-theme-nav"><strong>{i===0?'studio.':'MAISON'}</strong><span>Home &nbsp; Shop &nbsp; About</span></div>
+                <div className="cb-theme-canvas"><div><small>{i===0?'MAKE ROOM FOR NEW IDEAS':'AN EDITORIAL POINT OF VIEW'}</small><h3>{i===0?'A brighter way to begin.':'Objects with a story.'}</h3><span className="cb-theme-cta">Explore more</span></div><div className="cb-theme-object"/></div>
+              </div>
+            </div>
+            <strong>{name}</strong><p>{note}</p>
+            <button onClick={onStart}>Start with this style <ArrowRight size={13}/></button>
+          </article>)}
         </div>
       </section>
 
       <section className="marketing-testimonials">
-        <div className="container"><p className="section-kicker">BUILT FOR REAL WORK</p><h2>Professional control without making every client learn code.</h2><div className="testimonial-grid">
-          <blockquote><p>“The canvas gives us design control, while the Navigator and reusable components keep larger sites organized.”</p><footer><strong>Independent designer</strong><span>Brand and ecommerce projects</span></footer></blockquote>
-          <blockquote><p>“Pages, products, CMS content, and publishing finally feel like parts of the same project instead of separate tools.”</p><footer><strong>Small agency</strong><span>Client website operations</span></footer></blockquote>
-          <blockquote><p>“Responsive overrides and clean export make it useful beyond a quick template builder.”</p><footer><strong>Frontend consultant</strong><span>Marketing and product sites</span></footer></blockquote>
-        </div></div>
+        <div className="container"><p className="section-kicker">MADE FOR YOUR NEXT CHAPTER</p><h2>Whatever you're building, make it feel like you.</h2><p className="cb-usecase-lead">From a first online shop to a brand you're proud to share, CoBest brings the creative and practical parts together.</p>
+          <div className="cb-usecase-grid">
+            <article className="cb-usecase"><div className="cb-usecase-icon"><ShoppingBag size={27}/></div><h3>Your first online shop</h3><p>Give your products a home with thoughtful pages and a storefront that feels welcoming.</p></article>
+            <article className="cb-usecase"><div className="cb-usecase-icon"><Sparkles size={27}/></div><h3>Your growing brand</h3><p>Put your story, visuals, and unique personality front and center.</p></article>
+            <article className="cb-usecase"><div className="cb-usecase-icon"><Store size={27}/></div><h3>Your business workspace</h3><p>Keep website editing and the everyday work of running a store close together.</p></article>
+          </div>
+        </div>
       </section>
 
       <section className="landing-section container marketing-resources" id="resources">
         <p className="section-kicker">RESOURCES</p><h2>Learn the system, not just the buttons.</h2>
-        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Understand the desktop-first cascade, overrides, and how to keep layouts stable across devices.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Build navbars, footers, cards, and sections once, then keep instances consistent across a project.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>Structure collections, bind template pages, and export readable HTML, CSS, JavaScript, and assets.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
+        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Try mobile previews and learn how page sections adapt to different screen sizes.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Explore sections and learn how to organize a page without starting from a blank screen.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>See how pages, products, and the website editor fit together in one workspace.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
       </section>
 
       <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-intro"><p className="section-kicker">PRICING</p><h2>Build first. Pay when the business is ready to go live.</h2><p>Start the website without a card. Upgrade when you need a custom domain and a live commerce workspace.</p></div><div className="pricing-grid"><article><span>BUILD</span><h3>Free</h3><strong>₱0 <small>/ month</small></strong><p>For preparing the website and organizing the business before launch.</p><ul><li><Check size={14}/> 1 website</li><li><Check size={14}/> Guided onboarding</li><li><Check size={14}/> Website brief</li><li><Check size={14}/> Visual website builder</li><li><Check size={14}/> CoBest storefront address</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article><article className="featured-plan"><span>LAUNCH</span><div className="plan-badge">Most popular</div><h3>Launch</h3><strong>₱990 <small>/ site / month</small></strong><p>For businesses ready to publish, sell, and manage their website every day.</p><ul><li><Check size={14}/> Everything in Free</li><li><Check size={14}/> Custom domain</li><li><Check size={14}/> Products and inventory</li><li><Check size={14}/> Orders and customers</li><li><Check size={14}/> Remove CoBest branding</li></ul><Button onClick={onStart}>Start free</Button></article><article><span>GROW</span><h3>Growth</h3><strong>₱2,490 <small>/ site / month</small></strong><p>For growing businesses that need more people, reporting, and support.</p><ul><li><Check size={14}/> Everything in Launch</li><li><Check size={14}/> Team access</li><li><Check size={14}/> Advanced analytics</li><li><Check size={14}/> Priority support</li><li><Check size={14}/> Additional publishing controls</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article></div><p className="pricing-note">Pricing shown in Philippine pesos. You can change these plan names, prices, and entitlements before billing is connected.</p></div></section><section className="landing-cta"><div className="container"><p className="section-kicker">START WITH THE BUSINESS</p><h2>Build the store around what the business actually needs.</h2><p>Set the direction, organize the website, and manage the storefront from one place.</p><div><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><Button variant="secondary" onClick={onLogin}>Log in</Button></div></div></section>
