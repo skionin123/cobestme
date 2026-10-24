@@ -132,6 +132,14 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const canMoveUp=sectionIndex>0&&node.type==='section'&&activePage.root.children[sectionIndex-1]?.type==='section'
   const canMoveDown=sectionIndex>=0&&node.type==='section'&&activePage.root.children[sectionIndex+1]?.type==='section'
   const selectNode=useBuilderStore(s=>s.selectNode)
+  const hoverNode=useBuilderStore(s=>s.hoverNode)
+  const rowRef=useRef<HTMLDivElement>(null)
+  React.useEffect(()=>{
+    if(selected!==node.id)return
+    const row=rowRef.current
+    if(row&&row.getBoundingClientRect().height>0)
+      row.scrollIntoView({block:'nearest',behavior:'smooth'})
+  },[selected,node.id])
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const deleteNode=useBuilderStore(s=>s.deleteNode)
   const [open,setOpen]=useState(true)
@@ -142,7 +150,7 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   return <div>
     {depth>0&&<DropLine id={`before:${node.id}`}/>} 
     <div ref={dropRef} className={'relative '+(isOver?'bg-indigo-500/10':'')}>
-      <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
+      <div ref={element=>{dragRef(element);rowRef.current=element}} onMouseEnter={()=>hoverNode(node.id)} onMouseLeave={()=>hoverNode(null)} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
         <button className="vb-nav-toggle grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
         <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
         <button className="vb-nav-name min-w-0 flex-1 truncate text-left" title={node.name} aria-label={"Select "+node.name+" layer"} onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
