@@ -390,10 +390,10 @@ function Landing({ onStart, onLogin }) {
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
           <div className="eyebrow-pill"><Sparkles size={14}/> Website building that starts with the business</div>
-          <h1>Build your website, your way.</h1>
-          <p>Pick one of two beautiful starting templates, then customize every detail in a simple visual website editor. No coding required.</p>
+          <h1>Build your website, <span className="hero-gradient">your way.</span></h1>
+          <p>Choose a beautiful starting design, then make it yours with our easy visual website editor. No coding required.</p>
           <div className="hero-actions"><Button onClick={onStart}>Start Building Free <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore Templates</a></div>
-          <div className="trust-row"><span><Check size={15}/> Two starting templates</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
+          <div className="trust-row"><span><Check size={15}/> Three starting themes</span><span><Check size={15}/> Visual website builder</span><span><Check size={15}/> Save and publish</span></div>
         </div>
         <div className="hero-product-shell">
           <div className="mini-window-bar"><span/><span/><span/><b>app.cobest.me</b></div>
@@ -452,6 +452,7 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
+            ['Online Store','Online Store','A fresh design for your first storefront'],
             ['Simple','Simple','Clean, neutral, professional'],
             ['Professional','Professional','Refined, typography-led, focused']
           ].map(([category,name,note],i)=><article key={category}><div className={`marketing-template-art template-art-${i+1}`}><span>{category}</span><i/><i/><div><b/><b/><b/></div></div><strong>{name}</strong><p>{note}</p><button onClick={onStart}>Use theme <ArrowRight size={13}/></button></article>)}
