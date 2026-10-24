@@ -526,6 +526,33 @@ ${body}${emptyState}
       if(msg.payload&&intent)send('canvas-drop',{payload:msg.payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
       return
     }
+    if(msg.type==='reveal-node'&&typeof msg.id==='string'){
+      const el=document.querySelector('[data-builder-node="'+CSS.escape(msg.id)+'"]')
+      if(el){
+        const rect=el.getBoundingClientRect()
+        if(rect.top<24||rect.bottom>window.innerHeight-24)el.scrollIntoView({block:'center',behavior:'smooth'})
+      }
+      return
+    }
+    if(msg.type==='scan-layout'){
+      const issues=[]
+      const viewport=document.documentElement.clientWidth||window.innerWidth
+      document.querySelectorAll('[data-builder-node]').forEach(el=>{
+        if(issues.length>=35||el.dataset.builderName==='Page')return
+        const box=el.getBoundingClientRect()
+        if(!box.width||!box.height)return
+        if(box.left< -3||box.right>viewport+3){
+          issues.push({id:el.dataset.builderNode,name:el.dataset.builderName||'Element',
+            detail:'Extends beyond the '+viewport+'px preview width',kind:'overflow'})
+        }else if(el.clientWidth>0&&el.scrollWidth>el.clientWidth+5&&
+          getComputedStyle(el).overflowX!=='auto'){
+          issues.push({id:el.dataset.builderNode,name:el.dataset.builderName||'Element',
+            detail:'Content may be clipped horizontally',kind:'clipped'})
+        }
+      })
+      send('layout-scan',{issues,viewport})
+      return
+    }
     if(msg.type==='selection'){
       clearClass(selected,'builder-selected');clearClass(hovered,'builder-hovered')
       selected=msg.selected||null;hovered=msg.hovered||null
