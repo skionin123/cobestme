@@ -31,7 +31,7 @@ test('phone editing has visible Add, Style, Undo, Redo, Save and safe start over
   await tools.getByRole('button',{name:'Phone Undo'}).click()
   await expect(headings).toHaveCount(original+1)
 
-  await tools.getByRole('button',{name:'Phone Style'}).click()
+  await tools.getByRole('button',{name:'Phone Design'}).click()
   await expect(page.locator('.vb-right.vb-mobile-open')).toBeVisible()
   await tools.getByRole('button',{name:'Phone Layers'}).click()
   await expect(page.locator('.vb-left.vb-mobile-open')).toBeVisible()
