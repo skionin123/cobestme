@@ -34,7 +34,7 @@ test.describe('phone section editing',()=>{
     await tools.getByRole('button',{name:'Phone Redo'}).click()
     await tools.getByRole('button',{name:'Phone Edit content'}).click()
     await expect(page.locator('.vb-right.vb-mobile-open')).toBeVisible()
-    await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Content',exact:true})).toBeVisible()
     await tools.getByRole('button',{name:'Phone Layers'}).click()
     await page.getByRole('button',{name:'Select Heading layer'}).first().click()
     await tools.getByRole('button',{name:'Phone Edit content'}).click()
