@@ -6,12 +6,13 @@ import {
 import {
   ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
   History, Layers, LayoutTemplate, Monitor, PackageOpen, PanelLeft, Redo2, Save, Search, Settings2, Smartphone, Tablet, Undo2,
-  RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut
+  RotateCcw, Sparkles, Upload, X, ZoomIn, ZoomOut, BookOpen
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createCanvasDocument } from './canvas'
 import { SectionChooser } from './SectionChooser'
 import { QuickAdd } from './QuickAdd'
+import { BuilderGuide, type GuideAction } from './BuilderGuide'
 import { createDefaultProject } from './defaultProject'
 import { applyNodeGeometry } from './geometry'
 import { reviewWebsiteLaunch, type LaunchIssue } from './launchReview'
@@ -25,10 +26,11 @@ import {
   PagesPanel, SettingsPanel, StylePanel, TemplatesPanel, createElement, createPrebuiltSection
 } from './panels'
 import { useBuilderStore } from './store'
-import { canAcceptChild, clone, findNode, findParent } from './tree'
+import { canAcceptChild, clone, findNode, findParent, walkNodes } from './tree'
 import type { BreakpointId, BuilderNode, BuilderProject, StyleMap } from './types'
 import './editor-tailwind.css'
 import './visual-builder.css'
+import './editor-journey.css'
 
 const widths:Record<BreakpointId,number>={desktop:1440,tablet:991,mobileLandscape:767,mobilePortrait:478}
 const breakpointLabels:Record<BreakpointId,string>={desktop:'Desktop 1440',tablet:'Tablet 991',mobileLandscape:'Mobile landscape 767',mobilePortrait:'Mobile portrait 478'}
@@ -282,6 +284,14 @@ export default function VisualBuilder({projectKey='local-default',initialProject
   const [nativeDragPayload,setNativeDragPayload]=useState<any|null>(null)
   const [sectionInsert,setSectionInsert]=useState<{targetId:string;mode:'before'|'after'}|null>(null)
   const [quickOpen,setQuickOpen]=useState(false)
+  const [guideOpen,setGuideOpen]=useState(false)
+  const [guideHintVisible,setGuideHintVisible]=useState(()=>{
+    try{return window.localStorage.getItem('cobest-editor-guide-seen:'+projectKey)!=='true'}catch{return true}
+  })
+  const dismissGuideHint=()=>{
+    setGuideHintVisible(false)
+    try{window.localStorage.setItem('cobest-editor-guide-seen:'+projectKey,'true')}catch{}
+  }
   const [scanRequested,setScanRequested]=useState(false)
   const [scanReport,setScanReport]=useState<{viewport:number;issues:{id:string;name:string;detail:string;kind:string}[]}|null>(null)
   const [versionsOpen,setVersionsOpen]=useState(false)
@@ -772,6 +782,33 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     ['mobilePortrait','Mobile 478',Smartphone],
   ]
 
+  const openGuideAction=(action:GuideAction)=>{
+    setGuideOpen(false)
+    dismissGuideHint()
+    if(action==='themes'){
+      setLeftTab('templates')
+      if(window.innerWidth<=680)setMobilePanel('add')
+      return
+    }
+    if(action==='add'){setQuickOpen(true);return}
+    if(action==='content'){
+      if(!selectedNodeId){
+        const candidates:BuilderNode[]=[]
+        walkNodes(activePage.root,node=>{
+          if(['heading','paragraph','button','image'].includes(node.type)&&!node.locked)candidates.push(node)
+        })
+        selectNode(candidates[0]?.id||activePage.root.children[0]?.id||null)
+      }
+      setRightTab('settings')
+      if(window.innerWidth<=680)setMobilePanel('style')
+      return
+    }
+    if(action==='phone'){setBreakpoint('mobilePortrait');return}
+    if(action==='save'){void manualSave();return}
+    if(action==='preview'){setPreview(true);return}
+    if(action==='publish'&&onPublish){setLaunchReviewOpen(true)}
+  }
+
   const beginNativeDrag=(event:React.DragEvent<HTMLDivElement>)=>{
     let raw=''
     try{raw=event.dataTransfer.getData('application/x-cobest-builder')||event.dataTransfer.getData('text/plain')||''}catch{}
@@ -803,6 +840,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-page-picker"><span>Page</span><select className="vb-page-switcher" value={activePage.id} onChange={e=>setActivePage(e.target.value)}>{project.pages.map(page=><option value={page.id} key={page.id}>{page.name}</option>)}</select></div>
         <div className="vb-breakpoints">{breakpoints.map(([id,labelText,Icon])=><button key={id} title={labelText} className={breakpoint===id?'active':''} onClick={()=>setBreakpoint(id)}><Icon size={15}/><span>{id==='mobileLandscape'?'Landscape':id==='mobilePortrait'?'Portrait':labelText.split(' ')[0]}</span></button>)}</div>
         <div className="vb-top-actions">
+          <button type="button" className="vb-guide-launch" aria-label="Website building guide" aria-expanded={guideOpen} onClick={()=>{setGuideOpen(open=>!open);dismissGuideHint()}} title="Open beginner guide"><BookOpen size={15}/><span>Guide</span></button>
           <button type="button" className="vb-quick-trigger" aria-label="Search or add elements" title="Find an element or add section (Ctrl+K)" onClick={()=>setQuickOpen(true)}><Search size={15}/><span>Search / Add</span></button>
           <button className="vb-toolbar-icon vb-undo-action" disabled={!history.length} onClick={undo} title="Undo last change (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/><span>Undo</span></button>
           <button className="vb-toolbar-icon vb-redo-action" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/><span>Redo</span></button>
@@ -854,6 +892,11 @@ export default function VisualBuilder({projectKey='local-default',initialProject
               </button>
             </div>
           </div>
+          {guideHintVisible&&<div className="vb-first-steps" role="note">
+            <div><Sparkles size={16}/><span><strong>First time here?</strong> Your draft is safe. Follow a simple six-step guide from theme to preview.</span></div>
+            <button type="button" onClick={()=>{setGuideOpen(true);dismissGuideHint()}}>Show my steps</button>
+            <button type="button" className="vb-first-steps-close" aria-label="Dismiss getting started tip" onClick={dismissGuideHint}><X size={15}/></button>
+          </div>}
           {selectionPath.length>0&&<nav className="vb-selection-path" aria-label="Selected element hierarchy">
             <span className="vb-selection-caption">Selected</span>
             {selectionPath.map((node,index)=><React.Fragment key={node.id}>
@@ -878,7 +921,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </CanvasDropZone>
         </main>
         <aside className={'vb-right '+(mobilePanel==='style'?'vb-mobile-open':'')}>
-          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
+          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['settings','Content'],['style','Design']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
@@ -887,7 +930,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <button type="button" aria-label="Phone Layers" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
         <button type="button" aria-label="Phone Edit content" className={mobilePanel==='style'&&rightTab==='settings'?'active':''}
           aria-pressed={mobilePanel==='style'&&rightTab==='settings'} onClick={()=>{setRightTab('settings');setMobilePanel('style')}}><PanelLeft size={18}/> Content</button>
-        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" aria-label="Phone Design" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Design</button>
         <button type="button" aria-label="Phone Undo" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
         <button type="button" aria-label="Phone Redo" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
         <button type="button" aria-label="Phone Save" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
@@ -947,6 +990,8 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         onCopy={()=>executeShortcut('copy')} onPaste={()=>executeShortcut('paste')}
         canPaste={Boolean(copiedNodeRef.current)}/>}
 
+      {guideOpen&&<BuilderGuide onClose={()=>setGuideOpen(false)} onAction={openGuideAction}
+        selectedName={selectedNode?.name||null} saveStatus={saveStatus} canPublish={Boolean(onPublish)}/>}
       {sectionInsert&&<SectionChooser placement={'Insert '+sectionInsert.mode+' selected section'} onInsert={insertAtCanvas} onClose={()=>setSectionInsert(null)}/>}
       {quickOpen&&<QuickAdd project={project} onClose={()=>setQuickOpen(false)} onPick={pickQuickAdd}/>}
       {scanReport&&<div className="vb-scan-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setScanReport(null)}}>

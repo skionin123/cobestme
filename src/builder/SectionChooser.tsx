@@ -2,6 +2,20 @@ import React,{useEffect,useRef,useState} from 'react'
 import { Search,X } from 'lucide-react'
 import {sectionCatalog} from './elements'
 
+const sectionHelp:Record<string,string>={
+  hero:'Introduce your business with a strong headline',
+  announcement:'Share important shop information',
+  imageText:'Put a picture and short story side by side',
+  shopIntro:'Welcome shoppers to your collection',
+  storeBenefits:'Explain delivery and customer support details',
+  features:'Show what makes your business special',
+  testimonials:'Share real feedback once you have permission',
+  pricing:'Present a clear offer or service plan',
+  faq:'Answer common visitor questions',
+  cta:'Give visitors one clear next step',
+  contact:'Make it easy to reach your business',
+}
+
 /** A single predictable section picker for on-canvas insertion. */
 export function SectionChooser({placement,onInsert,onClose}:{
   placement:string
@@ -12,7 +26,8 @@ export function SectionChooser({placement,onInsert,onClose}:{
   const searchRef=useRef<HTMLInputElement>(null)
   useEffect(()=>{searchRef.current?.focus()},[])
   const items=sectionCatalog.filter(item=>item.id!=='footer'&&
-    item.label.toLowerCase().includes(query.trim().toLowerCase()))
+    (item.label.toLowerCase().includes(query.trim().toLowerCase())||
+      (sectionHelp[item.id]||'').toLowerCase().includes(query.trim().toLowerCase())))
   return <div className="vb-section-choice-backdrop" onMouseDown={event=>{
     if(event.target===event.currentTarget)onClose()
   }}>
@@ -30,9 +45,9 @@ export function SectionChooser({placement,onInsert,onClose}:{
       <div className="vb-section-choice-grid" role="group" aria-label="Ready-made section designs">
         {items.map(item=><button type="button" key={item.id}
           onClick={()=>onInsert(item.id)} aria-label={'Add '+item.label+' section'}>
-          <span className="vb-section-choice-preview" aria-hidden="true"><i/><i/><i/></span>
+          <span className={'vb-section-choice-preview vb-section-preview-'+item.id} aria-hidden="true"><i/><i/><i/></span>
           <strong>{item.label}</strong>
-          <small>Editable section</small>
+          <small>{sectionHelp[item.id]||'Ready to customize'}</small>
         </button>)}
         {!items.length&&<p>No sections match this search.</p>}
       </div>
