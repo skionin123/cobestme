@@ -137,3 +137,38 @@
   .vb-guide footer button{width:100%;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){.vb-guide-step,.vb-guide-launch{transition:none}}
+
+/* Visual identification for the section picker; content stays editable. */
+.vb-shell .vb-section-choice-grid button{
+  overflow:hidden;border-radius:11px;min-height:134px;
+  background:#282d3e;border-color:#4d526a;
+  box-shadow:0 8px 20px rgba(0,0,0,.08)
+}
+.vb-shell .vb-section-choice-grid button:hover{background:#363956;border-color:#a292ff}
+.vb-shell .vb-section-choice-grid button strong{font-size:12px;font-weight:760}
+.vb-shell .vb-section-choice-grid button small{font-size:10px;line-height:1.4;color:#c2c7dd}
+.vb-shell .vb-section-choice-preview{
+  position:relative;overflow:hidden;height:56px;border-radius:8px;padding:8px;
+  background:linear-gradient(135deg,#8577e4,#92c8db 76%,#a7e8d1);
+  display:grid;align-content:center;gap:5px
+}
+.vb-shell .vb-section-choice-preview i{position:relative;z-index:1;background:#fbfbff;height:7px;border-radius:5px;max-width:74%}
+.vb-shell .vb-section-choice-preview i:nth-child(2){max-width:42%;opacity:.72}
+.vb-shell .vb-section-choice-preview i:nth-child(3){max-width:52%;opacity:.42}
+.vb-shell .vb-section-choice-preview:after{
+  content:"";position:absolute;right:-6%;bottom:-31%;height:80px;width:80px;
+  border-radius:28px;transform:rotate(-19deg);background:rgba(248,242,255,.3)
+}
+.vb-shell .vb-section-preview-announcement{background:linear-gradient(110deg,#43449e,#956ae2)}
+.vb-shell .vb-section-preview-imageText{background:linear-gradient(110deg,#c7a7ee,#ffd0ab)}
+.vb-shell .vb-section-preview-shopIntro{background:linear-gradient(110deg,#337d9d,#80dac0)}
+.vb-shell .vb-section-preview-storeBenefits{background:linear-gradient(110deg,#297967,#c0ce8f)}
+.vb-shell .vb-section-preview-features{background:linear-gradient(110deg,#715be5,#a7b6f5)}
+.vb-shell .vb-section-preview-faq{background:linear-gradient(110deg,#466a9f,#a1dad8)}
+.vb-shell .vb-section-preview-contact{background:linear-gradient(110deg,#c0846e,#f4cb98)}
+.vb-shell .vb-section-preview-cta{background:linear-gradient(110deg,#644ed1,#3db0ae)}
+.vb-shell .vb-section-preview-testimonials{background:linear-gradient(110deg,#9c6e9e,#eed3cf)}
+@media(max-width:680px){
+  .vb-shell .vb-section-choice-grid button{min-height:91px}
+  .vb-shell .vb-section-choice-preview{height:32px}
+}
