@@ -18,7 +18,7 @@ describe('safe beginner theme switching',()=>{
     previous.id='merchant-42'
     previous.name='My handmade shop'
     previous.pages[0].name='Home · Old version'
-    previous.assets=[{id:'asset-1',name:'Product image',type:'image',url:'https://example.com/product.jpg'}]
+    previous.assets=[{id:'asset-1',name:'Product image',mimeType:'image/jpeg',url:'https://example.com/product.jpg',createdAt:'2026-10-01T00:00:00.000Z'}]
     previous.updatedAt='2026-10-01T00:00:00.000Z'
     const next=prepareThemeSwitch(simple,previous,'merchant-42','My handmade shop',Date.parse('2026-10-02T00:00:00.000Z'))
     expect(next.id).toBe(previous.id)
