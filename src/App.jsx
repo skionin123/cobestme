@@ -15,6 +15,7 @@ const StoreOverview = React.lazy(()=>import('./StoreOverview'))
 const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
 const SalesReport = React.lazy(()=>import('./SalesReport'))
 import { loadProject } from './builder/persistence'
+import { prepareThemeSwitch } from './builder/themeSwitch'
 
 const APP_NAME = 'CoBest'
 
@@ -1313,13 +1314,8 @@ export default function App() {
     try{cached=await loadProject(projectId)}catch{}
     if((safeEditor.visualBuilderProject?.pages?.length||cached?.pages?.length)&&
       !window.confirm('Switching templates will replace this website’s current design. Continue?'))return
-    const next=template.build()
-    next.id=projectId
-    next.name=activeSite.site_name||'My website'
     const previous=safeEditor.visualBuilderProject||cached
-    next.version=Math.max(previous?.version||0,next.version||0)+1
-    const previousTime=Date.parse(previous?.updatedAt||'')
-    next.updatedAt=new Date(Math.max(Date.now(),Number.isFinite(previousTime)?previousTime+1:0)).toISOString()
+    const next=prepareThemeSwitch(template,previous,projectId,activeSite.site_name||'My website')
     const saved=await saveWorkspace({editor:{visualBuilderProject:next}})
     if(!saved?.id)throw new Error('Could not save your template. Please try again.')
     setWorkspace(prev=>({...prev,...saved}))
