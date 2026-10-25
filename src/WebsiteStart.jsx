@@ -21,7 +21,7 @@ export default function WebsiteStart({project,siteName,loading=false,onChoose,on
       <div>
         <span className="website-start-eyebrow"><Sparkles size={14}/> COBEST WEBSITE BUILDER</span>
         <h1>{hasProject?'Your website, made simple.':'Your website starts here.'}</h1>
-        <p>{hasProject?'Continue editing your website or choose a different starting design.':'Choose a design that fits your business. Then follow a guided editor to customize it, check phone layouts, save a draft, and publish when you're ready.'}</p>
+        <p>{hasProject?'Continue editing your website or choose a different starting design.':'Choose a design that fits your business. Then follow a guided editor to customize it, check phone layouts, save a draft, and publish when you are ready.'}</p>
       </div>
       {hasProject&&<div className="website-start-actions">
         <button className="website-start-secondary" onClick={onPublish}><Eye size={16}/> Publication settings</button>
