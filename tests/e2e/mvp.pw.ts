@@ -27,8 +27,8 @@ test.describe('CoBest MVP browser golden path',()=>{
     await expect(page.getByRole('button',{name:'Navigator',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'Pages',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'Assets',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Style',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Design',exact:true})).toBeVisible()
+    await expect(page.getByRole('button',{name:'Content',exact:true})).toBeVisible()
     await expect(page.getByRole('button',{name:'CMS'})).toHaveCount(0)
     await expect(page.getByRole('button',{name:'Interactions'})).toHaveCount(0)
 
@@ -133,7 +133,7 @@ test.describe('CoBest MVP browser golden path',()=>{
 
     image=frame.locator('[data-builder-type="image"]').first()
     await image.click()
-    await page.getByRole('button',{name:'Settings',exact:true}).click()
+    await page.getByRole('button',{name:'Content',exact:true}).click()
     await page.getByRole('button',{name:'Use image hero.png'}).click()
     await expect(frame.locator('[data-builder-type="image"]').first()).toHaveAttribute('src',/data:image\/png;base64/)
 
@@ -147,7 +147,7 @@ test.describe('CoBest MVP browser golden path',()=>{
     await expect(canvas(page).locator('[data-builder-type="image"]').first()).toHaveAttribute('src',/data:image\/png;base64/)
 
     await heading.click()
-    await page.getByRole('button',{name:'Settings',exact:true}).click()
+    await page.getByRole('button',{name:'Content',exact:true}).click()
     const contentInput=page.locator('.vb-right-content section',{hasText:'Content'}).locator('input').first()
     await contentInput.fill('Temporary browser change')
     await expect(canvas(page).locator('[data-builder-type="heading"]').first()).toHaveText('Temporary browser change')
