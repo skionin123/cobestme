@@ -123,3 +123,56 @@
 @media(max-width:1120px){.website-start .website-template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.website-start .website-template-grid{grid-template-columns:1fr}.website-start-heading{padding:20px}}
 @media(prefers-reduced-motion:reduce){.website-template-card{transition:none}.website-template-card:hover{transform:none}}
+
+/* Guided merchant setup: an inviting journey rather than a bare template grid. */
+.website-start{
+  --ws-brand:#5b4ad7;--ws-sea:#188479;
+  background:radial-gradient(ellipse at 88% 0,rgba(129,114,244,.09),transparent 34%),transparent;
+}
+.website-start .website-start-heading{
+  background:radial-gradient(circle at 88% 0,rgba(142,119,243,.25),transparent 35%),
+             linear-gradient(118deg,#f3f1ff,#eff7ff 62%,#e9faf4);
+}
+.website-start .website-start-heading h1{color:#242658}
+.website-start .website-start-primary{
+  background:linear-gradient(115deg,#6350dd,#355bbd);
+  border-color:#5646c3;box-shadow:0 9px 19px rgba(82,70,191,.19)
+}
+.website-start .website-template-card{
+  box-shadow:0 13px 34px rgba(47,58,121,.09);border-color:#dfe4f4
+}
+.website-start .website-template-card:hover{border-color:#8984dc;box-shadow:0 19px 40px rgba(57,61,127,.14)}
+.website-start-route{border:1px solid #e1def7;border-radius:19px;background:#fff;padding:23px 25px;margin:0 0 32px;box-shadow:0 10px 32px rgba(56,63,122,.055)}
+.website-start-route-intro{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:19px}
+.website-start-route-intro span{font-size:10px;letter-spacing:.12em;font-weight:800;color:#5a4bc5}
+.website-start-route-intro strong{font-size:16px;color:#28365f;letter-spacing:-.03em}
+.website-start-route ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:0;padding:0;list-style:none}
+.website-start-route li{
+  display:flex;gap:12px;align-items:flex-start;min-width:0;
+  border:1px solid #e5e4f4;border-radius:13px;padding:13px 11px;
+  background:#f5f4ff
+}
+.website-start-route li:nth-child(2){background:#f0f9ff;border-color:#e0e9f7}
+.website-start-route li:nth-child(3){background:#ecfaf6;border-color:#d9efe7}
+.website-start-route li:nth-child(4){background:#fff5ec;border-color:#f6e5d8}
+.website-route-icon{flex:0 0 36px;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#e5dfff;color:#5841c6}
+.website-start-route li:nth-child(2) .website-route-icon{background:#dcedff;color:#3065bd}
+.website-start-route li:nth-child(3) .website-route-icon{background:#ccefe4;color:#167d73}
+.website-start-route li:nth-child(4) .website-route-icon{background:#ffdfc8;color:#ba644c}
+.website-start-route li strong{display:block;margin:1px 0 6px;font-size:12px;color:#27365c}
+.website-start-route li p{font-size:10.5px;line-height:1.4;color:#68738c;margin:0}
+.website-start-route-note{
+  display:flex;align-items:center;gap:7px;margin:17px 0 0;
+  font-size:11px;color:#526380;font-weight:650
+}
+.website-start-route-note svg{color:#1c8e7b}
+.website-switch-warning{display:flex;align-items:center;gap:8px;margin:24px 0 12px;padding:13px 15px;background:#f4f1ff;border:1px solid #dcd5fa;border-radius:10px;color:#55458a;font-size:12px;line-height:1.5}
+.website-switch-warning svg{flex:0 0 15px;color:#6855d5}
+@media(max-width:1200px){.website-start-route ol{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){
+  .website-start-route{padding:17px 14px}
+  .website-start-route ol{grid-template-columns:1fr}
+  .website-start-route li{min-height:74px}
+  .website-start-route-intro strong{font-size:15px}
+  .website-switch-warning{align-items:flex-start}
+}
