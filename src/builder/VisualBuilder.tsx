@@ -921,7 +921,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           </CanvasDropZone>
         </main>
         <aside className={'vb-right '+(mobilePanel==='style'?'vb-mobile-open':'')}>
-          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['style','Style'],['settings','Settings']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
+          <div className="vb-right-tabs"><button className="vb-mobile-close" aria-label="Close style panel" onClick={()=>setMobilePanel(null)}><X size={17}/></button>{([['settings','Content'],['style','Design']] as [RightTab,string][]).map(([id,label])=><button key={id} title={label} aria-label={label} className={rightTab===id?'active':''} onClick={()=>setRightTab(id)}>{label}</button>)}</div>
           <div className="vb-right-content"><RightPanel tab={rightTab}/></div>
         </aside>
       </div>
@@ -930,7 +930,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <button type="button" aria-label="Phone Layers" className={mobilePanel==='navigator'?'active':''} aria-pressed={mobilePanel==='navigator'} onClick={()=>{setLeftTab('navigator');setMobilePanel(mobilePanel==='navigator'?null:'navigator')}}><Layers size={18}/> Layers</button>
         <button type="button" aria-label="Phone Edit content" className={mobilePanel==='style'&&rightTab==='settings'?'active':''}
           aria-pressed={mobilePanel==='style'&&rightTab==='settings'} onClick={()=>{setRightTab('settings');setMobilePanel('style')}}><PanelLeft size={18}/> Content</button>
-        <button type="button" aria-label="Phone Style" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Style</button>
+        <button type="button" aria-label="Phone Design" className={mobilePanel==='style'&&rightTab==='style'?'active':''} aria-pressed={mobilePanel==='style'&&rightTab==='style'} onClick={()=>{setRightTab('style');setMobilePanel('style')}}><Settings2 size={18}/> Design</button>
         <button type="button" aria-label="Phone Undo" disabled={!history.length} onClick={undo}><Undo2 size={18}/> Undo</button>
         <button type="button" aria-label="Phone Redo" disabled={!future.length} onClick={redo}><Redo2 size={18}/> Redo</button>
         <button type="button" aria-label="Phone Save" onClick={()=>void manualSave()}><Save size={18}/> Save</button>
