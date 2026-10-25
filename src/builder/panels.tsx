@@ -638,16 +638,46 @@ export function SettingsPanel(){
   const removeAttr=useBuilderStore(s=>s.removeNodeAttribute)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
-  if(!node)return <EmptyPanel text="Select an element to edit settings."/>
+  if(!node)return <EmptyPanel text="Click a heading, image or button on your page to start editing its content."/>
   const linkTypes=['link','button','lightbox']
+  const isText=['heading','paragraph','button','link'].includes(node.type)
   return <div className="h-full overflow-auto pb-8">
-    <StyleGroup title="Element"><label><span className={label}>Name</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label><label><span className={label}>ID</span><input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}/></label>{node.type==='heading'&&<label><span className={label}>Heading level</span><select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select></label>}</StyleGroup>
-    {['heading','paragraph','button','link'].includes(node.type)&&<StyleGroup title="Content"><label><span className={label}>Text</span>{node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:<input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}</label></StyleGroup>}
-    {linkTypes.includes(node.type)&&<StyleGroup title="Link"><label><span className={label}>Destination</span><input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)} placeholder="URL, /page, #section, mailto:, tel:"/></label><label className="flex items-center gap-2 text-[10px] text-zinc-400"><input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in new tab</label></StyleGroup>}
+    <div className="vb-content-intro">
+      <span>CONTENT EDITOR</span>
+      <strong>{node.name}</strong>
+      <p>{isText?'Change the words your visitors will read. Your canvas updates as you type.':
+        node.type==='image'?'Replace your photo and describe it for accessibility.':
+        'Choose a text, image or button to edit what visitors see.'}</p>
+    </div>
+    {isText&&<StyleGroup title="Text"><label><span className={label}>{node.type==='button'?'Button label':'Text'}</span>
+      {node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:
+      <input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}
+    </label></StyleGroup>}
+    {linkTypes.includes(node.type)&&<StyleGroup title="Link destination">
+      <p className="vb-content-hint">Where should visitors go when they click this?</p>
+      <label><span className={label}>Page or URL</span>
+        <input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)}
+          placeholder="e.g. /contact or https://example.com"/></label>
+      <label className="flex items-center gap-2 text-[10px] text-zinc-400">
+        <input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in a new tab
+      </label>
+    </StyleGroup>}
     {node.type==='image'&&<ImageSettings node={node}/>}
     {node.type==='form'&&<StyleGroup title="Form"><label><span className={label}>Action</span><input className={control} value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)}/></label><label><span className={label}>Redirect after success</span><input className={control} value={node.attributes['data-redirect']||''} onChange={e=>updateAttr(node.id,'data-redirect',e.target.value)}/></label></StyleGroup>}
     {node.type==='collectionList'&&<StyleGroup title="CMS binding"><label><span className={label}>Collection</span><select className={control} value={node.attributes.collectionId||''} onChange={e=>updateAttr(node.id,'collectionId',e.target.value)}><option value="">Select collection</option>{project.collections.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label></StyleGroup>}
-
+    <StyleGroup title="Element name">
+      <label><span className={label}>Name in Layers</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label>
+    </StyleGroup>
+    <details className="vb-content-advanced">
+      <summary>Advanced element settings</summary>
+      <div><label><span className={label}>Element ID</span>
+        <input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}
+          placeholder="Optional anchor ID"/></label>
+        {node.type==='heading'&&<label><span className={label}>Heading level</span>
+          <select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select>
+        </label>}
+      </div>
+    </details>
   </div>
 }
 
