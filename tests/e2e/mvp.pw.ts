@@ -148,7 +148,7 @@ test.describe('CoBest MVP browser golden path',()=>{
 
     await heading.click()
     await page.getByRole('button',{name:'Content',exact:true}).click()
-    const contentInput=page.locator('.vb-right-content section',{hasText:'Content'}).locator('input').first()
+    const contentInput=page.getByRole('textbox',{name:'Text',exact:true})
     await contentInput.fill('Temporary browser change')
     await expect(canvas(page).locator('[data-builder-type="heading"]').first()).toHaveText('Temporary browser change')
 
