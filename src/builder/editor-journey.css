@@ -172,3 +172,18 @@
   .vb-shell .vb-section-choice-grid button{min-height:91px}
   .vb-shell .vb-section-choice-preview{height:32px}
 }
+
+/* Content-first inspector: common editing first, technical attributes tucked away. */
+.vb-shell .vb-content-intro{
+  background:linear-gradient(115deg,#343365,#244b53);
+  border-bottom:1px solid #54577c;padding:19px 16px;
+}
+.vb-shell .vb-content-intro span{display:block;font-size:9px;font-weight:800;letter-spacing:.12em;color:#a8e9de;margin-bottom:6px}
+.vb-shell .vb-content-intro strong{display:block;color:#fff;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.vb-shell .vb-content-intro p{font-size:11px;line-height:1.6;color:#d8ddeb;margin:8px 0 0}
+.vb-shell .vb-content-hint{font-size:11px;line-height:1.5;color:#c2cade;margin:0 0 9px}
+.vb-shell .vb-content-advanced{margin:17px 12px;border:1px solid #414961;border-radius:10px;overflow:hidden;background:#232a39;color:#cbd3e9}
+.vb-shell .vb-content-advanced summary{cursor:pointer;min-height:40px;display:flex;align-items:center;padding:11px 13px;font-size:11px;font-weight:750}
+.vb-shell .vb-content-advanced summary:hover{background:#333c52;color:#fff}
+.vb-shell .vb-content-advanced summary:focus-visible{outline:2px solid #a89dff;outline-offset:-2px}
+.vb-shell .vb-content-advanced>div{padding:12px;display:grid;gap:12px;border-top:1px solid #444d64}
