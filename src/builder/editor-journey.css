@@ -187,3 +187,30 @@
 .vb-shell .vb-content-advanced summary:hover{background:#333c52;color:#fff}
 .vb-shell .vb-content-advanced summary:focus-visible{outline:2px solid #a89dff;outline-offset:-2px}
 .vb-shell .vb-content-advanced>div{padding:12px;display:grid;gap:12px;border-top:1px solid #444d64}
+
+/* Beginner-friendly one-click design treatments. A preset changes only the selected node. */
+.vb-shell .vb-look-presets{
+  margin:3px 0 17px;padding:14px;border-radius:12px;
+  background:linear-gradient(145deg,#292c49,#213c47);
+  border:1px solid #505783;
+}
+.vb-shell .vb-look-presets>p{
+  display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  color:#fff;font-size:12px;font-weight:800;margin:0 0 12px;
+}
+.vb-shell .vb-look-presets>p small{font-size:10px;color:#cad7e8;font-weight:500}
+.vb-shell .vb-look-presets-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vb-shell .vb-look-presets-grid button{
+  display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:7px;
+  border-radius:9px;border:1px solid #505776;background:#282d3d;
+  color:#f5f6fe;font-size:11px;min-width:0;
+}
+.vb-shell .vb-look-presets-grid button:hover{border-color:#b1a6ff;background:#353953}
+.vb-shell .vb-look-presets-grid button:focus-visible{outline:3px solid #aaa0ff;outline-offset:1px}
+.vb-shell .vb-look-presets-grid button span{height:30px;border-radius:6px;display:block}
+.vb-shell .vb-look-presets-grid button strong{font-size:10px;font-weight:760;text-align:left}
+.vb-shell .vb-look-reset{
+  display:block;margin-top:11px;text-align:left;border:0;padding:5px 0;
+  color:#c8f5eb;background:transparent;font-size:10px;text-decoration:underline;text-underline-offset:3px
+}
+.vb-shell .vb-look-reset:hover{color:#fff}
