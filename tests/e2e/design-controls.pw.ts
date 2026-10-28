@@ -5,6 +5,9 @@ test('select a heading: font, color and responsive styling without Advanced CSS'
   await page.goto('/e2e.html')
   const heading=canvas(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
+  // Beginner-first: the Content inspector opens first; Design is always one click away.
+  await expect(page.getByRole('button',{name:'Content',exact:true})).toHaveClass(/active/)
+  await page.getByRole('button',{name:'Design',exact:true}).click()
   await expect(page.getByRole('combobox',{name:'Font family'})).toBeVisible()
   await page.getByRole('combobox',{name:'Font family'}).selectOption('"DM Sans", Arial, sans-serif')
   await expect(heading).toHaveCSS('font-family',/DM Sans/)
@@ -26,6 +29,7 @@ test('section gradients and responsive stacks work from the main Style panel',as
   await page.getByRole('navigation',{name:'Selected element hierarchy'})
     .getByRole('button',{name:'Select Hero',exact:true}).click()
   await expect(hero).toHaveClass(/builder-selected/)
+  await page.getByRole('button',{name:'Design',exact:true}).click()
   const design=page.getByRole('group',{name:'Background type'})
   await expect(design).toBeVisible()
   await design.getByRole('button',{name:'Gradient'}).click()
