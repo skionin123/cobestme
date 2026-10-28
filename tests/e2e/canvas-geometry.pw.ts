@@ -24,6 +24,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect(heading).toHaveCSS('translate','80px 40px')
   const initialSize=Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))
+  await page.getByRole('button',{name:'Design',exact:true}).click()
   const inspectorTextSize=page.getByRole('spinbutton',{name:'Text size'})
   await inspectorTextSize.fill(String(Math.round(initialSize+4)))
   await inspectorTextSize.blur()

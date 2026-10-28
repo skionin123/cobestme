@@ -1,0 +1,216 @@
+/* CoBest guide and visual editor polish — scoped to the builder only.
+   Flow-first interface; no changes to published storefront CSS. */
+.vb-shell{
+  --vb-accent:#8577ff;
+  --vb-accent-2:#5fddc8;
+  --vb-accent-soft:rgba(133,119,255,.14);
+  --vb-focus:#a79aff;
+  --vb-success:#7ce9bd;
+  background:#0e1220;
+}
+.vb-shell .vb-topbar{
+  background:linear-gradient(110deg,#191a31,#171d2a 62%,#152c36);
+  border-bottom-color:#35334e;
+  box-shadow:inset 0 3px 0 rgba(133,119,255,.11),0 7px 28px rgba(0,0,0,.24);
+}
+.vb-shell .vb-topbar:before{
+  content:"";position:absolute;inset:0 0 auto;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,#8b69ff 0%,#6e8ff2 55%,#31bfaf 100%)
+}
+.vb-shell .vb-project-copy small{color:#a59bf2;letter-spacing:.17em}
+.vb-shell .vb-workspace{background:#0e1320}
+.vb-shell .vb-stage{
+  background:radial-gradient(ellipse at 42% 8%,rgba(93,75,174,.12),transparent 44%),
+             radial-gradient(ellipse at 83% 82%,rgba(38,139,144,.07),transparent 32%),#111620
+}
+.vb-shell .vb-left,.vb-shell .vb-right{background:#171b28;border-color:#34394a}
+.vb-shell .vb-left-tabs,.vb-shell .vb-right-tabs{background:#202431;border-color:#353c4d}
+.vb-shell .vb-top-actions .vb-publish{
+  color:#fff;background:linear-gradient(110deg,#8068ef,#5556bf);border-color:#a294ff;
+  box-shadow:0 8px 19px rgba(102,85,206,.22)
+}
+.vb-shell .vb-top-actions .vb-publish:hover{
+  background:linear-gradient(110deg,#947eff,#6668da);border-color:#b2a7ff
+}
+.vb-shell .vb-top-actions .vb-save-action{border-color:#4d5474}
+.vb-shell .vb-top-actions .vb-save-action:hover{border-color:#6edac4;color:#bcfff0}
+.vb-shell .vb-stage-crumb strong{color:#dbd5ff;background:#30304d}
+.vb-shell .vb-guide-launch{
+  background:linear-gradient(120deg,#34335f,#22504f)!important;
+  border:1px solid #625ec2!important;color:#eafefb!important;
+  box-shadow:0 2px 13px rgba(54,72,151,.19)
+}
+.vb-shell .vb-guide-launch:hover{border-color:#a69bff!important;background:#45467e!important}
+.vb-first-steps{
+  display:flex;align-items:center;justify-content:space-between;gap:9px;
+  align-self:stretch;width:100%;max-width:100%;min-width:0;
+  border:1px solid #665ba1;border-radius:11px;
+  background:linear-gradient(107deg,#29264c 0%,#202d45 68%,#1c4148 100%);
+  padding:9px 10px 9px 13px;margin:0 0 12px;color:#e9ebff;
+  box-shadow:0 8px 28px rgba(21,17,69,.12);
+}
+.vb-first-steps>div{min-width:0;display:flex;align-items:center;gap:9px;line-height:1.4;font-size:11px}
+.vb-first-steps>div svg{flex-shrink:0;color:#b5a5ff}
+.vb-first-steps strong{color:#fff}
+.vb-first-steps>button:not(.vb-first-steps-close){
+  flex:0 0 auto;border:1px solid #aba0ff;border-radius:7px;background:#7564db;
+  color:#fff;font-size:11px;font-weight:750;padding:8px 12px;min-height:35px
+}
+.vb-first-steps>button:hover{background:#8675f0}
+.vb-first-steps-close{flex:0 0 31px;height:31px;border-radius:7px;background:rgba(255,255,255,.06);color:#e4e7ff;display:grid;place-items:center}
+.vb-guide{
+  position:absolute;top:66px;right:14px;z-index:95;
+  width:min(650px,calc(100vw - 28px));max-height:calc(100dvh - 88px);
+  display:flex;flex-direction:column;overflow:hidden;
+  color:#f5f5ff;background:#1d2131;
+  border:1px solid #7772a9;border-radius:18px;
+  box-shadow:0 32px 110px rgba(3,5,17,.78),0 0 0 1px rgba(255,255,255,.04)
+}
+.vb-guide-header{
+  padding:22px;display:flex;gap:13px;align-items:flex-start;position:relative;
+  background:radial-gradient(circle at 90% 0,rgba(94,200,186,.19),transparent 50%),
+             linear-gradient(112deg,#35326f,#283956);
+  border-bottom:1px solid #4d5279;
+}
+.vb-guide-icon{width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:#786df0;display:grid;place-items:center}
+.vb-guide-header>div:nth-child(2){min-width:0;flex:1}
+.vb-guide-header span{font-size:10px;letter-spacing:.12em;color:#b4eddf;font-weight:800}
+.vb-guide-header h2{font-size:21px;letter-spacing:-.035em;font-weight:770;margin:6px 0}
+.vb-guide-header p{font-size:12px;line-height:1.5;color:#d0d8f4;margin:0}
+.vb-guide-close{display:grid;place-items:center;width:35px;height:35px;flex:0 0 35px;border-radius:9px;color:#e6e8ff;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16)}
+.vb-guide-close:hover{background:#565783}
+.vb-guide-steps{padding:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;overflow-y:auto}
+.vb-guide-step{min-width:0;display:flex;align-items:flex-start;gap:10px;border:1px solid #434b64;border-radius:13px;background:#292e41;padding:15px;min-height:162px}
+.vb-guide-step:hover{border-color:#8f80dc;background:#2f354f}
+.vb-guide-number{
+  display:grid;place-items:center;flex:0 0 33px;height:33px;border-radius:10px;
+  background:#504c93;color:#f7f3ff;font-size:11px;font-weight:850;
+}
+.vb-guide-step:nth-child(3n+2) .vb-guide-number{background:#206b6a}
+.vb-guide-step:nth-child(3n) .vb-guide-number{background:#96634d}
+.vb-guide-step-copy{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.vb-guide-step-copy strong{font-size:13px;color:#fff;font-weight:760}
+.vb-guide-step-copy p{margin:0;font-size:10.5px;color:#bec5d9;line-height:1.55;min-height:41px}
+.vb-guide-step-copy button{
+  display:flex;align-items:center;gap:6px;margin-top:auto;
+  border-radius:7px;background:#41456b;color:#f6f3ff;
+  border:1px solid #6466a1;padding:9px 10px;font-size:10px;min-height:35px;font-weight:740;
+}
+.vb-guide-step-copy button:hover{background:#6059ac;border-color:#aaa0ff}
+.vb-guide-step-copy button:disabled{opacity:.6;cursor:wait}
+.vb-guide-step-copy button>svg:last-child{margin-left:auto}
+.vb-guide footer{
+  padding:12px 17px;display:flex;align-items:center;gap:9px;
+  background:#222939;border-top:1px solid #444e69;
+  color:#cbd3df;font-size:10px;line-height:1.5
+}
+.vb-guide footer svg{color:#78dfc3;flex-shrink:0}
+.vb-guide footer span{flex:1}
+.vb-guide footer button{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;
+  flex:0 0 auto;border:1px solid #7376af;border-radius:7px;background:#353d61;color:#eceeff;font-weight:700
+}
+.vb-guide footer button:hover{background:#50568e}
+.vb-guide button:focus-visible,.vb-first-steps button:focus-visible{outline:3px solid #a9a0ff;outline-offset:2px}
+@media(max-width:1500px){
+  .vb-shell .vb-top-actions .vb-guide-launch{min-width:34px;width:34px;padding:0}
+  .vb-shell .vb-top-actions .vb-guide-launch span{display:none}
+}
+@media(max-width:860px){
+  .vb-guide{top:62px;right:9px;width:min(540px,calc(100vw - 18px));max-height:calc(100dvh - 72px)}
+  .vb-guide-steps{grid-template-columns:1fr;gap:8px}
+  .vb-guide-step{min-height:0}
+  .vb-guide-step-copy p{min-height:0}
+  .vb-guide footer{flex-wrap:wrap}
+  .vb-first-steps{gap:6px}
+  .vb-first-steps>div{font-size:10px}
+}
+@media(max-width:530px){
+  .vb-guide-header{padding:14px 13px}
+  .vb-guide-header h2{font-size:17px}
+  .vb-guide-icon{width:33px;height:33px;flex-basis:33px}
+  .vb-guide-steps{padding:10px}
+  .vb-first-steps{flex-wrap:wrap}
+  .vb-first-steps>div{flex:1 1 calc(100% - 38px)}
+  .vb-first-steps>button:not(.vb-first-steps-close){flex:1 1 auto}
+  .vb-first-steps-close{order:2}
+  .vb-guide footer button{width:100%;justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){.vb-guide-step,.vb-guide-launch{transition:none}}
+
+/* Visual identification for the section picker; content stays editable. */
+.vb-shell .vb-section-choice-grid button{
+  overflow:hidden;border-radius:11px;min-height:134px;
+  background:#282d3e;border-color:#4d526a;
+  box-shadow:0 8px 20px rgba(0,0,0,.08)
+}
+.vb-shell .vb-section-choice-grid button:hover{background:#363956;border-color:#a292ff}
+.vb-shell .vb-section-choice-grid button strong{font-size:12px;font-weight:760}
+.vb-shell .vb-section-choice-grid button small{font-size:10px;line-height:1.4;color:#c2c7dd}
+.vb-shell .vb-section-choice-preview{
+  position:relative;overflow:hidden;height:56px;border-radius:8px;padding:8px;
+  background:linear-gradient(135deg,#8577e4,#92c8db 76%,#a7e8d1);
+  display:grid;align-content:center;gap:5px
+}
+.vb-shell .vb-section-choice-preview i{position:relative;z-index:1;background:#fbfbff;height:7px;border-radius:5px;max-width:74%}
+.vb-shell .vb-section-choice-preview i:nth-child(2){max-width:42%;opacity:.72}
+.vb-shell .vb-section-choice-preview i:nth-child(3){max-width:52%;opacity:.42}
+.vb-shell .vb-section-choice-preview:after{
+  content:"";position:absolute;right:-6%;bottom:-31%;height:80px;width:80px;
+  border-radius:28px;transform:rotate(-19deg);background:rgba(248,242,255,.3)
+}
+.vb-shell .vb-section-preview-announcement{background:linear-gradient(110deg,#43449e,#956ae2)}
+.vb-shell .vb-section-preview-imageText{background:linear-gradient(110deg,#c7a7ee,#ffd0ab)}
+.vb-shell .vb-section-preview-shopIntro{background:linear-gradient(110deg,#337d9d,#80dac0)}
+.vb-shell .vb-section-preview-storeBenefits{background:linear-gradient(110deg,#297967,#c0ce8f)}
+.vb-shell .vb-section-preview-features{background:linear-gradient(110deg,#715be5,#a7b6f5)}
+.vb-shell .vb-section-preview-faq{background:linear-gradient(110deg,#466a9f,#a1dad8)}
+.vb-shell .vb-section-preview-contact{background:linear-gradient(110deg,#c0846e,#f4cb98)}
+.vb-shell .vb-section-preview-cta{background:linear-gradient(110deg,#644ed1,#3db0ae)}
+.vb-shell .vb-section-preview-testimonials{background:linear-gradient(110deg,#9c6e9e,#eed3cf)}
+@media(max-width:680px){
+  .vb-shell .vb-section-choice-grid button{min-height:91px}
+  .vb-shell .vb-section-choice-preview{height:32px}
+}
+
+/* Content-first inspector: common editing first, technical attributes tucked away. */
+.vb-shell .vb-content-intro{
+  background:linear-gradient(115deg,#343365,#244b53);
+  border-bottom:1px solid #54577c;padding:19px 16px;
+}
+.vb-shell .vb-content-intro span{display:block;font-size:9px;font-weight:800;letter-spacing:.12em;color:#a8e9de;margin-bottom:6px}
+.vb-shell .vb-content-intro strong{display:block;color:#fff;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.vb-shell .vb-content-intro p{font-size:11px;line-height:1.6;color:#d8ddeb;margin:8px 0 0}
+.vb-shell .vb-content-hint{font-size:11px;line-height:1.5;color:#c2cade;margin:0 0 9px}
+.vb-shell .vb-content-advanced{margin:17px 12px;border:1px solid #414961;border-radius:10px;overflow:hidden;background:#232a39;color:#cbd3e9}
+.vb-shell .vb-content-advanced summary{cursor:pointer;min-height:40px;display:flex;align-items:center;padding:11px 13px;font-size:11px;font-weight:750}
+.vb-shell .vb-content-advanced summary:hover{background:#333c52;color:#fff}
+.vb-shell .vb-content-advanced summary:focus-visible{outline:2px solid #a89dff;outline-offset:-2px}
+.vb-shell .vb-content-advanced>div{padding:12px;display:grid;gap:12px;border-top:1px solid #444d64}
+
+/* Beginner-friendly one-click design treatments. A preset changes only the selected node. */
+.vb-shell .vb-look-presets{
+  margin:3px 0 17px;padding:14px;border-radius:12px;
+  background:linear-gradient(145deg,#292c49,#213c47);
+  border:1px solid #505783;
+}
+.vb-shell .vb-look-presets>p{
+  display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  color:#fff;font-size:12px;font-weight:800;margin:0 0 12px;
+}
+.vb-shell .vb-look-presets>p small{font-size:10px;color:#cad7e8;font-weight:500}
+.vb-shell .vb-look-presets-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vb-shell .vb-look-presets-grid button{
+  display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:7px;
+  border-radius:9px;border:1px solid #505776;background:#282d3d;
+  color:#f5f6fe;font-size:11px;min-width:0;
+}
+.vb-shell .vb-look-presets-grid button:hover{border-color:#b1a6ff;background:#353953}
+.vb-shell .vb-look-presets-grid button:focus-visible{outline:3px solid #aaa0ff;outline-offset:1px}
+.vb-shell .vb-look-presets-grid button span{height:30px;border-radius:6px;display:block}
+.vb-shell .vb-look-presets-grid button strong{font-size:10px;font-weight:760;text-align:left}
+.vb-shell .vb-look-reset{
+  display:block;margin-top:11px;text-align:left;border:0;padding:5px 0;
+  color:#c8f5eb;background:transparent;font-size:10px;text-decoration:underline;text-underline-offset:3px
+}
+.vb-shell .vb-look-reset:hover{color:#fff}

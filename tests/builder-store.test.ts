@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDefaultProject } from '../src/builder/defaultProject'
-import { createElement } from '../src/builder/elements'
+import { createElement, createPrebuiltSection } from '../src/builder/elements'
 import { useBuilderStore } from '../src/builder/store'
 import { findNode } from '../src/builder/tree'
 
@@ -105,6 +105,49 @@ describe('MVP builder state history',()=>{
     state=useBuilderStore.getState()
     expect(state.project.pages.some(page=>page.id===about!.id)).toBe(false)
     expect(state.project.pages[0].slug).toBe('/')
+  })
+
+  it('moves only top-level sections while preserving the header and supporting Undo',()=>{
+    const store=useBuilderStore.getState()
+    const root=store.project.pages[0].root
+    const features=createPrebuiltSection('features')
+    const faq=createPrebuiltSection('faq')
+    store.addNode(root.id,features)
+    useBuilderStore.getState().addNode(root.id,faq)
+    const layout=()=>useBuilderStore.getState().project.pages[0].root.children.map(n=>n.name)
+    expect(layout()).toEqual(['Navbar','Hero','Features','FAQ'])
+    useBuilderStore.getState().reorderSection(features.id,1)
+    expect(layout()).toEqual(['Navbar','Hero','FAQ','Features'])
+    useBuilderStore.getState().undo()
+    expect(layout()).toEqual(['Navbar','Hero','Features','FAQ'])
+    useBuilderStore.getState().redo()
+    expect(layout()).toEqual(['Navbar','Hero','FAQ','Features'])
+    const before=useBuilderStore.getState().history.length
+    useBuilderStore.getState().reorderSection('hero-home',-1)
+    expect(layout()[0]).toBe('Navbar')
+    expect(useBuilderStore.getState().history.length).toBe(before)
+  })
+
+  it('restores a saved earlier design as a newer revision and keeps a recovery snapshot',()=>{
+    const store=useBuilderStore.getState()
+    const root=store.project.pages[0].root
+    const section=createPrebuiltSection('features')
+    store.addNode(root.id,section)
+    useBuilderStore.getState().setSaveStatus('saved')
+    const originalVersion=useBuilderStore.getState().project.version
+    useBuilderStore.getState().updateNode(section.id,{name:'Modified features'})
+    const snapshot=useBuilderStore.getState().project
+    const restoreTarget=snapshot.versions.find(v=>v.project.pages[0].root.children.some(n=>n.id===section.id&&n.name==='Features'))
+    expect(restoreTarget).toBeDefined()
+    useBuilderStore.getState().restoreVersion(restoreTarget!.id)
+    const restored=useBuilderStore.getState()
+    expect(restored.project.version).toBeGreaterThan(snapshot.version)
+    expect(restored.project.version).toBeGreaterThan(originalVersion)
+    expect(restored.saveStatus).toBe('dirty')
+    expect(findNode(restored.project.pages[0].root,section.id)?.name).toBe('Features')
+    expect(restored.project.versions[0].label).toBe('Before version restore')
+    restored.undo()
+    expect(findNode(useBuilderStore.getState().project.pages[0].root,section.id)?.name).toBe('Modified features')
   })
 
   it('does not create history or select a phantom node for invalid nesting',()=>{

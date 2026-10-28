@@ -60,6 +60,8 @@ html:not(.builder-editing) .builder-node-label,html:not(.builder-editing) .build
 .builder-node-label button.builder-move-button{color:#b8b1ff;cursor:grab}
 .builder-node-label button.builder-move-button:active{cursor:grabbing}
 .builder-node-label button.builder-size-button{color:#b8b1ff;cursor:nwse-resize}
+.builder-node-label button.builder-add-section{color:#d9fbe7;background:rgba(16,185,129,.17);font-size:19px}
+.builder-node-label button.builder-add-section:hover,.builder-node-label button.builder-add-section:focus-visible{background:#047857;color:white}
 .builder-corner-hit{position:fixed;z-index:2147483647;display:grid;place-items:center;width:36px;height:36px;background:transparent;border:0;border-radius:5px;touch-action:none;user-select:none;cursor:nwse-resize}
 .builder-corner-hit[data-edge="ne"],.builder-corner-hit[data-edge="sw"]{cursor:nesw-resize}
 /* Professional, unobtrusive corners: no persistent square knobs. The hover
@@ -164,7 +166,7 @@ ${body}${emptyState}
     const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
-    const toolbarWidth=movable?185:110
+    const toolbarWidth=el.dataset.builderType==='section'?245:(movable?185:110)
     label.style.left=Math.max(6,Math.min(rect.left+Math.max(0,rect.width/2-toolbarWidth/2),window.innerWidth-toolbarWidth-6))+'px'
     label.style.top=(rect.top>=44?rect.top-36:Math.min(window.innerHeight-36,rect.bottom+7))+'px'
     const labelName=document.createElement('span')
@@ -306,6 +308,14 @@ ${body}${emptyState}
         // Browser mouse release can occur outside this iframe (especially at Fit zoom).
         document.addEventListener('mouseleave',up)
       }
+    }
+    // Shopify-style on-canvas insertion: the owner chooses a section in the
+    // outer editor rather than mutating the sandboxed preview directly.
+    if(el.dataset.builderType==='section'){
+      control('＋','Add section before '+(el.dataset.builderName||'section'),
+        ()=>send('section-insert-request',{targetId:el.dataset.builderNode,mode:'before'}),'builder-add-section')
+      control('＋','Add section after '+(el.dataset.builderName||'section'),
+        ()=>send('section-insert-request',{targetId:el.dataset.builderNode,mode:'after'}),'builder-add-section')
     }
     if(movable){
       const moveButton=control('✥','Drag to move the selected element',()=>{},'builder-move-button')
@@ -514,6 +524,33 @@ ${body}${emptyState}
       }
       removeDropMarker()
       if(msg.payload&&intent)send('canvas-drop',{payload:msg.payload,targetId:intent.el.dataset.builderNode,mode:intent.mode})
+      return
+    }
+    if(msg.type==='reveal-node'&&typeof msg.id==='string'){
+      const el=document.querySelector('[data-builder-node="'+CSS.escape(msg.id)+'"]')
+      if(el){
+        const rect=el.getBoundingClientRect()
+        if(rect.top<24||rect.bottom>window.innerHeight-24)el.scrollIntoView({block:'center',behavior:'smooth'})
+      }
+      return
+    }
+    if(msg.type==='scan-layout'){
+      const issues=[]
+      const viewport=document.documentElement.clientWidth||window.innerWidth
+      document.querySelectorAll('[data-builder-node]').forEach(el=>{
+        if(issues.length>=35||el.dataset.builderName==='Page')return
+        const box=el.getBoundingClientRect()
+        if(!box.width||!box.height)return
+        if(box.left< -3||box.right>viewport+3){
+          issues.push({id:el.dataset.builderNode,name:el.dataset.builderName||'Element',
+            detail:'Extends beyond the '+viewport+'px preview width',kind:'overflow'})
+        }else if(el.clientWidth>0&&el.scrollWidth>el.clientWidth+5&&
+          getComputedStyle(el).overflowX!=='auto'){
+          issues.push({id:el.dataset.builderNode,name:el.dataset.builderName||'Element',
+            detail:'Content may be clipped horizontally',kind:'clipped'})
+        }
+      })
+      send('layout-scan',{issues,viewport})
       return
     }
     if(msg.type==='selection'){

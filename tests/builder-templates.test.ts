@@ -3,29 +3,31 @@ import { createDefaultProject } from '../src/builder/defaultProject'
 import { applyTemplate, builderTemplates } from '../src/builder/templates'
 
 describe('builder templates',()=>{
-  it('keeps the theme choice intentionally limited to two professional options',()=>{
-    expect(builderTemplates).toHaveLength(2)
-    expect(builderTemplates.map(x=>x.name)).toEqual(['Simple','Professional'])
-    expect(builderTemplates.map(x=>x.category)).toEqual(['Essential','Editorial'])
+  it('offers one ecommerce theme and two professional general-purpose themes',()=>{
+    expect(builderTemplates).toHaveLength(3)
+    expect(builderTemplates.map(x=>x.name)).toEqual(['Online Store','Simple','Professional'])
+    expect(builderTemplates.map(x=>x.category)).toEqual(['Essential','Essential','Editorial'])
   })
 
-  it('keeps both starting themes intentionally simple',()=>{
+  it('keeps starting themes structured and beginner-friendly',()=>{
     for(const template of builderTemplates){
       const project=template.build()
       const sections=project.pages[0].root.children
       expect(sections.length).toBeGreaterThanOrEqual(4)
-      expect(sections.length).toBeLessThanOrEqual(6)
+      expect(sections.length).toBeLessThanOrEqual(template.id==='storefront'?8:6)
       expect(sections[0].type).toBe('navbar')
       expect(sections.at(-1)?.type).toBe('footer')
       const hero=sections.find(n=>n.name==='Hero')
       expect(hero?.children?.[0]?.children?.some(n=>n.name==='Hero eyebrow')).toBe(true)
-      expect(sections.some(n=>n.name==='Features')).toBe(true)
+      if(template.id==='storefront')expect(sections.some(n=>n.name==='Shop Introduction')).toBe(true)
+      else expect(sections.some(n=>n.name==='Features')).toBe(true)
       expect(sections.some(n=>n.name==='CTA')).toBe(true)
     }
   })
 
   it('uses fluid professional CSS and visible focus states',()=>{
-    const [essential,editorial]=builderTemplates.map(t=>t.build())
+    const essential=builderTemplates.find(t=>t.id==='essential')!.build()
+    const editorial=builderTemplates.find(t=>t.id==='editorial')!.build()
     expect(essential.styles.display.desktop.none.fontSize).toContain('clamp(')
     expect(editorial.styles.display.desktop.none.fontSize).toContain('clamp(')
     expect(essential.styles.button.desktop.focused?.outline).toContain('var(--accent)')

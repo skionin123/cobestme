@@ -132,6 +132,30 @@ export function DesignControls(){
     </section>}
     {(frame||node.type==='button')&&<section className="vb-design-group">
       <div className="vb-design-heading"><strong>Background</strong><small>Color · Gradient · Image</small></div>
+      <div className="vb-look-presets" aria-label="Ready-made color styles">
+        <p>Quick styles <small>Try a look, then customize it below.</small></p>
+        <div className="vb-look-presets-grid">
+          {[
+            {name:'Vibrant',from:'#6148df',to:'#139e99',text:'#ffffff'},
+            {name:'Ocean',from:'#cfeaff',to:'#ddf9f1',text:'#17375a'},
+            {name:'Peach',from:'#fff0dd',to:'#ffbfaa',text:'#553b4b'},
+            {name:'Midnight',from:'#252b64',to:'#42348e',text:'#ffffff'},
+          ].map(preset=><button type="button" key={preset.name}
+            aria-label={'Apply '+preset.name+' color style'}
+            title={'Apply '+preset.name+' colors to selected element'}
+            onClick={()=>apply('Apply '+preset.name+' color style',{
+              backgroundImage:makeGradient('linear',preset.from,preset.to,125),
+              backgroundColor:null,
+              color:preset.text
+            })}>
+            <span aria-hidden="true" style={{backgroundImage:makeGradient('linear',preset.from,preset.to,125)}}/>
+            <strong>{preset.name}</strong>
+          </button>)}
+        </div>
+        <button className="vb-look-reset" type="button" onClick={()=>apply('Reset selected color style',{backgroundImage:null,backgroundColor:null,color:null})}>
+          Reset to theme style
+        </button>
+      </div>
       <div className="vb-design-tabs" role="group" aria-label="Background type">
         {['solid','gradient','image'].map(m=><button type="button" key={m} aria-pressed={mode===m}
           onClick={()=>{
@@ -204,6 +228,40 @@ export function DesignControls(){
       {frame&&<NumberField name="Content gap" value={read('gap')||'0px'}
         onChange={n=>apply('Content gap',{gap:n+'px'})}/>}
     </section>}
+    {['container','div','grid','flex','columns'].includes(node.type)&&
+      <section className="vb-design-group vb-easy-layout" aria-label="Quick responsive layout">
+        <div className="vb-design-heading"><strong>Easy responsive layouts</strong><small>Desktop & phone</small></div>
+        <p className="vb-basic-note">Let items flow naturally. No need to drag every item into an exact position.</p>
+        <div className="vb-easy-layout-grid">
+          <button type="button" aria-label="Use vertical stack layout"
+            onClick={()=>mutate('Vertical responsive stack',draft=>{
+              for(const device of ['desktop','mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'flex',flexDirection:'column',alignItems:'stretch',gap:'20px',minWidth:'0'
+                })
+            })}>Vertical stack</button>
+          <button type="button" aria-label="Use row that stacks on phone"
+            onClick={()=>mutate('Row that stacks on phone',draft=>{
+              updateElementAppearance(draft,node.id,'desktop',{
+                display:'flex',flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:'24px',minWidth:'0'
+              })
+              for(const device of ['mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'flex',flexDirection:'column',alignItems:'stretch',gap:'16px',minWidth:'0'
+                })
+            })}>Row → phone stack</button>
+          <button type="button" aria-label="Use two columns that stack on phone"
+            onClick={()=>mutate('Responsive two columns',draft=>{
+              updateElementAppearance(draft,node.id,'desktop',{
+                display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'24px',minWidth:'0'
+              })
+              for(const device of ['mobileLandscape','mobilePortrait'] as const)
+                updateElementAppearance(draft,node.id,device,{
+                  display:'grid',gridTemplateColumns:'minmax(0,1fr)',gap:'16px',minWidth:'0'
+                })
+            })}>2 columns → 1</button>
+        </div>
+      </section>}
     {frame&&<section className="vb-design-group">
       <div className="vb-design-heading"><strong>Responsive layout</strong><small>{breakpoint}</small></div>
       {(node.type==='flex'||node.type==='grid'||node.type==='container'||node.type==='div')&&
