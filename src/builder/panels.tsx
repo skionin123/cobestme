@@ -640,7 +640,7 @@ export function SettingsPanel(){
   const node=findNode(page.root,selectedId)
   if(!node)return <EmptyPanel text="Click a heading, image or button on your page to start editing its content."/>
   const linkTypes=['link','button','lightbox']
-  const isText=['heading','paragraph','button','link'].includes(node.type)
+  const isText=['heading','paragraph','richText','quote','button','link'].includes(node.type)
   return <div className="h-full overflow-auto pb-8">
     <div className="vb-content-intro">
       <span>CONTENT EDITOR</span>
@@ -650,8 +650,8 @@ export function SettingsPanel(){
         'Choose a text, image or button to edit what visitors see.'}</p>
     </div>
     {isText&&<StyleGroup title="Text"><label><span className={label}>{node.type==='button'?'Button label':'Text'}</span>
-      {node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:
-      <input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}
+      {['paragraph','richText','quote'].includes(node.type)?<textarea aria-label="Text" className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:
+      <input aria-label={node.type==='button'?'Button label':'Text'} className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}
     </label></StyleGroup>}
     {linkTypes.includes(node.type)&&<StyleGroup title="Link destination">
       <p className="vb-content-hint">Where should visitors go when they click this?</p>
