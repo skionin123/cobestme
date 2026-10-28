@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import { isAuthenticated, uploadMedia } from '../api.js'
 import {
   ChevronDown, ChevronRight, Copy, File, FolderPlus, GripVertical, Image as ImageIcon,
-  Layers, Plus, Save, Trash2, Upload, X
+  Eye, EyeOff, Layers, Plus, Save, Trash2, Upload, X
 } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
@@ -27,12 +27,21 @@ function slugClass(value:string){
 const canvasContainerTypes=new Set(['div','section','container','grid','flex','columns','form','navbar','footer','tabs','collectionList'])
 
 function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:string;label:string;note?:string;section?:boolean}){
+  // HTML drag works with a desktop mouse. Touch browsers do not reliably
+  // support it, so use the same editor drop target via the dnd-kit TouchSensor.
+  const {setNodeRef,listeners,isDragging}=useDraggable({
+    id:`palette:${section?'section':'element'}:${type}`,
+    data:{kind:section?'new-section':'new-element',type}
+  })
+  const didTouchDrag=useRef(false)
+  if(isDragging)didTouchDrag.current=true
   const project=useBuilderStore(s=>s.project)
   const selected=useBuilderStore(s=>s.selectedNodeId)
   const addNode=useBuilderStore(s=>s.addNode)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const selectedNode=findNode(page.root,selected)
   const clickAdd=()=>{
+    if(didTouchDrag.current){didTouchDrag.current=false;return}
     const node=section?createPrebuiltSection(type):createElement(type as any)
     if(section){addNode(page.root.id,node);return}
     const parent=selectedNode&&canvasContainerTypes.has(selectedNode.type)
@@ -46,7 +55,10 @@ function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:st
     event.dataTransfer.setData('application/x-cobest-builder',payload)
     event.dataTransfer.setData('text/plain','cobest:'+payload)
   }
-  return <button draggable onDragStart={dragStart} onClick={clickAdd} title={`Click to add ${labelText}, or drag it onto the page`} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
+  return <button ref={setNodeRef} draggable onDragStart={dragStart}
+    onTouchStart={listeners?.onTouchStart as React.TouchEventHandler<HTMLButtonElement> | undefined} onClick={clickAdd}
+    title={`Tap to add ${labelText}, or touch-and-drag onto the page`}
+    aria-label={`Add ${labelText}`} className="vb-palette-item flex min-h-16 w-full cursor-grab flex-col items-start rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-left hover:border-zinc-700 hover:bg-zinc-800 active:cursor-grabbing">
     <strong className="text-[11px] font-semibold text-zinc-100">{labelText}</strong>
     <span className="mt-1 text-[8px] font-medium text-zinc-600">{note||'Click to add · drag to place'}</span>
   </button>
@@ -54,9 +66,17 @@ function DraggablePaletteItem({type,label:labelText,note,section=false}:{type:st
 
 export function AddPanel(){
   const [query,setQuery]=useState('')
+  const [showThemes,setShowThemes]=useState(false)
   const q=query.trim().toLowerCase()
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
+      <span className={label}>Build your store</span>
+      <button type="button" aria-expanded={showThemes} onClick={()=>setShowThemes(value=>!value)}
+        className="vb-theme-entry">
+        <span><strong>Choose a website theme</strong><small>Online Store · Simple · Professional</small></span>
+        <ChevronRight size={16}/>
+      </button>
+      {showThemes&&<div className="vb-theme-picker-inline"><TemplatesPanel/></div>}
       <span className={label}>Add elements</span>
       <strong className="mb-2 block text-[11px] text-zinc-200">Building blocks</strong>
       <input className={control} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search elements"/>
@@ -84,11 +104,45 @@ function DropLine({id}:{id:string}){
   return <div ref={setNodeRef} data-drop-id={id} className={'h-1 rounded-full transition '+(isOver?'bg-indigo-500':'bg-transparent')}/>
 }
 
+function SectionInsert({rootId,index,placement}:{rootId:string;index:number;placement:string}){
+  const [open,setOpen]=useState(false)
+  const addNode=useBuilderStore(s=>s.addNode)
+  const templates=sectionCatalog.filter(section=>section.id!=='footer')
+  return <div className="vb-section-insert">
+    <button type="button" className="vb-section-insert-trigger" aria-expanded={open}
+      aria-label={`Add section ${placement}`} onClick={()=>setOpen(value=>!value)}>
+      <Plus size={13}/> Add section here
+    </button>
+    {open&&<div className="vb-section-insert-options" role="group" aria-label={`Choose section ${placement}`}>
+      {templates.map(template=><button type="button" key={template.id}
+        aria-label={`Insert ${template.label} ${placement}`}
+        onClick={()=>{addNode(rootId,createPrebuiltSection(template.id),index);setOpen(false)}}>
+        <Plus size={11}/>{template.label}
+      </button>)}
+    </div>}
+  </div>
+}
+
 function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
+  const project=useBuilderStore(s=>s.project)
+  const activePage=project.pages.find(page=>page.id===project.activePageId)||project.pages[0]
+  const sectionIndex=depth===1?activePage.root.children.findIndex(child=>child.id===node.id):-1
+  const reorderSection=useBuilderStore(s=>s.reorderSection)
+  const canMoveUp=sectionIndex>0&&node.type==='section'&&activePage.root.children[sectionIndex-1]?.type==='section'
+  const canMoveDown=sectionIndex>=0&&node.type==='section'&&activePage.root.children[sectionIndex+1]?.type==='section'
   const selectNode=useBuilderStore(s=>s.selectNode)
+  const hoverNode=useBuilderStore(s=>s.hoverNode)
+  const rowRef=useRef<HTMLDivElement|null>(null)
+  React.useEffect(()=>{
+    if(selected!==node.id)return
+    const row=rowRef.current
+    if(row&&row.getBoundingClientRect().height>0)
+      row.scrollIntoView({block:'nearest',behavior:'smooth'})
+  },[selected,node.id])
   const duplicateNode=useBuilderStore(s=>s.duplicateNode)
   const deleteNode=useBuilderStore(s=>s.deleteNode)
+  const updateNode=useBuilderStore(s=>s.updateNode)
   const [open,setOpen]=useState(true)
   const {attributes,listeners,setNodeRef:dragRef,transform,isDragging}=useDraggable({id:`node:${node.id}`,data:{kind:'node',nodeId:node.id},disabled:depth===0})
   const acceptsChildren=canAcceptChildren(node)
@@ -97,15 +151,35 @@ function NavigatorNode({node,depth=0}:{node:BuilderNode;depth?:number}){
   return <div>
     {depth>0&&<DropLine id={`before:${node.id}`}/>} 
     <div ref={dropRef} className={'relative '+(isOver?'bg-indigo-500/10':'')}>
-      <div ref={dragRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
+      <div ref={element=>{dragRef(element);rowRef.current=element}} onMouseEnter={()=>hoverNode(node.id)} onMouseLeave={()=>hoverNode(null)} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:8+depth*14}} className={'vb-nav-row group flex h-8 items-center gap-1.5 rounded-md pr-1 text-[10px] '+(selected===node.id?'is-selected bg-indigo-500/20 text-white':'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200')}>
         <button className="vb-nav-toggle grid h-6 w-5 place-items-center text-zinc-600" onClick={()=>setOpen(x=>!x)}>{childCount?(open?<ChevronDown size={12}/>:<ChevronRight size={12}/>):null}</button>
         <button {...listeners} {...attributes} className="vb-nav-drag cursor-grab text-zinc-600 opacity-0 group-hover:opacity-100"><GripVertical size={12}/></button>
         <button className="vb-nav-name min-w-0 flex-1 truncate text-left" title={node.name} aria-label={"Select "+node.name+" layer"} onClick={()=>selectNode(node.id)}><span className="vb-nav-type mr-2 text-[8px] uppercase text-zinc-600">{node.type}</span><span className="vb-nav-title">{node.name}</span></button>
         {node.componentId&&<span title="Component" className="rounded bg-violet-500/15 px-1 text-[8px] text-violet-300">C</span>}
+        {depth>0&&<button type="button" aria-label={(node.hidden?'Show ':'Hide ')+node.name}
+          title={node.hidden?'Show on website':'Hide from website'}
+          className="vb-nav-visibility" onClick={()=>updateNode(node.id,{hidden:!node.hidden})}>
+          {node.hidden?<EyeOff size={13}/>:<Eye size={13}/>}
+        </button>}
         {depth>0&&<div className="hidden items-center gap-0.5 group-hover:flex"><button title="Duplicate" className="rounded p-1 text-zinc-500 hover:bg-zinc-700 hover:text-white" onClick={()=>duplicateNode(node.id)}><Copy size={10}/></button><button title="Delete" className="rounded p-1 text-zinc-500 hover:bg-red-500/10 hover:text-red-300" onClick={()=>deleteNode(node.id)}><Trash2 size={10}/></button></div>}
       </div>
     </div>
-    {open&&childCount>0&&<div>{node.children.map(child=><NavigatorNode key={child.id} node={child} depth={depth+1}/>)}</div>}
+    {sectionIndex>=0&&node.type==='section'&&<div className="vb-section-row-actions" role="group" aria-label={`Rearrange ${node.name}`}>
+      <button type="button" aria-label={`Move section ${node.name} up`} disabled={!canMoveUp}
+        onClick={()=>reorderSection(node.id,-1)}>↑ Move up</button>
+      <button type="button" aria-label={`Move section ${node.name} down`} disabled={!canMoveDown}
+        onClick={()=>reorderSection(node.id,1)}>↓ Move down</button>
+    </div>}
+    {open&&childCount>0&&<div>{node.children.map((child,index)=><React.Fragment key={child.id}>
+      {depth===0&&child.type==='section'&&index===node.children.findIndex(item=>item.type==='section')&&
+        <SectionInsert rootId={node.id} index={index} placement={`before ${child.name}`}/>}
+      <NavigatorNode node={child} depth={depth+1}/>
+      {depth===0&&child.type==='section'&&
+        <SectionInsert rootId={node.id} index={index+1} placement={`after ${child.name}`}/>}
+    </React.Fragment>)}
+      {depth===0&&!node.children.some(child=>child.type==='section')&&
+        <SectionInsert rootId={node.id} index={Math.max(0,node.children.findIndex(child=>child.type==='footer'))||node.children.length} placement="at end of page"/>}
+    </div>}
     {depth>0&&<DropLine id={`after:${node.id}`}/>}
   </div>
 }
@@ -116,8 +190,8 @@ export function TemplatesPanel(){
   return <div className="h-full overflow-auto">
     <div className={panelSection}>
       <span className={label}>Starting theme</span>
-      <strong className="block text-[12px] text-zinc-100">Choose one of two directions.</strong>
-      <p className="mt-1 text-[9px] leading-4 text-zinc-500">Both are intentionally simple. Pick a base, then make the real design decisions directly on the canvas.</p>
+      <strong className="block text-[12px] text-zinc-100">Start with a ready-made design.</strong>
+      <p className="mt-1 text-[9px] leading-4 text-zinc-500">Choose an Online Store layout or a clean business design. Replacing a design requires confirmation and remains in version history.</p>
     </div>
     <div className="space-y-3 p-3">{builderTemplates.map(template=><article key={template.id} className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
       <div className="h-28 p-3" style={{background:`linear-gradient(135deg,${template.accent}20,#13161b)`}}>
@@ -387,6 +461,26 @@ export function StylePanel(){
       <div className="vb-inspector-name"><strong>{node.name}</strong><span>{node.type}</span></div>
       <p>Edit directly on the page or refine its layout here.</p>
     </section>
+    {['heading','paragraph','button','link','richText','quote'].includes(node.type)&&
+      <section className="vb-inspector-quick vb-quick-content">
+        <div className="vb-inspector-heading"><strong>Content</strong><span>Click and edit</span></div>
+        <label className="vb-basic-field"><span>Text</span>
+          {['paragraph','richText','quote'].includes(node.type)?
+            <textarea aria-label="Quick edit text" rows={3} className={control} value={node.content||''}
+              onChange={e=>useBuilderStore.getState().updateNode(node.id,{content:e.target.value})}/>:
+            <input aria-label="Quick edit text" className={control} value={node.content||''}
+              onChange={e=>useBuilderStore.getState().updateNode(node.id,{content:e.target.value})}/>}
+        </label>
+        {['button','link'].includes(node.type)&&<label className="vb-basic-field"><span>Button / link destination</span>
+          <input aria-label="Quick edit link destination" className={control}
+            value={node.attributes.href||''} placeholder="/shop or https://example.com"
+            onChange={e=>useBuilderStore.getState().updateNodeAttribute(node.id,'href',e.target.value)}/>
+        </label>}
+      </section>}
+    {node.type==='image'&&<section className="vb-inspector-quick vb-quick-content">
+      <div className="vb-inspector-heading"><strong>Image</strong><span>Replace photo</span></div>
+      <ImageSettings node={node}/>
+    </section>}
     <DesignControls/>
     {editable&&<section className="vb-inspector-quick">
       <div className="vb-inspector-heading"><strong>Position</strong><span>{breakpoint.replace('mobilePortrait','Mobile').replace('mobileLandscape','Landscape')}</span></div>
@@ -544,16 +638,46 @@ export function SettingsPanel(){
   const removeAttr=useBuilderStore(s=>s.removeNodeAttribute)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
-  if(!node)return <EmptyPanel text="Select an element to edit settings."/>
+  if(!node)return <EmptyPanel text="Click a heading, image or button on your page to start editing its content."/>
   const linkTypes=['link','button','lightbox']
+  const isText=['heading','paragraph','button','link'].includes(node.type)
   return <div className="h-full overflow-auto pb-8">
-    <StyleGroup title="Element"><label><span className={label}>Name</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label><label><span className={label}>ID</span><input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}/></label>{node.type==='heading'&&<label><span className={label}>Heading level</span><select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select></label>}</StyleGroup>
-    {['heading','paragraph','button','link'].includes(node.type)&&<StyleGroup title="Content"><label><span className={label}>Text</span>{node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:<input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}</label></StyleGroup>}
-    {linkTypes.includes(node.type)&&<StyleGroup title="Link"><label><span className={label}>Destination</span><input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)} placeholder="URL, /page, #section, mailto:, tel:"/></label><label className="flex items-center gap-2 text-[10px] text-zinc-400"><input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in new tab</label></StyleGroup>}
+    <div className="vb-content-intro">
+      <span>CONTENT EDITOR</span>
+      <strong>{node.name}</strong>
+      <p>{isText?'Change the words your visitors will read. Your canvas updates as you type.':
+        node.type==='image'?'Replace your photo and describe it for accessibility.':
+        'Choose a text, image or button to edit what visitors see.'}</p>
+    </div>
+    {isText&&<StyleGroup title="Text"><label><span className={label}>{node.type==='button'?'Button label':'Text'}</span>
+      {node.type==='paragraph'?<textarea className={control} rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>:
+      <input className={control} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})}/>}
+    </label></StyleGroup>}
+    {linkTypes.includes(node.type)&&<StyleGroup title="Link destination">
+      <p className="vb-content-hint">Where should visitors go when they click this?</p>
+      <label><span className={label}>Page or URL</span>
+        <input className={control} value={node.attributes.href||''} onChange={e=>updateAttr(node.id,'href',e.target.value)}
+          placeholder="e.g. /contact or https://example.com"/></label>
+      <label className="flex items-center gap-2 text-[10px] text-zinc-400">
+        <input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>e.target.checked?updateAttr(node.id,'target','_blank'):removeAttr(node.id,'target')}/> Open in a new tab
+      </label>
+    </StyleGroup>}
     {node.type==='image'&&<ImageSettings node={node}/>}
     {node.type==='form'&&<StyleGroup title="Form"><label><span className={label}>Action</span><input className={control} value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)}/></label><label><span className={label}>Redirect after success</span><input className={control} value={node.attributes['data-redirect']||''} onChange={e=>updateAttr(node.id,'data-redirect',e.target.value)}/></label></StyleGroup>}
     {node.type==='collectionList'&&<StyleGroup title="CMS binding"><label><span className={label}>Collection</span><select className={control} value={node.attributes.collectionId||''} onChange={e=>updateAttr(node.id,'collectionId',e.target.value)}><option value="">Select collection</option>{project.collections.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label></StyleGroup>}
-
+    <StyleGroup title="Element name">
+      <label><span className={label}>Name in Layers</span><input className={control} value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/></label>
+    </StyleGroup>
+    <details className="vb-content-advanced">
+      <summary>Advanced element settings</summary>
+      <div><label><span className={label}>Element ID</span>
+        <input className={control} value={node.attributes.id||''} onChange={e=>updateAttr(node.id,'id',e.target.value)}
+          placeholder="Optional anchor ID"/></label>
+        {node.type==='heading'&&<label><span className={label}>Heading level</span>
+          <select className={control} value={node.tag} onChange={e=>updateNode(node.id,{tag:e.target.value})}>{['h1','h2','h3','h4','h5','h6'].map(x=><option key={x}>{x}</option>)}</select>
+        </label>}
+      </div>
+    </details>
   </div>
 }
 
