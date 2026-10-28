@@ -2,7 +2,7 @@ name: CoBest CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/cobest-editor-guided-workflow-2026]
   pull_request:
     branches: [main, feat/cobest-mvp-five-milestones]
 
