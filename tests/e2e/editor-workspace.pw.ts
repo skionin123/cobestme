@@ -34,6 +34,7 @@ test('professional editor fits canvas, keeps tools compact and reveals advanced 
   await frame.locator('[data-builder-node="hero-title-home"]').click()
   await expect(hierarchy.getByRole('button',{name:'Select Heading'})).toHaveAttribute('aria-current','true')
 
+  await page.getByRole('button',{name:'Design',exact:true}).click()
   await expect(page.getByRole('spinbutton',{name:'X',exact:true})).toBeVisible()
   await expect(page.getByRole('spinbutton',{name:'Y',exact:true})).toBeVisible()
   await expect(page.getByRole('spinbutton',{name:'Text size'})).toBeVisible()
