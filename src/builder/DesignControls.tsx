@@ -132,6 +132,30 @@ export function DesignControls(){
     </section>}
     {(frame||node.type==='button')&&<section className="vb-design-group">
       <div className="vb-design-heading"><strong>Background</strong><small>Color · Gradient · Image</small></div>
+      <div className="vb-look-presets" aria-label="Ready-made color styles">
+        <p>Quick styles <small>Try a look, then customize it below.</small></p>
+        <div className="vb-look-presets-grid">
+          {[
+            {name:'Vibrant',from:'#6148df',to:'#139e99',text:'#ffffff'},
+            {name:'Ocean',from:'#cfeaff',to:'#ddf9f1',text:'#17375a'},
+            {name:'Peach',from:'#fff0dd',to:'#ffbfaa',text:'#553b4b'},
+            {name:'Midnight',from:'#252b64',to:'#42348e',text:'#ffffff'},
+          ].map(preset=><button type="button" key={preset.name}
+            aria-label={'Apply '+preset.name+' color style'}
+            title={'Apply '+preset.name+' colors to selected element'}
+            onClick={()=>apply('Apply '+preset.name+' color style',{
+              backgroundImage:makeGradient('linear',preset.from,preset.to,125),
+              backgroundColor:null,
+              color:preset.text
+            })}>
+            <span aria-hidden="true" style={{backgroundImage:makeGradient('linear',preset.from,preset.to,125)}}/>
+            <strong>{preset.name}</strong>
+          </button>)}
+        </div>
+        <button className="vb-look-reset" type="button" onClick={()=>apply('Reset selected color style',{backgroundImage:null,backgroundColor:null,color:null})}>
+          Reset to theme style
+        </button>
+      </div>
       <div className="vb-design-tabs" role="group" aria-label="Background type">
         {['solid','gradient','image'].map(m=><button type="button" key={m} aria-pressed={mode===m}
           onClick={()=>{
