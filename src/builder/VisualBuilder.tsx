@@ -271,7 +271,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
     event.preventDefault()
     resizeSidebar(activeSidebarWidth+(event.key==='ArrowRight'?1:-1)*(event.shiftKey?40:20))
   }
-  const [rightTab,setRightTab]=useState<RightTab>('style')
+  const [rightTab,setRightTab]=useState<RightTab>('settings')
   const [preview,setPreview]=useState(false)
   const [zoomMode,setZoomMode]=useState<'fit'|'actual'>('fit')
   const [snappingEnabled,setSnappingEnabled]=useState(()=>{
@@ -479,7 +479,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           if(node&&['heading','paragraph','richText','button','link','quote','image'].includes(node.type)){
             // Beginner-first: selecting real content opens its content controls.
             // Desktop keeps the inspector visible, phone opens its editing drawer.
-            setRightTab('style')
+            setRightTab('settings')
             if(window.innerWidth<=680)setMobilePanel('style')
           }
         }
