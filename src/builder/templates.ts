@@ -274,7 +274,65 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
   return project
 }
 
+function commerceStarterProject(){
+  const project=templateProject(
+    'Essential',
+    ['announcement','shopIntro','imageText','storeBenefits','cta'],
+    'Discover your next favorite find.',
+    'Welcome to our online store. Customize this design and connect your real products before publishing.'
+  )
+  project.name='Online Store'
+  project.globals.colors={...project.globals.colors,ink:'#1c2730',accent:'#176c5a',muted:'#edf7f2'}
+  project.styles.button.desktop.none={...project.styles.button.desktop.none,background:'var(--accent)',borderColor:'var(--accent)'}
+  const home=project.pages[0]
+  const nav=home.root.children.find(node=>node.name==='Navbar')
+  const brand=nav?.children.find(node=>node.name==='Brand')
+  if(brand)brand.content='YOUR STORE'
+  const links=nav?.children.find(node=>node.name==='Nav Links')
+  if(links){for(const [i,link] of links.children.entries()){
+    link.content=i===0?'Shop':'Our Story'
+    link.attributes={href:i===0?'#shop':'#story'}
+  }}
+  const hero=home.root.children.find(node=>node.name==='Hero')
+  const inner=hero?.children[0]
+  const eyebrow=inner?.children.find(node=>node.name==='Hero eyebrow')
+  if(eyebrow)eyebrow.content='YOUR STORE · MADE FOR YOU'
+  const cta=inner?.children.find(node=>node.name==='Primary Button')
+  if(cta){cta.content='Explore the shop';cta.attributes={href:'#shop'}}
+  const secondary=inner?.children.find(node=>node.name==='Secondary hero link')
+  if(secondary){secondary.content='Our story →';secondary.attributes={href:'#story'}}
+  const announcement=home.root.children.find(node=>node.name==='Store Announcement')
+  const announcementLink=announcement?.children.find(node=>node.name==='Announcement Link')
+  if(announcementLink)announcementLink.attributes={href:'#shop'}
+  const shop=home.root.children.find(node=>node.name==='Shop Introduction')
+  if(shop){shop.attributes={...shop.attributes,id:'shop'}
+    const link=shop.children.find(node=>node.name==='Browse Products')
+    if(link){link.content='Browse products';link.attributes={href:'/shop'}}
+  }
+  const story=home.root.children.find(node=>node.name==='Image With Text')
+  if(story)story.attributes={...story.attributes,id:'story'}
+  const finish=home.root.children.find(node=>node.name==='CTA')
+  if(finish){
+    const heading=finish.children.find(node=>node.name==='CTA Heading')
+    if(heading)heading.content='Questions about an order?'
+    const description=finish.children.find(node=>node.name==='CTA Copy')
+    if(description)description.content='Replace this example contact link with your store support information.'
+    const link=finish.children.find(node=>node.name==='CTA Button')
+    if(link){link.content='Contact the store';link.attributes={href:'/contact'}}
+  }
+  home.seo={...home.seo,title:'Your Online Store',description:'Shop the latest from our store.'}
+  return project
+}
+
 export const builderTemplates:BuilderTemplate[]=[
+  {
+    id:'storefront',
+    name:'Online Store',
+    category:'Essential',
+    accent:'#176c5a',
+    description:'A simple shopping homepage with announcement, shop introduction, brand story and customer information. Connect actual products before launch.',
+    build:commerceStarterProject
+  },
   {
     id:'essential',
     name:'Simple',
