@@ -23,7 +23,7 @@ test.describe('merchant editing on a phone',()=>{
     await frame.locator('[data-builder-node="hero-title-home"]').click()
     const drawer=page.locator('.vb-right.vb-mobile-open')
     await expect(drawer).toBeVisible()
-    const quick=drawer.getByRole('textbox',{name:'Quick edit text'})
+    const quick=drawer.getByRole('textbox',{name:'Text',exact:true})
     await quick.fill('A shop designed by me')
     await expect(frame.locator('[data-builder-node="hero-title-home"]')).toHaveText('A shop designed by me')
     await page.getByRole('navigation',{name:'Phone website editing tools'})
