@@ -379,7 +379,7 @@ function Landing({ onStart, onLogin }) {
   ]
   return (
     <div className="landing">
-      <div className="announcement"><span>Build your website, sell online, and manage the business from one place.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
+      <div className="announcement"><span>Open your online shop with CoBest.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
       <nav className="landing-nav container">
         <Logo />
         <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
@@ -387,46 +387,32 @@ function Landing({ onStart, onLogin }) {
 
       <main className="hero-wrap container" id="product">
         <div className="hero-copy">
-          <div className="eyebrow-pill"><Sparkles size={14}/> YOUR IDEA DESERVES TO STAND OUT</div>
-          <h1>Make your business <span className="hero-gradient">impossible to ignore.</span></h1>
-          <p>Create a website that feels like your brand. Pick a starting design, make it your own, and bring your products and story together—without writing code.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Create my website <ArrowRight size={16}/></Button><a className="btn btn-secondary" href="#templates">Explore designs <ArrowRight size={15}/></a></div>
-          <div className="trust-row"><span><Check size={15}/> Start for free</span><span><Check size={15}/> Visual editing</span><span><Check size={15}/> Preview before publishing</span></div>
+          <h1>Your products.<br/><span className="hero-gradient">Your own shop.</span></h1>
+          <p>Give your shop a name, add your first product, and publish a storefront you can share with anyone.</p>
+          <div className="hero-actions"><Button onClick={onStart}>Create my shop <ArrowRight size={17}/></Button><a className="btn btn-secondary" href="#templates">Explore designs <ArrowRight size={15}/></a></div>
+          <div className="trust-row"><span><Check size={15}/> Start for free</span><span><Check size={15}/> No coding needed</span></div>
         </div>
-        <div className="hero-stage">
-          <div className="cb-float cb-float-top" aria-hidden="true"><Sparkles size={17}/> Made to feel like your brand</div>
-          <div className="hero-product-shell" role="img" aria-label="Example website editor with a colorful storefront preview">
-            <div className="mini-window-bar"><span/><span/><span/><b>CoBest · website preview</b></div>
-            <div className="mini-app">
-              <aside><div className="mini-logo">C</div><span className="active-mini"/><span/><span/><span/><span/></aside>
-              <section>
-                <small>DESIGN YOUR WEBSITE</small><h3>Aurelia Studio <span aria-hidden="true">✦</span></h3>
-                <div className="mini-progress"><div style={{width:'76%'}}/></div>
-                <div className="mini-cards"><div><b>02</b><span>Starter themes</span></div><div><b>Live</b><span>Page preview</span></div><div><b>∞</b><span>Your creativity</span></div></div>
-                <div className="cb-demo-store">
-                  <div className="cb-demo-store-copy"><small>MADE FOR EVERYDAY JOY</small><h4>Little things. Big personality.</h4><span className="cb-demo-pill">Explore the collection</span></div>
-                  <div className="cb-demo-products"><div className="cb-demo-product"/><div className="cb-demo-product"/></div>
-                </div>
-                <div className="cb-demo-store-foot"><span/><span/><span/></div>
-              </section>
-            </div>
+        <figure className="shop-example">
+          <figcaption>Example storefront</figcaption>
+          <div className="sample-shop">
+            <div className="sample-shop-header"><strong>Sunday Studio</strong><ShoppingBag size={18} aria-hidden="true"/></div>
+            <img src="/images/studio-mug.webp" alt="A cream enamel mug held against a rose-pink background" width="900" height="600" fetchPriority="high"/>
+            <div className="sample-shop-product"><strong>Everyday enamel mug</strong><span>₱350</span></div>
           </div>
-          <div className="cb-float cb-float-bottom" aria-hidden="true"><Palette size={17}/> Pick a color. Make it yours.</div>
-          <div className="cb-demo-caption">Illustrative demo storefront · Your design will be unique</div>
-        </div>
+        </figure>
       </main>
 
-      <section className="audience-strip container">
-        <span>Start with the website. Keep everything simple.</span><div><b>Website</b><b>Products</b><b>Orders</b><b>Customers</b><b>Content</b><b>Analytics</b></div>
+      <section className="shop-steps" aria-label="How to launch your shop">
+        <div className="container"><span><Store aria-hidden="true"/>Name your shop</span><ArrowRight aria-hidden="true"/><span><Package aria-hidden="true"/>Add a product</span><ArrowRight aria-hidden="true"/><span><ShoppingBag aria-hidden="true"/>Publish and share</span></div>
       </section>
 
       <section className="landing-section container" id="features">
         <p className="section-kicker">YOUR SPACE TO CREATE</p><h2>From your first idea to your online storefront.</h2><p className="cb-section-lead">Design something worth sharing, then organize the products and business details behind it—all in one place.</p>
         <div className="feature-grid four">
-          <article><div className="cb-feature-icon"><Palette size={25}/></div><span className="cb-feature-number">01 / DESIGN</span><h3>Make it yours</h3><p>Start with a professional theme and customize your pages, colors, and content to match your brand.</p></article>
-          <article><div className="cb-feature-icon"><Package size={25}/></div><span className="cb-feature-number">02 / PRODUCTS</span><h3>Show what you sell</h3><p>Organize your catalog, categories, prices, and product details together.</p></article>
-          <article><div className="cb-feature-icon"><ShoppingBag size={25}/></div><span className="cb-feature-number">03 / BUSINESS</span><h3>Stay organized</h3><p>Work with your orders and customers without losing track of your website.</p></article>
-          <article><div className="cb-feature-icon"><BarChart3 size={25}/></div><span className="cb-feature-number">04 / INSIGHTS</span><h3>See the big picture</h3><p>Keep useful store information and performance views in the same workspace.</p></article>
+          <article><div className="cb-feature-icon"><Palette size={25}/></div><span className="cb-feature-number">DESIGN</span><h3>Make it yours</h3><p>Start with a professional theme and customize your pages, colors, and content to match your brand.</p></article>
+          <article><div className="cb-feature-icon"><Package size={25}/></div><span className="cb-feature-number">PRODUCTS</span><h3>Show what you sell</h3><p>Organize your catalog, categories, prices, and product details together.</p></article>
+          <article><div className="cb-feature-icon"><ShoppingBag size={25}/></div><span className="cb-feature-number">BUSINESS</span><h3>Stay organized</h3><p>Work with your orders and customers without losing track of your website.</p></article>
+          <article><div className="cb-feature-icon"><BarChart3 size={25}/></div><span className="cb-feature-number">INSIGHTS</span><h3>See the big picture</h3><p>Keep useful store information and performance views in the same workspace.</p></article>
         </div>
       </section>
 

@@ -260,3 +260,62 @@
 @media(prefers-reduced-motion:reduce){
   .landing .hero-product-shell,.landing .feature-grid article,.landing .marketing-template-grid article{transition:none}
 }
+
+/* Public shop-launch theme */
+.landing{
+  --market-ink:#291b39;
+  --market-berry:#8d1854;
+  --market-lemon:#ffdf57;
+  background:#fffcf6;
+  color:var(--market-ink);
+}
+.landing .announcement{background:linear-gradient(100deg,#54204d,#861b54);color:#fff}
+.landing .landing-nav{background:#fffcf6;box-shadow:none}
+.landing .logo-mark,.landing .landing-nav .btn-primary{background:var(--market-berry);border-color:var(--market-berry)}
+.landing .hero-wrap{padding-block:clamp(60px,6.5vw,100px);align-items:center}
+.landing .hero-wrap:before{inset:0 calc(50% - 50vw);background:var(--market-lemon)}
+.landing .hero-copy h1{font-size:clamp(54px,6.4vw,96px);line-height:.98;color:var(--market-ink);margin:0 0 24px}
+.landing .hero-copy .hero-gradient{color:var(--market-berry);background:none;-webkit-text-fill-color:currentColor}
+.landing .hero-copy>p,.landing .trust-row span,.landing .trust-row svg{color:var(--market-ink)}
+.landing .hero-actions .btn-primary{background:linear-gradient(110deg,#8d1854,#751748);border-color:#751748;box-shadow:none}
+.landing .hero-actions .btn-primary:hover{background:#67143f}
+.landing .hero-actions .btn-secondary{background:transparent;color:var(--market-ink);border:1px solid #604845;box-shadow:none}
+.landing .shop-example{width:min(100%,480px);justify-self:center;margin:0;min-width:0;padding:0 8px}
+.landing .shop-example figcaption{color:#563449;text-align:right;font-size:12px;margin:0 6px 12px;font-weight:650}
+.landing .sample-shop{background:#fff7eb;border:2px solid var(--market-ink);border-radius:16px;overflow:hidden;transform:rotate(1.5deg);box-shadow:7px 8px 0 #c16581}
+.landing .sample-shop-header,.landing .sample-shop-product{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;color:var(--market-ink)}
+.landing .sample-shop-header{background:#ffc9da;border-bottom:2px solid var(--market-ink)}
+.landing .sample-shop-header strong{font:italic 700 clamp(21px,2.3vw,31px)/1.1 Georgia,serif;letter-spacing:-.06em}
+.landing .sample-shop img{display:block;width:100%;height:auto}
+.landing .sample-shop-product{border-top:2px solid var(--market-ink);font-size:clamp(14px,1.3vw,18px)}
+.landing .shop-steps{background:var(--market-ink);color:#fff7eb}
+.landing .shop-steps .container{display:flex;justify-content:center;align-items:center;gap:clamp(15px,4vw,60px);padding-block:23px}
+.landing .shop-steps span{display:flex;align-items:center;gap:10px;font-size:clamp(12px,1.2vw,16px);font-weight:650}
+.landing .shop-steps svg{width:18px;height:18px;color:#ffd961}
+.landing #features article:nth-child(1){background:#ffe5a4}
+.landing #features article:nth-child(2){background:#ffcddc}
+.landing #features article:nth-child(3){background:#acf0cb}
+.landing #features article:nth-child(4){background:#ded4ff}
+.landing .marketing-templates{background:#e9defc}
+.landing .marketing-testimonials{background:#3e2047}
+.landing .landing-cta{background:linear-gradient(115deg,#701246,#923164)}
+.landing :is(button,a,summary):focus-visible{outline:3px solid #067266;outline-offset:4px}
+@media(max-width:800px){
+  .landing .hero-wrap{gap:32px;padding-block:48px}
+  .landing .shop-steps .container{gap:14px}
+}
+@media(max-width:560px){
+  .landing .hero-copy h1{font-size:clamp(44px,11vw,58px)}
+  .landing .shop-example{max-width:380px;padding-inline:9px}
+  .landing .sample-shop{transform:rotate(1deg);box-shadow:4px 5px 0 #c16581}
+  .landing .shop-steps .container{justify-content:space-between;gap:5px;padding-block:16px}
+  .landing .shop-steps span{flex-direction:column;text-align:center;gap:6px;font-size:11px}
+  .landing .shop-steps .container>svg{width:12px}
+}
+@media(min-width:1101px){
+  .landing .hero-wrap{grid-template-columns:1.15fr .85fr;gap:clamp(36px,4vw,60px)}
+  .landing .hero-copy h1{font-size:clamp(62px,5.1vw,77px)}
+}
+@media(max-width:560px){
+  .landing .landing-nav-links .btn-ghost{display:inline-flex;padding:8px 5px}
+}
