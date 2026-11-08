@@ -48,6 +48,15 @@ test('real application shell saves each site and reopens its own builder documen
   await expect(page.getByRole('button',{name:'Sales report',exact:true})).toBeVisible()
   await expect(page.locator('.app-nav').getByRole('button',{name:'Categories & subcategories',exact:true})).toBeVisible()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  for(const name of ['Sunday Market','Midnight Atelier','Blank']){
+    await expect(page.getByRole('button',{name:'Preview '+name,exact:true})).toBeVisible()
+  }
+  await expect(page.getByRole('button',{name:'Use Simple',exact:true})).toHaveCount(0)
+  await page.getByRole('button',{name:'Preview Midnight Atelier',exact:true}).click()
+  await expect(page.getByRole('button',{name:/Midnight Atelier Ink/})).toHaveAttribute('aria-pressed','true')
+  page.once('dialog',dialog=>dialog.accept())
+  await page.getByRole('button',{name:'← Website themes'}).click()
+  await page.getByText('Advanced page templates',{exact:true}).click()
   await expect(page.getByRole('button',{name:'Use Simple'})).toBeVisible()
   await expect(page.getByRole('button',{name:'Use Professional'})).toBeVisible()
   await page.getByRole('button',{name:'Use Simple'}).click()
@@ -93,6 +102,7 @@ test('real application shell saves each site and reopens its own builder documen
 
   await page.reload()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  await page.getByText('Advanced page templates',{exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
 
@@ -100,6 +110,7 @@ test('real application shell saves each site and reopens its own builder documen
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','42'))
   await page.reload()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  await page.getByText('Advanced page templates',{exact:true}).click()
   await page.getByRole('button',{name:'Use Professional'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).not.toHaveValue('Alpha Website')
   await page.getByRole('textbox',{name:'Project name'}).fill('Beta Website')
@@ -112,6 +123,7 @@ test('real application shell saves each site and reopens its own builder documen
   await page.evaluate(()=>localStorage.setItem('cobest-active-site-id','41'))
   await page.reload()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  await page.getByText('Advanced page templates',{exact:true}).click()
   await page.getByRole('button',{name:'Continue editing'}).click()
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
   await expect(page.getByRole('button',{name:'Back to dashboard'})).toBeVisible()
@@ -121,6 +133,7 @@ test('real application shell saves each site and reopens its own builder documen
   await expect(page.getByRole('textbox',{name:'Project name'})).toHaveValue('Alpha Draft Only')
   await page.getByRole('button',{name:'Back to dashboard'}).click()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()
+  await page.getByText('Advanced page templates',{exact:true}).click()
   await page.getByRole('button',{name:'Start with a blank page'}).click()
   await page.getByRole('button',{name:'Version history',exact:true}).click()
   await page.getByRole('button',{name:/Before switching to Blank/}).click()

@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { ArrowRight, Check, Eye, LayoutTemplate, Pencil, Sparkles } from 'lucide-react'
+import { ArrowRight, Eye, Pencil } from 'lucide-react'
 import { createDefaultProject } from './builder/defaultProject'
 import { builderTemplates } from './builder/templates'
+import {StorefrontDesign,storefrontThemes} from './StorefrontEditor.jsx'
 import './website-start.css'
 
 const blankTemplate={id:'blank',name:'Blank',build(){
@@ -11,7 +12,7 @@ const blankTemplate={id:'blank',name:'Blank',build(){
 }}
 
 // A website-first entry point. These are the SAME templates used by VisualBuilder.
-export default function WebsiteStart({project,siteName,loading=false,onChoose,onEdit,onPublish}){
+export default function WebsiteStart({project,siteName,products=[],design,hasShop,loading=false,onChoose,onEdit,onPublish,onPreview}){
   const [busy,setBusy]=useState('')
   const [error,setError]=useState('')
   const hasProject=Boolean(project?.pages?.length)
@@ -24,23 +25,24 @@ export default function WebsiteStart({project,siteName,loading=false,onChoose,on
     finally{setBusy('')}
   }
   return <div className="website-start page-wrap">
-    <div className="website-start-heading">
-      <div>
-        <span className="website-start-eyebrow"><Sparkles size={14}/> COBEST WEBSITE BUILDER</span>
-        <h1>{hasProject?'Your website, made simple.':'Choose a starting point.'}</h1>
-        <p>{hasProject?'Continue editing your website or choose a different starting design.':'Pick one of two professionally designed templates. Everything can be changed in the editor.'}</p>
-      </div>
-      {hasProject&&<div className="website-start-actions">
-        <button className="website-start-secondary" onClick={onPublish}><Eye size={16}/> Publishing</button>
-        <button className="website-start-primary" onClick={onEdit}><Pencil size={16}/> Continue editing <ArrowRight size={16}/></button>
-      </div>}
+    <div className="website-start-heading"><div><h1>Website themes</h1><p>Preview a theme with your shop’s content. Your live site changes when you publish.</p></div></div>
+    <div className="store-theme-gallery">
+      {storefrontThemes.map(theme=><article className="store-theme-tile" key={theme.id}>
+        <div className="store-theme-sample" aria-hidden="true">
+          <StorefrontDesign heroOnly name={siteName} design={{...design,theme:theme.id}} products={products}/>
+        </div>
+        <div className="store-theme-info"><h2>{theme.name}</h2><p>{theme.note}</p>
+          {hasShop?<button type="button" className="btn btn-primary" disabled={loading} onClick={()=>onPreview(theme.id)}>Preview {theme.name} <ArrowRight size={15}/></button>:
+            <a className="btn btn-secondary" href={`/demo?theme=${theme.id}`}>Try {theme.name} in demo</a>}
+        </div>
+      </article>)}
     </div>
-    {hasProject&&<div className="website-current-project">
-      <div className="website-current-mark"><LayoutTemplate size={21}/></div>
-      <div><span>YOUR WEBSITE</span><strong>{project.name||siteName||'Untitled website'}</strong><small>{project.pages.filter(p=>!p.isCollectionTemplate).length} page(s) · Saved designs open in the visual editor</small></div>
-      <button onClick={onEdit}>Open editor <ArrowRight size={15}/></button>
+    <details className="advanced-theme-library"><summary>Advanced page templates</summary>
+    <p>Simple and Professional open in the advanced page editor.</p>
+    {hasProject&&<div className="website-start-actions">
+      <button className="website-start-secondary" onClick={onPublish}><Eye size={16}/> Publishing</button>
+      <button className="website-start-primary" onClick={onEdit}><Pencil size={16}/> Continue editing <ArrowRight size={16}/></button>
     </div>}
-    <div className="website-start-section-heading"><div><span>01 / START HERE</span><h2>{hasProject?'Two templates you can switch to':'Select your template'}</h2><p>One editor, two starting styles. No complicated setup.</p></div><div className="website-start-count">2 templates</div></div>
     <div className="website-template-grid">
       {builderTemplates.map(template=><article className={`website-template-card website-template-${template.id}`} key={template.id}>
         <div className="website-template-preview" aria-hidden="true">
@@ -67,12 +69,6 @@ export default function WebsiteStart({project,siteName,loading=false,onChoose,on
     </div>
     <button type="button" className="website-start-secondary" disabled={Boolean(busy)||loading} onClick={()=>choose(blankTemplate)}>Start with a blank page</button>
     {error&&<p className="website-start-error" role="alert">{error}</p>}
-    <div className="website-start-guide">
-      <span><Check size={15}/> Choose a template</span>
-      <ArrowRight size={15}/>
-      <span><Check size={15}/> Edit text, images & layout</span>
-      <ArrowRight size={15}/>
-      <span><Check size={15}/> Preview, save & publish</span>
-    </div>
+    </details>
   </div>
 }

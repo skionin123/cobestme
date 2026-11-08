@@ -65,3 +65,16 @@
 @media(max-width:1050px){.website-template-preview{height:260px}.website-start-heading{align-items:flex-start;flex-direction:column}.website-mini-hero{height:162px}}
 @media(max-width:760px){.website-template-grid{grid-template-columns:1fr}.website-template-preview{height:290px}.website-mini-copy strong{font-size:25px}.website-template-editorial .website-mini-copy strong{font-size:29px}.website-start-heading{margin-bottom:24px}.website-start-guide>svg{display:none}}
 @media(max-width:420px){.website-start{padding:24px 14px 45px}.website-template-preview{padding:12px 12px 0;height:260px}.website-mini-hero{padding:15px 12px;height:160px}.website-mini-copy strong{font-size:18px}.website-template-editorial .website-mini-copy strong{font-size:21px}.website-current-project{flex-wrap:wrap}.website-current-project button{width:100%}}
+.store-theme-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px;margin:24px 0}
+.store-theme-tile{min-width:0;border:1px solid var(--brand-line);border-radius:15px;background:white;overflow:hidden;display:flex;flex-direction:column}
+.store-theme-sample{border-bottom:1px solid var(--brand-line);background:#fbf7ed;overflow:hidden}
+.store-theme-sample .design-collection{display:none}
+.store-theme-sample .design-hero,.store-theme-sample .skin-atelier .design-hero{display:grid;grid-template-columns:1.05fr .95fr;min-height:190px}
+.store-theme-sample .design-hero-copy{padding:16px}.store-theme-sample h1{font-size:clamp(20px,8cqw,38px);margin:0}
+.store-theme-sample .design-hero p{display:none}.store-theme-sample .design-art{min-height:145px;max-width:none;height:100%;margin:0}
+.store-theme-sample .skin-atelier .design-art{grid-column:1;grid-row:1}.store-theme-sample .skin-atelier .design-hero-copy{grid-column:2;grid-row:1}
+.store-theme-info{padding:20px;display:flex;flex:1;flex-direction:column;align-items:start}.store-theme-info h2{color:var(--brand-plum);font-size:21px;margin:0}.store-theme-info p{color:#625966;font-size:14px;margin:8px 0 18px}.store-theme-info .btn{margin-top:auto}
+.advanced-theme-library{padding:18px 0;border-top:1px solid var(--brand-line)}.advanced-theme-library summary{cursor:pointer;font-weight:650}.advanced-theme-library>p{margin:12px 0;color:#625966}
+.store-theme-sample .skin-atelier .design-hero{grid-template-columns:.8fr 1.2fr;padding:10px}
+.store-theme-sample .skin-atelier .design-hero-copy{padding:12px}
+.store-theme-sample .skin-atelier h1{font-size:clamp(18px,7cqw,32px)}

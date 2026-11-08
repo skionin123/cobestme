@@ -3,17 +3,17 @@ import {ArrowUpRight,Check,Monitor,Smartphone} from 'lucide-react'
 import ProductGrid from './ProductGrid.jsx'
 import './storefront-editor.css'
 
-const themes=[
+export const storefrontThemes=[
   {id:'market',name:'Sunday Market',note:'Sunflower, raspberry and bold type.'},
   {id:'atelier',name:'Midnight Atelier',note:'Ink, ivory and editorial serif type.'},
   {id:'blank',name:'Blank',note:'Neutral canvas with your existing content.'}
 ]
 
-export function StorefrontDesign({name,design={},products=[],currency='PHP',onAdd,onOpen,onShop}){
+export function StorefrontDesign({name,design={},products=[],currency='PHP',heroOnly=false,onAdd,onOpen,onShop}){
   const active=products.filter(p=>p.status==='Active')
   const cover=active.find(p=>String(p.id)===String(design.cover))||active.find(p=>p.image_url||p.images?.[0])
   const photo=design.cover==='art'?'':cover?.image_url||cover?.images?.[0]
-  return <div className={'designed-store skin-'+(themes.some(t=>t.id===design.theme)?design.theme:'market')}>
+  return <div className={'designed-store skin-'+(storefrontThemes.some(t=>t.id===design.theme)?design.theme:'market')}>
     <section className="design-hero">
       <div className="design-hero-copy"><h1>{design.heading||name}</h1>
         {design.intro&&<p>{design.intro}</p>}
@@ -23,13 +23,13 @@ export function StorefrontDesign({name,design={},products=[],currency='PHP',onAd
         {photo?<img src={photo} alt={cover.name}/>:<i/>}
       </div>}
     </section>
-    <section className="design-collection"><h2>{design.collection||'Shop the collection'}</h2>
+    {!heroOnly&&<section className="design-collection"><h2>{design.collection||'Shop the collection'}</h2>
       {active.length?<ProductGrid products={active} currency={currency} onAdd={onAdd} onOpen={onOpen}/>:<p>Your products will appear here.</p>}
-    </section>
+    </section>}
   </div>
 }
 
-export default function StorefrontEditor({name,design,previousDesign,initialTheme,products,currency='PHP',onSave,onPublish,onBack}){
+export default function StorefrontEditor({name,design,previousDesign,initialTheme,backLabel='Store overview',products,currency='PHP',onSave,onPublish,onBack}){
   const defaults={theme:'market',heading:name,intro:'',collection:'Shop the collection',cover:'auto'}
   const baseline={...defaults,...design}
   const [history,setHistory]=useState(()=>initialTheme&&initialTheme!==baseline.theme
@@ -71,7 +71,7 @@ export default function StorefrontEditor({name,design,previousDesign,initialThem
   return <section className="design-workspace">
     <header className="design-toolbar"><div><button onClick={()=>{
       if(JSON.stringify(draft)===saved||window.confirm('Leave without saving these design changes?'))onBack()
-    }}>← Store overview</button><h1>Storefront editor</h1></div>
+    }}>← {backLabel}</button><h1>Storefront editor</h1></div>
     <div><button className="btn btn-secondary" disabled={busy} onClick={()=>save(false)}>Save design</button>
     <button className="btn btn-primary" disabled={busy} onClick={()=>save(true)}>Publish design</button></div></header>
     {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message} {url&&<a href={url}>Open storefront</a>}</p>}
@@ -80,7 +80,7 @@ export default function StorefrontEditor({name,design,previousDesign,initialThem
       <fieldset disabled={busy} className="design-controls"><legend>Store design</legend>
         <h2>Theme</h2><p className="theme-hint">Switch styles to preview. Your text and products stay in place.</p>
         <div className="theme-history"><button type="button" disabled={!history.past.length} onClick={()=>step(true)}>Undo</button><button type="button" disabled={!history.future.length} onClick={()=>step(false)}>Redo</button></div>
-        {themes.map(t=><button type="button" key={t.id} className="design-option" aria-pressed={draft.theme===t.id} onClick={()=>field('theme',t.id)}>
+        {storefrontThemes.map(t=><button type="button" key={t.id} className="design-option" aria-pressed={draft.theme===t.id} onClick={()=>field('theme',t.id)}>
           <span className={'design-swatch swatch-'+t.id}/><span><strong>{t.name}</strong><small>{t.note}</small></span>
           {draft.theme===t.id&&<Check size={17}/>}
         </button>)}
