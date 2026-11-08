@@ -1398,7 +1398,10 @@ export default function App() {
   }
   const publishShop=async()=>{
     if(!workspace?.id||!cloudReady||!catalogReady)throw new Error('Reload your shop before publishing.')
-    const result=await publishStore({slug:workspace.slug,custom_domain:workspace.custom_domain,snapshot:storeSnapshot})
+    const catalog=await listResource('products')
+    if(!Array.isArray(catalog))throw new Error('Could not load the latest products for publishing.')
+    const snapshot={...storeSnapshot,products:catalog.filter(product=>product.status==='Active')}
+    const result=await publishStore({slug:workspace.slug,custom_domain:workspace.custom_domain,snapshot})
     if(!result?.ok||!result.store_url)throw new Error('Publishing was not confirmed. Try again.')
     setWorkspace(prev=>({...prev,is_published:true,slug:result.slug}))
     return result.store_url

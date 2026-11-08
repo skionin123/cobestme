@@ -25,8 +25,14 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
     if(!name)return setError('Enter a shop name.')
     run(()=>onCreate(name))
   }
+  async function publish(){
+    const url=await onPublish()
+    setPublishedUrl(url)
+    setNotice('Your shop is live. Share the link with customers.')
+  }
   function add(event){
     event.preventDefault()
+    const publishNow=event.nativeEvent.submitter?.value==='publish'
     const form=event.currentTarget
     const data=new FormData(form)
     const name=data.get('name').trim()
@@ -48,7 +54,12 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
       await onAdd({name,price:data.get('price'),inventory:data.get('inventory'),image_url:imageUrl,status:'Active'})
       uploadedPhoto.current=null
       form.reset()
-      setNotice(`${name} saved. Publish your shop to show it to customers.`)
+      if(publishNow){
+        try{await publish()}
+        catch(err){throw new Error(`${name} was saved. ${err.message} Use ${storeUrl?'Publish updates':'Publish shop'} to retry.`)}
+      }else{
+        setNotice(`${name} saved. Publish your shop to show it to customers.`)
+      }
     })
   }
   if(!ready)return <section className="panel" role="status">Waiting for shop data…</section>
@@ -69,7 +80,10 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
         <label className="field shop-photo"><span>Product photo (optional)</span>
           <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy}/>
         </label>
-        <button className="btn btn-secondary" disabled={busy}>{busy?'Please wait…':'Save product'}</button>
+        <div className="shop-save-actions">
+          <button className="btn btn-secondary" type="submit" value="save" disabled={busy}>Save product</button>
+          <button className="btn btn-primary" type="submit" value="publish" disabled={busy||!publishReady}>Save and publish</button>
+        </div>
       </form>
       <div className="shop-publish">
         {activeCount>0&&<details className="shop-catalog-preview">
@@ -77,11 +91,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
           <ProductGrid products={activeProducts} currency={currency}/>
         </details>}
         <p>{activeCount} active {activeCount===1?'product':'products'} · {storeUrl?'Shop is live':activeCount?'Ready to publish':'Add a product to publish'}</p>
-        <button className="btn btn-primary" disabled={busy||(!activeCount&&!storeUrl)||!publishReady} onClick={()=>run(async()=>{
-          const url=await onPublish()
-          setPublishedUrl(url)
-          setNotice('Your shop is live. Share the link with customers.')
-        })}>{storeUrl?'Publish updates':'Publish shop'}</button>
+        <button className="btn btn-primary" disabled={busy||(!activeCount&&!storeUrl)||!publishReady} onClick={()=>run(publish)}>{storeUrl?'Publish updates':'Publish shop'}</button>
         {storeUrl&&<div className="shop-share">
           <a href={storeUrl} target="_blank" rel="noreferrer">Open shop ↗</a>
           <button className="btn btn-secondary" type="button" onClick={()=>run(async()=>{
