@@ -1,7 +1,14 @@
 import React, { useState } from 'react'
 import { ArrowRight, Check, Eye, LayoutTemplate, Pencil, Sparkles } from 'lucide-react'
+import { createDefaultProject } from './builder/defaultProject'
 import { builderTemplates } from './builder/templates'
 import './website-start.css'
+
+const blankTemplate={id:'blank',name:'Blank',build(){
+  const project=createDefaultProject()
+  project.pages[0].root.children=[]
+  return project
+}}
 
 // A website-first entry point. These are the SAME templates used by VisualBuilder.
 export default function WebsiteStart({project,siteName,loading=false,onChoose,onEdit,onPublish}){
@@ -58,6 +65,7 @@ export default function WebsiteStart({project,siteName,loading=false,onChoose,on
         </div>
       </article>)}
     </div>
+    <button type="button" className="website-start-secondary" disabled={Boolean(busy)||loading} onClick={()=>choose(blankTemplate)}>Start with a blank page</button>
     {error&&<p className="website-start-error" role="alert">{error}</p>}
     <div className="website-start-guide">
       <span><Check size={15}/> Choose a template</span>

@@ -78,7 +78,7 @@ const snapshotWithoutVersions=(project:BuilderProject):BuilderProjectSnapshot=>{
   return rest
 }
 
-const makeVersion=(project:BuilderProject,label:string):BuilderVersion=>({
+export const makeVersion=(project:BuilderProject,label:string):BuilderVersion=>({
   id:uid('version'),
   label,
   createdAt:new Date().toISOString(),
@@ -360,6 +360,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     restoreVersion:versionId=>{
       const state=get();const version=state.project.versions.find(v=>v.id===versionId);if(!version)return
       const restored:BuilderProject={...clone(version.project),versions:clone(state.project.versions)}
+      advanceRevision(state.project,restored)
       set({
         project:restored,
         history:[...state.history,clone(state.project)].slice(-20),

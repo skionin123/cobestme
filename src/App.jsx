@@ -13,7 +13,7 @@ const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
 const StoreOverview = React.lazy(()=>import('./StoreOverview'))
 const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
 const SalesReport = React.lazy(()=>import('./SalesReport'))
-import { loadProject } from './builder/persistence'
+import { chooseLatestProject, loadProject } from './builder/persistence'
 
 const APP_NAME = 'CoBest'
 
@@ -1259,6 +1259,7 @@ export default function App() {
     // Builder project persistence is managed by VisualBuilder's save queue.
     // Do not send a stale copy via general dashboard autosave.
     const ordinaryEditor={...editor}
+    delete ordinaryEditor.previousShopDesign
     delete ordinaryEditor.shopDesign
     delete ordinaryEditor.visualBuilderProject
     const timer=setTimeout(()=>saveWorkspace({onboarding,editor:ordinaryEditor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
@@ -1333,12 +1334,15 @@ export default function App() {
     const projectId=String(activeSite.id)
     let cached=null
     try{cached=await loadProject(projectId)}catch{}
-    if((safeEditor.visualBuilderProject?.pages?.length||cached?.pages?.length)&&
-      !window.confirm('Switching templates will replace this website’s current design. Continue?'))return
+    const previous=chooseLatestProject(cached,safeEditor.visualBuilderProject||null).project
+    if(previous?.pages?.length&&!window.confirm('Replace the current draft layout? You can restore it from Version history. Your published website stays live until you publish.'))return
     const next=template.build()
     next.id=projectId
     next.name=activeSite.site_name||'My website'
-    const previous=safeEditor.visualBuilderProject||cached
+    if(previous){
+      const {makeVersion}=await import('./builder/store')
+      next.versions=[makeVersion(previous,'Before switching to '+template.name),...(previous.versions||[])].slice(0,20)
+    }
     next.version=Math.max(previous?.version||0,next.version||0)+1
     const previousTime=Date.parse(previous?.updatedAt||'')
     next.updatedAt=new Date(Math.max(Date.now(),Number.isFinite(previousTime)?previousTime+1:0)).toISOString()
@@ -1391,7 +1395,7 @@ export default function App() {
     if(!workspace?.id||!cloudReady)throw new Error('Create a shop before saving its design.')
     const saved=await saveWorkspace({editor:{shopDesign:design}})
     if(!saved?.id)throw new Error('The server could not confirm the design save.')
-    setEditor(prev=>({...prev,shopDesign:design}))
+    setEditor(prev=>({...prev,shopDesign:design,previousShopDesign:saved.editor?.previousShopDesign}))
     setWorkspace(prev=>({...prev,...saved}))
   }
   const publishShop=async(design)=>{
@@ -1413,7 +1417,7 @@ export default function App() {
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('app')}/>
   let content = null
   if(page==='shop-design') content=cloudReady&&workspace?.id
-    ? <StorefrontEditor key={workspace.id} name={workspace.site_name} design={safeEditor.shopDesign} products={products} currency={workspace.currency} onSave={saveShopDesign} onPublish={publishShop} onBack={()=>setPage('dashboard')}/>
+    ? <StorefrontEditor key={workspace.id} name={workspace.site_name} design={safeEditor.shopDesign} previousDesign={safeEditor.previousShopDesign} products={products} currency={workspace.currency} onSave={saveShopDesign} onPublish={publishShop} onBack={()=>setPage('dashboard')}/>
     : <div className="page-wrap"><p>Create or load your shop to edit its design.</p><Button onClick={()=>setPage('dashboard')}>Store overview</Button></div>
   if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
   if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview loadError={cloudLoadError} onRetry={()=>setLoadAttempt(n=>n+1)} workspace={workspace} ready={cloudReady} publishReady={catalogReady} onCreate={createShop} onAdd={addProduct} onPublish={publishShop} products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>

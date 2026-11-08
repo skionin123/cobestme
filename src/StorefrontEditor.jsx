@@ -5,22 +5,23 @@ import './storefront-editor.css'
 
 const themes=[
   {id:'market',name:'Sunday Market',note:'Sunflower, raspberry and bold type.'},
-  {id:'atelier',name:'Midnight Atelier',note:'Ink, ivory and editorial serif type.'}
+  {id:'atelier',name:'Midnight Atelier',note:'Ink, ivory and editorial serif type.'},
+  {id:'blank',name:'Blank',note:'Neutral canvas with your existing content.'}
 ]
 
 export function StorefrontDesign({name,design={},products=[],currency='PHP',onAdd,onOpen,onShop}){
   const active=products.filter(p=>p.status==='Active')
   const cover=active.find(p=>String(p.id)===String(design.cover))||active.find(p=>p.image_url||p.images?.[0])
   const photo=design.cover==='art'?'':cover?.image_url||cover?.images?.[0]
-  return <div className={'designed-store skin-'+(design.theme==='atelier'?'atelier':'market')}>
+  return <div className={'designed-store skin-'+(themes.some(t=>t.id===design.theme)?design.theme:'market')}>
     <section className="design-hero">
       <div className="design-hero-copy"><h1>{design.heading||name}</h1>
         {design.intro&&<p>{design.intro}</p>}
         {onShop&&<button onClick={onShop}>Shop collection <ArrowUpRight size={15}/></button>}
       </div>
-      <div className={'design-art'+(photo?' with-photo':'')} aria-hidden={!photo}>
+      {(design.theme!=='blank'||(photo&&design.cover!=='auto'))&&<div className={'design-art'+(photo?' with-photo':'')} aria-hidden={!photo}>
         {photo?<img src={photo} alt={cover.name}/>:<i/>}
-      </div>
+      </div>}
     </section>
     <section className="design-collection"><h2>{design.collection||'Shop the collection'}</h2>
       {active.length?<ProductGrid products={active} currency={currency} onAdd={onAdd} onOpen={onOpen}/>:<p>Your products will appear here.</p>}
@@ -28,16 +29,34 @@ export function StorefrontDesign({name,design={},products=[],currency='PHP',onAd
   </div>
 }
 
-export default function StorefrontEditor({name,design,products,currency='PHP',onSave,onPublish,onBack}){
-  const [draft,setDraft]=useState(()=>({theme:'market',heading:name,intro:'',collection:'Shop the collection',cover:'auto',...design}))
-  const [saved,setSaved]=useState(JSON.stringify(draft))
+export default function StorefrontEditor({name,design,previousDesign,initialTheme,products,currency='PHP',onSave,onPublish,onBack}){
+  const defaults={theme:'market',heading:name,intro:'',collection:'Shop the collection',cover:'auto'}
+  const baseline={...defaults,...design}
+  const [history,setHistory]=useState(()=>initialTheme&&initialTheme!==baseline.theme
+    ? {past:[baseline],current:{...baseline,theme:initialTheme},future:[]}
+    : {past:[],current:baseline,future:[]})
+  const draft=history.current
+  const [saved,setSaved]=useState(JSON.stringify(baseline))
   const [phone,setPhone]=useState(false)
   const [mobilePreview,setMobilePreview]=useState(false)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
   const [error,setError]=useState('')
   const [url,setUrl]=useState('')
-  function field(key,value){setDraft(prev=>({...prev,[key]:value}));setMessage('');setError('')}
+  function edit(next){
+    setHistory(h=>JSON.stringify(h.current)===JSON.stringify(next)?h:
+      {past:[...h.past,h.current].slice(-100),current:next,future:[]})
+    setMessage('');setError('')
+  }
+  function field(key,value){edit({...draft,[key]:value})}
+  function step(back){
+    setHistory(h=>{
+      if(back&&h.past.length)return {past:h.past.slice(0,-1),current:h.past.at(-1),future:[h.current,...h.future]}
+      if(!back&&h.future.length)return {past:[...h.past,h.current],current:h.future[0],future:h.future.slice(1)}
+      return h
+    })
+    setError('');setMessage('')
+  }
   async function save(publish){
     if(busy)return
     setBusy(true);setMessage('');setError('')
@@ -59,11 +78,13 @@ export default function StorefrontEditor({name,design,products,currency='PHP',on
     <div className="design-mobile-switch"><button aria-pressed={!mobilePreview} onClick={()=>setMobilePreview(false)}>Edit settings</button><button aria-pressed={mobilePreview} onClick={()=>setMobilePreview(true)}>Preview storefront</button></div>
     <div className={'design-layout'+(mobilePreview?' show-preview':'')}>
       <fieldset disabled={busy} className="design-controls"><legend>Store design</legend>
-        <h2>Theme</h2>
+        <h2>Theme</h2><p className="theme-hint">Switch styles to preview. Your text and products stay in place.</p>
+        <div className="theme-history"><button type="button" disabled={!history.past.length} onClick={()=>step(true)}>Undo</button><button type="button" disabled={!history.future.length} onClick={()=>step(false)}>Redo</button></div>
         {themes.map(t=><button type="button" key={t.id} className="design-option" aria-pressed={draft.theme===t.id} onClick={()=>field('theme',t.id)}>
           <span className={'design-swatch swatch-'+t.id}/><span><strong>{t.name}</strong><small>{t.note}</small></span>
           {draft.theme===t.id&&<Check size={17}/>}
         </button>)}
+        {previousDesign&&<button type="button" className="restore-design" onClick={()=>edit({...defaults,...previousDesign})}>Restore previous save</button>}
         <h2>Homepage</h2>
         <label className="field"><span>Headline</span><input value={draft.heading} maxLength={100} onChange={e=>field('heading',e.target.value)}/></label>
         <label className="field"><span>Introduction</span><textarea value={draft.intro} maxLength={300} onChange={e=>field('intro',e.target.value)}/></label>

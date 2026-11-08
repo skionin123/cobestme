@@ -4,7 +4,7 @@ import {
   useDroppable, useSensor, useSensors
 } from '@dnd-kit/core'
 import {
-  ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, Image as ImageIcon,
+  ArrowLeft, ChevronDown, Code2, Component, Database, Download, Eye, FileJson, FolderOpen, History, Image as ImageIcon,
   Layers, Monitor, PackageOpen, PanelLeft, Redo2, Save, Settings2, Smartphone, Tablet, Undo2,
   Sparkles, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-react'
@@ -100,7 +100,7 @@ function VersionPopover({onClose}:{onClose:()=>void}){
   const project=useBuilderStore(s=>s.project)
   const restoreVersion=useBuilderStore(s=>s.restoreVersion)
   return <div className="absolute right-3 top-12 z-[80] w-80 rounded-xl border border-zinc-700 bg-zinc-900 p-2 shadow-2xl">
-    <div className="flex items-center justify-between p-2"><div><span className="block text-[9px] font-semibold uppercase tracking-[.12em] text-zinc-500">Version history</span><strong className="text-xs text-zinc-100">Last {project.versions.length} snapshots</strong></div><button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={14}/></button></div>
+    <div className="flex items-center justify-between p-2"><div><span className="block text-[9px] font-semibold uppercase tracking-[.12em] text-zinc-500">Version history</span><strong className="text-xs text-zinc-100">Last {project.versions.length} snapshots</strong></div><button aria-label="Close version history" onClick={onClose} className="text-zinc-500 hover:text-white"><X size={14}/></button></div>
     <div className="max-h-80 overflow-auto">{project.versions.length?project.versions.map(v=><button key={v.id} onClick={()=>{if(confirm('Restore this version? Your current state remains available in undo history.')){restoreVersion(v.id);onClose()}}} className="mb-1 w-full rounded-lg p-2 text-left hover:bg-zinc-800"><strong className="block text-[10px] text-zinc-200">{v.label}</strong><span className="text-[9px] text-zinc-500">{new Date(v.createdAt).toLocaleString()}</span></button>):<div className="p-4 text-center text-[10px] text-zinc-500">Versions appear as you edit.</div>}</div>
   </div>
 }
@@ -670,6 +670,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
         <div className="vb-top-actions">
           <button className="vb-toolbar-icon" disabled={!history.length} onClick={undo} title="Undo (Ctrl+Z)" aria-label="Undo"><Undo2 size={16}/></button>
           <button className="vb-toolbar-icon" disabled={!future.length} onClick={redo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" aria-label="Redo"><Redo2 size={16}/></button>
+          <button className="vb-toolbar-icon" aria-label="Version history" title="Version history" aria-expanded={versionsOpen} onClick={()=>setVersionsOpen(open=>!open)}><History size={16}/></button>
           <span className={'vb-save-status '+saveStatus}>{saveStatus==='saving'?'Saving…':saveStatus==='error'?'Error saving':saveStatus==='dirty'?'Unsaved':'Saved'}</span>
           <button className="vb-preview-action" onClick={()=>setPreview(true)}><Eye size={15}/> Preview</button>
           <button onClick={()=>setExportOpen(true)}><Code2 size={15}/> Export</button>
@@ -677,6 +678,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
           {onPublish&&<button className="vb-publish" onClick={()=>setLaunchReviewOpen(true)} disabled={publishing}>{publishing?'Publishing…':'Publish'}</button>}
         </div>
       </header>
+      {versionsOpen&&<VersionPopover onClose={()=>setVersionsOpen(false)}/>}
       <div className="vb-workspace" style={{'--vb-left-width':activeSidebarWidth+'px'} as React.CSSProperties}>
         <aside className="vb-left">
           <div className={'vb-sidebar-resizer '+(sidebarDragging?'is-dragging':'')}

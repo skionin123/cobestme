@@ -44,7 +44,7 @@ export default function GuestShop({preview}){
   const [shop,setShop]=useState(null)
   const [error,setError]=useState('')
   const choice=new URLSearchParams(window.location.search).get('theme')
-  const theme=['atelier','market'].includes(choice)?choice:null
+  const theme=['atelier','market','blank'].includes(choice)?choice:null
   const [editing,setEditing]=useState(Boolean(theme))
   useEffect(()=>{
     let active=true
@@ -74,10 +74,10 @@ export default function GuestShop({preview}){
   async function saveDesign(design){
     await update(current=>{
       if(!current.name||current.name!==shop.name)throw new Error('Refresh to open the current demo.')
-      return {...current,design}
+      return JSON.stringify(current.design)===JSON.stringify(design)?current:{...current,previousDesign:current.design,design}
     })
   }
-  if(editing&&shop?.name)return <main className="guest-editor"><p className="demo-editor-note">Guest demo · Publishing updates this browser’s preview.</p><StorefrontEditor name={shop.name} design={theme?{...shop.design,theme}:shop.design} products={shop.products} onSave={saveDesign} onPublish={publish} onBack={()=>{window.history.replaceState({},'', '/demo');setEditing(false)}}/></main>
+  if(editing&&shop?.name)return <main className="guest-editor"><p className="demo-editor-note">Guest demo · Publishing updates this browser’s preview.</p><StorefrontEditor name={shop.name} design={shop.design} previousDesign={shop.previousDesign} initialTheme={theme} products={shop.products} onSave={saveDesign} onPublish={publish} onBack={()=>{window.history.replaceState({},'', '/demo');setEditing(false)}}/></main>
   return <main className="guest-shop">
     <header><a href={preview?'/demo':'/'}>{preview?'← Back to demo':'← CoBest'}</a><span>Guest demo</span></header>
     {!preview&&<h1>Try your shop</h1>}

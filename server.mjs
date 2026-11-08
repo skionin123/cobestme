@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { createServer } from 'node:http'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
@@ -743,10 +744,14 @@ async function handleApi(req, res, url) {
       let existing=null
       if(siteId){
         const current=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}&select=*&limit=1`,{headers:apiHeaders(token)})
-        if(current.ok)existing=Array.isArray(current.data)?current.data[0]||null:current.data
+        if(!current.ok)return sendJson(res,current.status,current.data)
+        existing=Array.isArray(current.data)?current.data[0]||null:current.data
       }
       const mergedOnboarding={...(existing?.onboarding||{}),...(body.onboarding||{})}
       const mergedEditor={...(existing?.editor||{}),...(body.editor||{})}
+      if(body.editor?.shopDesign&&existing?.editor?.shopDesign&&!isDeepStrictEqual(body.editor.shopDesign,existing.editor.shopDesign)){
+        mergedEditor.previousShopDesign=existing.editor.shopDesign
+      }
       const mergedSettings={...(existing?.settings||{}),...(body.settings||{})}
       const slug = safeSlug(body.slug ?? existing?.slug ?? mergedOnboarding?.businessName ?? user.email?.split('@')[0] ?? 'store')
       const payload = {
@@ -776,6 +781,10 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/publish' && req.method === 'POST') {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const body = await readJson(req)
+    if(body?.snapshot?.editor)delete body.snapshot.editor.previousShopDesign
+    for(const project of [body?.snapshot?.visual_project,body?.snapshot?.editor?.visualBuilderProject]){
+      if(project&&typeof project==='object')project.versions=[]
+    }
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
