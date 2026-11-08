@@ -1160,6 +1160,7 @@ export default function App() {
   const [events,setEvents] = useState([])
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
+  const [catalogReady,setCatalogReady] = useState(false)
   const [cloudLoadError,setCloudLoadError] = useState('')
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
@@ -1205,13 +1206,18 @@ export default function App() {
     let active=true
     setCloudReady(false)
     setCloudLoadError('')
-    const requests=[
-      ['sites',listSites()],['workspace',getWorkspace()],['products',listResource('products')],['customers',listResource('customers')],['orders',listResource('orders')],
+    const loadResources=()=>[
+      ['products',listResource('products')],['customers',listResource('customers')],['orders',listResource('orders')],
       ['media',listResource('media_assets')],['discounts',listResource('discounts')],['campaigns',listResource('campaigns')],['collections',listResource('collections')],['blog',listResource('blog_posts')],['terms',listResource('catalog_terms')],
       ['subscribers',listResource('newsletter_subscribers')],['contacts',listResource('contact_messages')],['bookings',listResource('bookings')],
       ['reviews',listResource('product_reviews')],['events',listResource('store_events')]
     ]
-    Promise.allSettled(requests.map(([,promise])=>promise)).then(results=>{
+    async function load(){
+      const workspaceData=await getWorkspace()
+      if(!active)return
+      setActiveSiteId(workspaceData?.id||'')
+      const requests=[['sites',listSites()],...(workspaceData?.id?loadResources():[])]
+      const results=await Promise.allSettled(requests.map(([,promise])=>promise))
       if(!active)return
       const values={}
       const failures=[]
@@ -1220,13 +1226,8 @@ export default function App() {
         if(result.status==='fulfilled')values[key]=result.value
         else failures.push({key,error:result.reason})
       })
-      const workspaceFailure=failures.find(x=>x.key==='workspace')
-      if(workspaceFailure){
-        setCloudLoadError('Workspace sync failed. Editing autosave is paused to protect your saved data. Refresh or sign in again before making changes.')
-        return
-      }
+      setCatalogReady(['products','discounts','collections','blog','reviews','media'].every(key=>Array.isArray(values[key])))
       const siteList=values.sites
-      const workspaceData=values.workspace
       if(Array.isArray(siteList)){
         setSites(siteList)
         const activeId=getActiveSiteId()
@@ -1239,7 +1240,7 @@ export default function App() {
       setOnboarding(normalizeOnboarding(workspaceData?.onboarding||{}))
       // Do not carry another site's locally cached builder project into this workspace.
       setEditor(normalizeEditor(workspaceData?.editor||{}))
-      if(Array.isArray(values.products))setProducts(values.products)
+      setProducts(Array.isArray(values.products)?values.products:[])
       if(Array.isArray(values.customers))setCustomers(values.customers)
       if(Array.isArray(values.orders))setOrders(values.orders)
       if(Array.isArray(values.media))setMediaAssets(values.media)
@@ -1258,7 +1259,8 @@ export default function App() {
         setCloudLoadError(`Some workspace data could not be loaded (${names}). Loaded sections remain usable; failed sections were not overwritten.`)
       }
       setCloudReady(true)
-    })
+    }
+    load().catch(()=>{if(active)setCloudLoadError('Workspace sync failed. Editing autosave is paused. Refresh to try again.')})
     return ()=>{active=false}
   },[mode])
 
@@ -1282,7 +1284,7 @@ export default function App() {
     setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),...Object.fromEntries(nextPages.filter(p=>p!=='Home'&&!prev.pageContent?.[p]).map(p=>[p,{title:p,body:'',blocks:[]}]))}}))
     setMode('app'); setPage('dashboard'); window.scrollTo(0,0)
   }
-  const start = () => {if(isAuthenticated()){setMode('app');setPage('website')}else setMode('signup');window.scrollTo(0,0)}
+  const start = () => {if(isAuthenticated()){setMode('app');setPage('dashboard')}else setMode('signup');window.scrollTo(0,0)}
   const authSuccess=async()=>{const invite=localStorage.getItem('cobest-pending-invite');if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/')}catch{}}setMode('app');setPage('dashboard');window.scrollTo(0,0)}
   const signOut=async()=>{ await logout(); setMode('landing'); setPage('website') }
   const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
@@ -1292,7 +1294,8 @@ export default function App() {
     const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
     if(!isAuthenticated()){const created={id:Date.now(),...payload};setProducts(prev=>[created,...prev]);return created}
     const created=await createResource('products',payload)
-    if(created) setProducts(prev=>[created,...prev.filter(x=>x.id!==created.id)])
+    if(!created?.id)throw new Error('The product save was not confirmed. Check your catalog before trying again.')
+    setProducts(prev=>[created,...prev.filter(x=>x.id!==created.id)])
     return created
   }
   const addCustomer=async(draft)=>{
@@ -1387,6 +1390,20 @@ export default function App() {
     return result
   }
 
+  const storeSnapshot={onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}
+  const createShop=async name=>{
+    const site=await createSite({site_name:name})
+    if(!site?.id)throw new Error('Could not confirm shop creation. Refresh to check your shops.')
+    window.location.reload()
+  }
+  const publishShop=async()=>{
+    if(!workspace?.id||!cloudReady||!catalogReady)throw new Error('Reload your shop before publishing.')
+    const result=await publishStore({slug:workspace.slug,custom_domain:workspace.custom_domain,snapshot:storeSnapshot})
+    if(!result?.ok||!result.store_url)throw new Error('Publishing was not confirmed. Try again.')
+    setWorkspace(prev=>({...prev,is_published:true,slug:result.slug}))
+    return result.store_url
+  }
+
   if(mode==='landing') return <Landing onStart={start} onLogin={()=>setMode('login')}/>
   if(mode==='login') return <Auth variant="login" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('signup')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
   if(mode==='signup') return <Auth variant="signup" onSuccess={authSuccess} onBack={()=>setMode('landing')} onSwitch={()=>setMode('login')} onForgot={()=>{window.history.pushState({},document.title,'/reset-password');setMode('reset-request')}}/>
@@ -1395,7 +1412,7 @@ export default function App() {
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('app')}/>
   let content = null
   if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
-  if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
+  if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview workspace={workspace} ready={cloudReady} publishReady={catalogReady} onCreate={createShop} onAdd={addProduct} onPublish={publishShop} products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>
@@ -1420,7 +1437,7 @@ export default function App() {
     ? <div className="page-wrap"><div className="panel">{cloudLoadError||'Loading your website workspace…'}</div></div>
     : <React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject} onBack={()=>setPage('dashboard')}/></React.Suspense>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
-  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={{onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}}/>
+  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={storeSnapshot}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
   return <AppShell page={page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite} cloudError={cloudLoadError}>{content}</AppShell>

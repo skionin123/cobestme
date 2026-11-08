@@ -9,3 +9,5 @@
 .commerce-mvp-disclaimer{font-size:11px;color:#727787;margin-top:20px}
 @media(max-width:1080px){.commerce-mvp-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.commerce-mvp-shortcuts{grid-template-columns:1fr}}
+.shop-launch{margin-bottom:24px}.shop-launch h2,.shop-launch h3{margin:0 0 14px}.shop-launch form>.field{max-width:360px}.shop-launch form>.btn{margin-top:12px}.shop-fields{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}.shop-fields input{min-width:0;width:100%}.shop-publish{border-top:1px solid #e3e5ec;margin-top:20px;padding-top:4px}.shop-publish a{margin-left:16px}.shop-launch [role=alert]{color:#a32c32}
+@media(max-width:650px){.shop-fields{grid-template-columns:1fr}}

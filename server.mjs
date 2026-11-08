@@ -670,7 +670,8 @@ async function handleApi(req, res, url) {
     }
     const result=await supabaseFetch('/rest/v1/workspaces',{
       method:'POST',headers:apiHeaders(token,{Prefer:'return=representation'}),
-      body:JSON.stringify({user_id:ownerId,site_name:siteName,slug,onboarding:{businessName:siteName,pages:['Home']},editor:{},settings:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
+      body:JSON.stringify({user_id:ownerId,site_name:siteName,slug,onboarding:{businessName:siteName,pages:['Home']},
+        editor:{hero:{heading:siteName,body:'',button:'Shop now'},sectionOrder:['hero','featured'],header:{menu:['Shop']},footer:{menu:['Shop']}},settings:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
     })
     return sendJson(res,result.status,result.data)
   }
