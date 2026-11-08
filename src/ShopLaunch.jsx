@@ -2,7 +2,7 @@ import React, {useRef,useState} from 'react'
 import ProductGrid from './ProductGrid.jsx'
 import {uploadMedia} from './api.js'
 
-export default function ShopLaunch({workspace,ready,publishReady,products,currency,onCreate,onAdd,onPublish}){
+export default function ShopLaunch({workspace,ready,publishReady,products,currency,onCreate,onAdd,onPublish,demo=false,onUpload=uploadMedia}){
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
@@ -10,7 +10,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
   const uploadedPhoto=useRef(null)
   const activeProducts=products.filter(product=>product.status==='Active')
   const activeCount=activeProducts.length
-  const storeUrl=publishedUrl||(workspace?.is_published&&workspace.slug?`/store/${encodeURIComponent(workspace.slug)}`:'')
+  const storeUrl=publishedUrl||(workspace?.is_published&&workspace.slug?demo?'/demo/preview':`/store/${encodeURIComponent(workspace.slug)}`:'')
   async function run(action){
     if(busy)return
     setBusy(true)
@@ -28,7 +28,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
   async function publish(){
     const url=await onPublish()
     setPublishedUrl(url)
-    setNotice('Your shop is live. Share the link with customers.')
+    setNotice(demo?'Your demo preview is ready.':'Your shop is live. Share the link with customers.')
   }
   function add(event){
     event.preventDefault()
@@ -45,7 +45,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
           throw new Error('Choose a JPG, PNG or WebP photo of 12 MB or less.')
         }
         if(uploadedPhoto.current?.file!==file){
-          const asset=await uploadMedia(file)
+          const asset=await onUpload(file)
           if(!asset?.url)throw new Error('Photo upload was not confirmed. Please retry.')
           uploadedPhoto.current={file,url:asset.url}
         }
@@ -58,7 +58,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
         try{await publish()}
         catch(err){throw new Error(`${name} was saved. ${err.message} Use ${storeUrl?'Publish updates':'Publish shop'} to retry.`)}
       }else{
-        setNotice(`${name} saved. Publish your shop to show it to customers.`)
+        setNotice(demo?`${name} saved. Publish to update your demo preview.`:`${name} saved. Publish your shop to show it to customers.`)
       }
     })
   }
@@ -90,15 +90,15 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
           <summary>Preview catalog ({activeCount})</summary>
           <ProductGrid products={activeProducts} currency={currency}/>
         </details>}
-        <p>{activeCount} active {activeCount===1?'product':'products'} · {storeUrl?'Shop is live':activeCount?'Ready to publish':'Add a product to publish'}</p>
+        <p>{activeCount} active {activeCount===1?'product':'products'} · {storeUrl?(demo?'Demo preview available':'Shop is live'):activeCount?'Ready to publish':'Add a product to publish'}</p>
         <button className="btn btn-primary" disabled={busy||(!activeCount&&!storeUrl)||!publishReady} onClick={()=>run(publish)}>{storeUrl?'Publish updates':'Publish shop'}</button>
         {storeUrl&&<div className="shop-share">
-          <a href={storeUrl} target="_blank" rel="noreferrer">Open shop ↗</a>
-          <button className="btn btn-secondary" type="button" onClick={()=>run(async()=>{
+          <a href={storeUrl} target={demo?undefined:"_blank"} rel="noreferrer">{demo?'Open demo preview':'Open shop ↗'}</a>
+          {!demo&&<button className="btn btn-secondary" type="button" onClick={()=>run(async()=>{
             const link=new URL(storeUrl,window.location.origin).href
             try{await navigator.clipboard.writeText(link);setNotice('Shop link copied.')}
             catch{setNotice(link)}
-          })}>Copy shop link</button>
+          })}>Copy shop link</button>}
         </div>}
       </div>
     </>}

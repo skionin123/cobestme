@@ -1,10 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import GuestShop from './GuestShop.jsx'
 import PublicStore from './PublicStore.jsx'
 import './styles.css'
 import './marketing-vibrant.css'
 import './marketing-reimagined.css'
+import './brand-theme.css'
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -39,7 +41,9 @@ const routedApp = slugMatch
   ? <PublicStore slug={decodeURIComponent(slugMatch[1])}/>
   : !platformHost
     ? <PublicStore host={hostname}/>
-    : <App/>
+    : /^\/demo(?:\/preview)?\/?$/.test(window.location.pathname)
+      ? <GuestShop preview={window.location.pathname.replace(/\/$/,'')==='/demo/preview'}/>
+      : <App/>
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

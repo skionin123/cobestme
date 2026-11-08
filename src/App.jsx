@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
+import StorefrontEditor from './StorefrontEditor.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
 const WebsiteStart = React.lazy(()=>import('./WebsiteStart'))
 const StoreOverview = React.lazy(()=>import('./StoreOverview'))
@@ -445,8 +446,8 @@ function Landing({ onStart, onLogin }) {
         <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
         <div className="marketing-template-grid">
           {[
-            ['Simple','Simple','Fresh, bright and welcoming'],
-            ['Professional','Professional','Warm, elevated and elegant']
+            ['market','Sunday Market','Bold type, a sunflower hero and raspberry accents.'],
+            ['atelier','Midnight Atelier','Editorial serif type, midnight ink and an arched cover.']
           ].map(([category,name,note],i)=><article key={category}>
             <div className={`marketing-template-art template-art-${i+1}`} aria-label={`${name} design illustration`}>
               <div className="cb-theme-browser">
@@ -455,7 +456,7 @@ function Landing({ onStart, onLogin }) {
               </div>
             </div>
             <strong>{name}</strong><p>{note}</p>
-            <button onClick={onStart}>Start with this style <ArrowRight size={13}/></button>
+            <a className="theme-trial-link" href={`/demo?theme=${category}`}>Try this theme <ArrowRight size={13}/></a>
           </article>)}
         </div>
       </section>
@@ -579,7 +580,7 @@ const navGroups = [
   {label:'',items:[['dashboard','Overview',LayoutDashboard]]},
   {label:'Sales',items:[['orders','Orders',ShoppingBag],['customers','Customers',Users],['sales-report','Sales report',BarChart3]]},
   {label:'Catalog',items:[['products','Products',Package],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
-  {label:'Online store',items:[['website','Website themes',Palette],['editor','Website editor',Pencil],['settings','Publish & domain',Settings]]},
+  {label:'Online store',items:[['shop-design','Storefront editor',Store],['website','Website themes',Palette],['editor','Advanced editor',Pencil],['settings','Publish & domain',Settings]]},
   {label:'Workspace',items:[['sites','My websites',Store]]},
 ]
 const navItems = navGroups.flatMap(group => group.items)
@@ -1148,6 +1149,7 @@ export default function App() {
   const [cloudReady,setCloudReady] = useState(false)
   const [catalogReady,setCatalogReady] = useState(false)
   const [cloudLoadError,setCloudLoadError] = useState('')
+  const [loadAttempt,setLoadAttempt] = useState(0)
   const safeOnboarding = normalizeOnboarding(onboarding)
   const safeEditor = normalizeEditor(editor)
 
@@ -1192,6 +1194,7 @@ export default function App() {
     let active=true
     setCloudReady(false)
     setCloudLoadError('')
+    const slowLoad=setTimeout(()=>{if(active)setCloudLoadError('Shop data is taking longer than expected. You can retry or try the guest demo.')},15000)
     const loadResources=()=>[
       ['products',listResource('products')],['customers',listResource('customers')],['orders',listResource('orders')],
       ['media',listResource('media_assets')],['discounts',listResource('discounts')],['campaigns',listResource('campaigns')],['collections',listResource('collections')],['blog',listResource('blog_posts')],['terms',listResource('catalog_terms')],
@@ -1240,21 +1243,23 @@ export default function App() {
       if(Array.isArray(values.bookings))setBookings(values.bookings)
       if(Array.isArray(values.reviews))setReviews(values.reviews)
       if(Array.isArray(values.events))setEvents(values.events)
+      setCloudLoadError('')
       if(failures.length){
         const names=failures.map(x=>x.key).join(', ')
         setCloudLoadError(`Some workspace data could not be loaded (${names}). Loaded sections remain usable; failed sections were not overwritten.`)
       }
       setCloudReady(true)
     }
-    load().catch(()=>{if(active)setCloudLoadError('Workspace sync failed. Editing autosave is paused. Refresh to try again.')})
-    return ()=>{active=false}
-  },[mode])
+    load().catch(()=>{if(active)setCloudLoadError('Workspace sync failed. Editing autosave is paused. Retry to load your shop.')}).finally(()=>clearTimeout(slowLoad))
+    return ()=>{active=false;clearTimeout(slowLoad)}
+  },[mode,loadAttempt])
 
   useEffect(()=>{
     if(!cloudReady || !isAuthenticated() || !workspace?.id) return
     // Builder project persistence is managed by VisualBuilder's save queue.
     // Do not send a stale copy via general dashboard autosave.
     const ordinaryEditor={...editor}
+    delete ordinaryEditor.shopDesign
     delete ordinaryEditor.visualBuilderProject
     const timer=setTimeout(()=>saveWorkspace({onboarding,editor:ordinaryEditor,settings:{...(workspace?.settings||{}),lastPage:page},slug:workspace?.slug,custom_domain:workspace?.custom_domain,site_name:onboarding.businessName,plan:workspace?.plan||'Free',currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila'}).then(x=>{if(x){setWorkspace(x);setSites(prev=>prev.some(s=>s.id===x.id)?prev.map(s=>s.id===x.id?{...s,...x}:s):[...prev,x])}}).catch(()=>{}),700)
     return ()=>clearTimeout(timer)
@@ -1270,7 +1275,7 @@ export default function App() {
     setEditor(prev=>({...prev,pageContent:{...(prev.pageContent||{}),...Object.fromEntries(nextPages.filter(p=>p!=='Home'&&!prev.pageContent?.[p]).map(p=>[p,{title:p,body:'',blocks:[]}]))}}))
     setMode('app'); setPage('dashboard'); window.scrollTo(0,0)
   }
-  const start = () => {if(isAuthenticated()){setMode('app');setPage('dashboard')}else setMode('signup');window.scrollTo(0,0)}
+  const start = () => {if(isAuthenticated()){setMode('app');setPage('dashboard')}else window.location.assign('/demo');window.scrollTo(0,0)}
   const authSuccess=async()=>{const invite=localStorage.getItem('cobest-pending-invite');if(invite){try{await acceptTeamInvite(invite);localStorage.removeItem('cobest-pending-invite');window.history.replaceState({},document.title,'/')}catch{}}setMode('app');setPage('dashboard');window.scrollTo(0,0)}
   const signOut=async()=>{ await logout(); setMode('landing'); setPage('website') }
   const switchSite=id=>{if(!id||String(id)===String(getActiveSiteId()))return;setActiveSiteId(id);window.location.reload()}
@@ -1382,11 +1387,18 @@ export default function App() {
     if(!site?.id)throw new Error('Could not confirm shop creation. Refresh to check your shops.')
     window.location.reload()
   }
-  const publishShop=async()=>{
+  async function saveShopDesign(design){
+    if(!workspace?.id||!cloudReady)throw new Error('Create a shop before saving its design.')
+    const saved=await saveWorkspace({editor:{shopDesign:design}})
+    if(!saved?.id)throw new Error('The server could not confirm the design save.')
+    setEditor(prev=>({...prev,shopDesign:design}))
+    setWorkspace(prev=>({...prev,...saved}))
+  }
+  const publishShop=async(design)=>{
     if(!workspace?.id||!cloudReady||!catalogReady)throw new Error('Reload your shop before publishing.')
     const catalog=await listResource('products')
     if(!Array.isArray(catalog))throw new Error('Could not load the latest products for publishing.')
-    const snapshot={...storeSnapshot,products:catalog.filter(product=>product.status==='Active')}
+    const snapshot={...storeSnapshot,editor:design?{...safeEditor,shopDesign:design}:safeEditor,products:catalog.filter(product=>product.status==='Active')}
     const result=await publishStore({slug:workspace.slug,custom_domain:workspace.custom_domain,snapshot})
     if(!result?.ok||!result.store_url)throw new Error('Publishing was not confirmed. Try again.')
     setWorkspace(prev=>({...prev,is_published:true,slug:result.slug}))
@@ -1400,8 +1412,11 @@ export default function App() {
   if(mode==='recovery') return <Recovery onDone={()=>{setMode('login');window.history.replaceState({},document.title,'/')}}/>
   if(mode==='onboarding') return <Onboarding data={safeOnboarding} setData={setOnboarding} onComplete={complete} onExit={()=>setMode('app')}/>
   let content = null
+  if(page==='shop-design') content=cloudReady&&workspace?.id
+    ? <StorefrontEditor key={workspace.id} name={workspace.site_name} design={safeEditor.shopDesign} products={products} currency={workspace.currency} onSave={saveShopDesign} onPublish={publishShop} onBack={()=>setPage('dashboard')}/>
+    : <div className="page-wrap"><p>Create or load your shop to edit its design.</p><Button onClick={()=>setPage('dashboard')}>Store overview</Button></div>
   if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
-  if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview workspace={workspace} ready={cloudReady} publishReady={catalogReady} onCreate={createShop} onAdd={addProduct} onPublish={publishShop} products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
+  if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview loadError={cloudLoadError} onRetry={()=>setLoadAttempt(n=>n+1)} workspace={workspace} ready={cloudReady} publishReady={catalogReady} onCreate={createShop} onAdd={addProduct} onPublish={publishShop} products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
   if(page==='processes') content=<ProcessCenter data={safeOnboarding} editor={safeEditor} workspace={workspace} products={products} collections={collections} media={mediaAssets} blogPosts={blogPosts} orders={orders} customers={customers} contacts={contacts} subscribers={subscribers} setPage={setPage}/>
   if(page==='brief') content=<Brief data={safeOnboarding}/>
   if(page==='products') content=<ProductsManager products={products} setProducts={setProducts} terms={catalogTerms} currency={workspace?.currency||'PHP'}/>

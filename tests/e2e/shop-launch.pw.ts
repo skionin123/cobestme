@@ -21,6 +21,10 @@ test('a new merchant can create a shop, list a product and open its published pa
       const name=req.postDataJSON().site_name
       site={id:1,site_name:name,slug:'isla-home',onboarding:{businessName:name},editor:{},settings:{}}
     }
+    if(path==='/api/workspace'&&req.method()==='PUT'&&site){
+      const patch=req.postDataJSON()
+      site.editor={...site.editor,...patch.editor}
+    }
     if(path==='/api/workspace'||path==='/api/sites')return reply(site?[site]:[])
     if(path==='/api/media/upload'){
       expect(req.headers()['x-cobest-site-id']).toBe('1')
@@ -91,5 +95,15 @@ test('a new merchant can create a shop, list a product and open its published pa
   await page.getByRole('button',{name:'Copy shop link'}).click()
   await expect(page.getByRole('status')).toHaveText('Shop link copied.')
   expect(await page.evaluate(()=>sessionStorage.getItem('testCopied'))).toBe(new URL('/store/isla-home',page.url()).href)
+  await page.getByRole('button',{name:'Edit storefront'}).click()
+  await page.getByRole('button',{name:/Midnight Atelier/}).click()
+  await page.getByLabel('Headline',{exact:true}).fill('Isla Home Studio')
+  await page.getByRole('button',{name:'Publish design'}).click()
+  await expect(page.getByRole('status')).toContainText('Design published')
+  expect(site.editor.shopDesign.theme).toBe('atelier')
+  await storefront.reload()
+  await expect(storefront.getByRole('heading',{name:'Isla Home Studio'})).toBeVisible()
+  await storefront.getByRole('button',{name:'Ceramic mug',exact:true}).click()
+  await expect(storefront.getByText('4 in stock')).toBeVisible()
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 })

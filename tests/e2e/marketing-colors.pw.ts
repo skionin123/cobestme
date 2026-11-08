@@ -21,7 +21,7 @@ test('CoBest homepage has a colorful and readable beginner-first entrance',async
     elements.map(element=>getComputedStyle(element).backgroundColor))
   expect(new Set(colors).size).toBeGreaterThan(1)
   await landing.locator('.hero-actions').getByRole('button',{name:'Create my shop'}).click()
-  await expect(page.getByRole('heading',{name:'Start with CoBest'})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'Create your shop'})).toBeVisible()
 })
 
 test('CoBest colorful homepage works on small phone viewports',async({page})=>{

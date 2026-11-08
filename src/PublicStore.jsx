@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
+import {StorefrontDesign} from './StorefrontEditor.jsx'
 import ProductGrid from './ProductGrid.jsx'
 import { createPublishedDocument } from './builder/publicDocument'
 
@@ -150,7 +151,8 @@ export default function PublicStore({slug:slugProp,host}) {
   const pageData=store?.editor?.pageContent?.[page]||{}
   const features=store?.onboarding?.features||[]
 
-  if(visualProject&&visualPage&&page!=='Shop'&&!policyPages.includes(page)){
+  const designedHome=store.editor?.shopDesign&&!store.visual_project
+  if(!(designedHome&&page==='Home')&&visualProject&&visualPage&&page!=='Shop'&&!policyPages.includes(page)){
     return <div className="visual-published-shell">
       <VisualProjectFrame project={visualProject} page={visualPage} onNavigate={navigate}/>
       {notice&&<div className="public-toast">{notice}</div>}
@@ -165,7 +167,7 @@ export default function PublicStore({slug:slugProp,host}) {
     </div>
   }
 
-  return <div className={`public-store-shell public-style-${store?.editor?.theme?.styleKey||'essential'}`} style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{store.editor.customCss}</style>:null}
+  return <div data-store-design={designedHome?store.editor.shopDesign.theme:undefined} className={`public-store-shell public-style-${store?.editor?.theme?.styleKey||'essential'}`} style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{store.editor.customCss}</style>:null}
     <header className="public-store-header">
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
       <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
@@ -176,7 +178,8 @@ export default function PublicStore({slug:slugProp,host}) {
     </header>
     {notice&&<div className="public-toast">{notice}</div>}
 
-    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add} onOpen={setSelectedProduct}/>}
+    {page==='Home'&&designedHome&&<StorefrontDesign name={store.onboarding?.businessName||store.settings?.siteName} design={store.editor.shopDesign} products={products} currency={currency} onAdd={add} onOpen={setSelectedProduct} onShop={()=>navigate('Shop')}/>}
+    {page==='Home'&&!designedHome&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add} onOpen={setSelectedProduct}/>}
     {page==='Shop'&&<section className="public-shop-page">
       <div className="public-page-intro"><small>SHOP</small><h1>Products</h1><p>Browse what is currently available.</p></div>
       <div className="public-shop-tools"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></label><label className="public-category"><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><ChevronDown size={15}/></label></div>
