@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
+import ProductGrid from './ProductGrid.jsx'
 import { createPublishedDocument } from './builder/publicDocument'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
@@ -175,13 +176,13 @@ export default function PublicStore({slug:slugProp,host}) {
     </header>
     {notice&&<div className="public-toast">{notice}</div>}
 
-    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add}/>} 
+    {page==='Home'&&<Home store={store} products={products} currency={currency} onShop={()=>navigate('Shop')} onAdd={add} onOpen={setSelectedProduct}/>}
     {page==='Shop'&&<section className="public-shop-page">
       <div className="public-page-intro"><small>SHOP</small><h1>Products</h1><p>Browse what is currently available.</p></div>
       <div className="public-shop-tools"><label><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products"/></label><label className="public-category"><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><ChevronDown size={15}/></label></div>
       <ProductGrid products={filtered} currency={currency} onAdd={add} onOpen={setSelectedProduct}/>
     </section>}
-    {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate} products={products} currency={currency} onAdd={add}/>} 
+    {!['Home','Shop'].includes(page)&&<GenericPage store={store} name={page} data={pageData} features={features} onNavigate={navigate} products={products} currency={currency} onAdd={add} onOpen={setSelectedProduct}/>}
 
     <footer className="public-footer"><strong>{store?.onboarding?.businessName||'Store'}</strong><span>{store?.editor?.footer?.text||'Built with CoBest'}</span><div className="public-footer-links">{footerMenu.map(item=><button key={item} onClick={()=>navigate(item)}>{item}</button>)}{!footerMenu.includes('Contact')&&<button onClick={()=>navigate('Contact')}>Contact</button>}{store?.settings?.privacyPolicy&&<button onClick={()=>navigate('Privacy')}>Privacy</button>}{store?.settings?.termsPolicy&&<button onClick={()=>navigate('Terms')}>Terms</button>}{store?.settings?.refundPolicy&&<button onClick={()=>navigate('Refund Policy')}>Refunds</button>}</div></footer>
 
@@ -192,7 +193,7 @@ export default function PublicStore({slug:slugProp,host}) {
   </div>
 }
 
-function Home({store,products,currency,onShop,onAdd}) {
+function Home({store,products,currency,onShop,onAdd,onOpen}) {
   const editor=store.editor||{}
   const hero=editor.hero||{}
   const featured=editor.featured||{}
@@ -202,11 +203,11 @@ function Home({store,products,currency,onShop,onAdd}) {
   const order=Array.isArray(editor.sectionOrder)?editor.sectionOrder:['hero','featured','story','newsletter']
   return <>{order.map(id=>{
     if(id==='hero')return <section key={id} className={`public-hero align-${hero.align||'left'}`}><div><small>{hero.eyebrow||'WELCOME'}</small><h1>{hero.heading||store.onboarding?.businessName||'Welcome'}</h1><p>{hero.body||store.onboarding?.businessDescription}</p><button onClick={onShop}>{hero.button||'Shop now'}</button></div><div className="public-hero-art"/></section>
-    if(id==='featured')return <section key={id} className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd}/></section>
+    if(id==='featured')return <section key={id} className="public-section"><div className="public-section-title"><h2>{featured.title||'Featured products'}</h2><button onClick={onShop}>View all</button></div><ProductGrid products={products.slice(0,Math.max(3,Number(featured.columns||3)))} currency={currency} onAdd={onAdd} onOpen={onOpen}/></section>
     if(id==='story')return <section key={id} className="public-story"><small>OUR STORY</small><h2>{story.title||store.onboarding?.businessName}</h2><p>{story.body||store.onboarding?.businessDescription}</p></section>
     if(id==='newsletter')return <Newsletter key={id} slug={store.slug}/>
     const block=blockMap.get(id)
-    if(block)return <ContentBlock key={id} block={block} products={products} currency={currency} onAdd={onAdd}/>
+    if(block)return <ContentBlock key={id} block={block} products={products} currency={currency} onAdd={onAdd} onOpen={onOpen}/>
     const content=editor.sectionContent?.[id]
     if(content)return <LegacyThemeSection key={id} id={id} content={content}/>
     return null
@@ -223,15 +224,6 @@ function LegacyThemeSection({id,content}) {
       {content.button&&<button className="btn btn-primary">{content.button}</button>}
     </div>
   </section>
-}
-
-function ProductGrid({products,currency,onAdd,onOpen}) {
-  return <div className="public-products">{products.map(p=><article key={p.id} className="public-product-card">
-    <button className="public-product-image" onClick={()=>onOpen?.(p)}>{p.image_url||p.images?.[0]?<img src={p.image_url||p.images?.[0]} alt={p.name}/>:<span>{p.name?.slice(0,1)||'P'}</span>}</button>
-    <div><button className="public-product-name" onClick={()=>onOpen?.(p)}>{p.name}</button><p>{p.category||'Product'}</p><strong>{money(p.price,currency)}</strong>{p.compare_at_price&&Number(p.compare_at_price)>Number(p.price)&&<del>{money(p.compare_at_price,currency)}</del>}</div>
-    <button className="public-add" onClick={()=>onAdd(p)}>Add to cart</button>
-  </article>)}
-  {!products.length&&<div className="public-empty">No products match your search.</div>}</div>
 }
 
 function ProductModal({product,reviews=[],currency,slug,onClose,onAdd}) {
@@ -337,7 +329,7 @@ function Checkout({store,cart,currency,paymentOptions={},onClose,onComplete}) {
   return <Modal title="Checkout" onClose={onClose}><div className="modal-form">{error&&<div className="auth-message auth-error">{error}</div>}<div className="form-grid two"><Field label="Name"><input value={buyer.name} onChange={e=>setBuyer({...buyer,name:e.target.value})}/></Field><Field label="Email"><input type="email" value={buyer.email} onChange={e=>setBuyer({...buyer,email:e.target.value})}/></Field></div><Field label="Phone"><input value={buyer.phone} onChange={e=>setBuyer({...buyer,phone:e.target.value})}/></Field><Field label="Address"><input value={address.line1} onChange={e=>setAddress({...address,line1:e.target.value})}/></Field><div className="form-grid two"><Field label="City"><input value={address.city} onChange={e=>setAddress({...address,city:e.target.value})}/></Field><Field label="Region"><input value={address.region} onChange={e=>setAddress({...address,region:e.target.value})}/></Field></div><div className="form-grid two"><Field label="Postal code"><input value={address.postal_code} onChange={e=>setAddress({...address,postal_code:e.target.value})}/></Field><Field label="Discount code"><input value={discount} onChange={e=>setDiscount(e.target.value.toUpperCase())}/></Field></div><Field label="Payment method"><select value={provider} onChange={e=>setProvider(e.target.value)}>{paymentOptions.stripe&&<option value="stripe">Card / Stripe</option>}{paymentOptions.paypal&&<option value="paypal">PayPal</option>}<option value="manual">Manual / pay later</option></select></Field><div className="checkout-note">{provider==='manual'?'Your order will be created with payment Pending.':`You will continue to ${provider==='stripe'?'secure card checkout':'PayPal'} to complete payment.`}</div>{totals&&<strong>{money(totals.total,currency)}</strong>}<div className="modal-actions"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy||!buyer.name||!buyer.email} onClick={submit}>{busy?'Creating order…':provider==='manual'?'Place order':'Continue to payment'}</button></div></div></Modal>
 }
 
-function GenericPage({store,name,data,features,onNavigate,products=[],currency='PHP',onAdd}) {
+function GenericPage({store,name,data,features,onNavigate,products=[],currency='PHP',onAdd,onOpen}) {
   if(name==='Contact') return <ContactPage slug={store.slug} email={store?.settings?.contactEmail}/>
   if(name==='Privacy') return <PolicyPage title="Privacy policy" body={store?.settings?.privacyPolicy}/>
   if(name==='Terms') return <PolicyPage title="Terms" body={store?.settings?.termsPolicy}/>
@@ -346,7 +338,7 @@ function GenericPage({store,name,data,features,onNavigate,products=[],currency='
   if(name==='Gallery') return <main className="public-generic-page"><small>GALLERY</small><h1>{data.title||'Gallery'}</h1><p>{data.body||'A selection from the business.'}</p><div className="public-gallery">{(store.media||[]).filter(x=>String(x.mime_type||'').startsWith('image')).map(x=><img key={x.id} src={x.url} alt={x.name}/>)}</div></main>
   if(name==='Blog') return <main className="public-generic-page public-blog-page"><small>JOURNAL</small><h1>{data.title||'Blog'}</h1><p>{data.body||'Stories, updates, and ideas from the business.'}</p><div className="public-blog-grid">{(store.blog_posts||[]).map(post=><article key={post.id}>{post.featured_image&&<img src={post.featured_image} alt={post.title}/>}<div><span>{post.published_at?new Date(post.published_at).toLocaleDateString():''}</span><h2>{post.title}</h2><p>{post.excerpt}</p><details><summary>Read article</summary><div className="blog-content">{String(post.content||'').split('\n').map((x,i)=><p key={i}>{x}</p>)}</div></details></div></article>)}</div>{!(store.blog_posts||[]).length&&<p>No published posts yet.</p>}</main>
   if(name==='Collections') return <main className="public-generic-page"><small>COLLECTIONS</small><h1>{data.title||'Collections'}</h1><p>{data.body||'Browse curated groups of products.'}</p><div className="public-collection-grid">{(store.collections||[]).map(col=><article key={col.id}><h2>{col.name}</h2><p>{col.description}</p><span>{(col.product_ids||[]).length} products</span><button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop collection</button></article>)}</div></main>
-  return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b} products={products} currency={currency} onAdd={onAdd}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
+  return <main className="public-generic-page"><small>{name.toUpperCase()}</small><h1>{data.title||name}</h1><p>{data.body||defaultPageBody(name,store)}</p>{(data.blocks||[]).map(b=><ContentBlock key={b.id} block={b} products={products} currency={currency} onAdd={onAdd} onOpen={onOpen}/>)}{name==='Collections'&&<button className="btn btn-primary" onClick={()=>onNavigate('Shop')}>Shop products</button>}</main>
 }
 
 function defaultPageBody(name,store){
@@ -356,13 +348,13 @@ function defaultPageBody(name,store){
   return `Edit the ${name} page in CoBest to add your content.`
 }
 
-function ContentBlock({block,products=[],currency='PHP',onAdd}) {
+function ContentBlock({block,products=[],currency='PHP',onAdd,onOpen}) {
   const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
   const columns=Number(block.columns||1)
   const visible=(products||[]).filter(x=>x.status==='Active').slice(0,Number(block.productLimit||4))
   const style={background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px 5vw`,margin:`${block.margin||0}px 0`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius||0}px`,fontSize:`${block.fontSize||16}px`}
   if(block.type==='spacer') return <section className="public-content-block public-block-spacer" style={{...style,minHeight:`${block.padding??48}px`}}/>
-  if(block.type==='products') return <section className="public-content-block public-block-products" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><div className="public-section-title"><h2>{block.title||'Products'}</h2></div><ProductGrid products={visible} currency={currency} onAdd={onAdd}/></div></section>
+  if(block.type==='products') return <section className="public-content-block public-block-products" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><div className="public-section-title"><h2>{block.title||'Products'}</h2></div><ProductGrid products={visible} currency={currency} onAdd={onAdd} onOpen={onOpen}/></div></section>
   if(block.type==='cta') return <section className="public-content-block public-block-cta" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><h2>{block.title}</h2><p>{block.body}</p><a className="btn btn-primary" href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
   if(block.type==='quote') return <section className="public-content-block public-block-quote" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
   return <section className="public-content-block" style={style}><div style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns},minmax(0,1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}>{Array.from({length:columns}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>

@@ -1291,7 +1291,7 @@ export default function App() {
   const addSite=async()=>{const name=window.prompt('Name this website');if(!name?.trim())return;try{const site=await createSite({site_name:name.trim()});if(site?.id){setActiveSiteId(site.id);setMode('app');setPage('website');window.location.reload()}}catch(err){alert(err.message)}}
   const removeSite=async id=>{if(!window.confirm('Delete this site and its site-scoped data? This cannot be undone.'))return;try{await deleteSite(id);if(String(id)===String(getActiveSiteId()))setActiveSiteId('');window.location.reload()}catch(err){alert(err.message)}}
   const addProduct=async(draft)=>{
-    const payload={name:draft.name,price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
+    const payload={name:draft.name,image_url:draft.image_url||'',price:Number(draft.price||0),inventory:Number(draft.inventory||0),category:draft.category||'Uncategorized',status:draft.status||'Draft'}
     if(!isAuthenticated()){const created={id:Date.now(),...payload};setProducts(prev=>[created,...prev]);return created}
     const created=await createResource('products',payload)
     if(!created?.id)throw new Error('The product save was not confirmed. Check your catalog before trying again.')
