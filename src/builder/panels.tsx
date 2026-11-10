@@ -312,7 +312,7 @@ export function StylePanel(){
   const atBreakpoint=geometry?.[breakpoint]?.none||{}
   const fallback=geometry?.desktop?.none||{}
   const read=(key:string)=>atBreakpoint[key]||fallback[key]||''
-  const pos=String(read('translate')).split(/\\s+/)
+  const pos=String(read('translate')).split(/\s+/)
   const x=String(parseFloat(pos[0])||0)
   const y=String(parseFloat(pos[1])||0)
   const isText=['heading','paragraph','button','link'].includes(node.type)

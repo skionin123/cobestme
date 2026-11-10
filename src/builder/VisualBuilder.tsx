@@ -351,7 +351,7 @@ export default function VisualBuilder({projectKey='local-default',initialProject
       const style=state.project.styles[custom]
       const value=style?.[state.breakpoint]?.none?.translate
         ||style?.desktop?.none?.translate||'0px 0px'
-      const coordinates=value.split(/\\s+/)
+      const coordinates=value.split(/\s+/)
       const x=parseFloat(coordinates[0])||0
       const y=parseFloat(coordinates[1])||0
       state.mutate('Nudge element',draft=>{

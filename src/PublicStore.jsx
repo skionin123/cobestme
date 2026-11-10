@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Check, ChevronDown, Menu, Minus, Plus, Search, ShoppingBag, Star, Trash2, X } from 'lucide-react'
 import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, publicAction, publicCustomerAction, signIn, signUp } from './api.js'
 import {StorefrontDesign} from './StorefrontEditor.jsx'
@@ -13,9 +13,12 @@ function Modal({title,onClose,children}) {
 }
 
 function VisualProjectFrame({project,page,onNavigate}) {
+  const frameRef=useRef(null)
   const srcDoc=useMemo(()=>createPublishedDocument(project,page.id),[project,page.id])
   useEffect(()=>{
     const handler=event=>{
+      // Only accept navigation requests from this site's own frame.
+      if(event.source!==frameRef.current?.contentWindow)return
       const msg=event.data||{}
       if(msg.source!=='cobest-public-visual'||msg.type!=='navigate')return
       const href=String(msg.href||'')
@@ -27,7 +30,7 @@ function VisualProjectFrame({project,page,onNavigate}) {
     window.addEventListener('message',handler)
     return()=>window.removeEventListener('message',handler)
   },[project,onNavigate])
-  return <iframe className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups" srcDoc={srcDoc}/>
+  return <iframe ref={frameRef} className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups" srcDoc={srcDoc}/>
 }
 
 export default function PublicStore({slug:slugProp,host}) {

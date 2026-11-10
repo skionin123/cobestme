@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { createServer } from 'node:http'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { extname, join, normalize } from 'node:path'
+import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
 
@@ -33,9 +33,63 @@ const allowedTables = new Set([
   'bookings','product_reviews','store_events'
 ])
 
+const securityHeaders = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'x-frame-options': 'SAMEORIGIN',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(self)',
+  'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'content-security-policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+}
+
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+  res.writeHead(status, { ...securityHeaders, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(payload))
+}
+
+class HttpError extends Error {
+  constructor(status, message) { super(message); this.status = status }
+}
+
+// Small in-memory fixed-window limiter. It protects login, signup, password
+// reset and anonymous public forms from brute force and email/spam abuse on a
+// single instance. Use a shared store (e.g. Redis) if the app is scaled out.
+const rateBuckets = new Map()
+function clientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return forwarded || req.socket?.remoteAddress || 'unknown'
+}
+function rateLimited(req, name, limit, windowMs) {
+  const key = `${name}:${clientIp(req)}`
+  const now = Date.now()
+  const bucket = rateBuckets.get(key)
+  if (!bucket || bucket.reset <= now) {
+    rateBuckets.set(key, { count: 1, reset: now + windowMs })
+    return false
+  }
+  bucket.count += 1
+  return bucket.count > limit
+}
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, bucket] of rateBuckets) if (bucket.reset <= now) rateBuckets.delete(key)
+}, 60_000).unref()
+
+const rateRules = {
+  '/api/auth/login': [10, 15 * 60_000],
+  '/api/auth/signup': [5, 60 * 60_000],
+  '/api/auth/reset': [5, 60 * 60_000],
+  '/api/auth/refresh': [60, 15 * 60_000],
+  '/api/public/contact': [10, 60 * 60_000],
+  '/api/public/booking': [10, 60 * 60_000],
+  '/api/public/subscribe': [10, 60 * 60_000],
+  '/api/public/review': [10, 60 * 60_000],
+  '/api/public/order-lookup': [20, 15 * 60_000],
+  '/api/public/checkout': [20, 15 * 60_000],
+  '/api/public/paypal-capture': [20, 15 * 60_000],
+  '/api/public/event': [300, 15 * 60_000],
+  '/api/team/accept': [20, 15 * 60_000],
+  '/api/media/upload': [60, 15 * 60_000]
 }
 
 async function readBuffer(req, limit = 12 * 1024 * 1024) {
@@ -43,7 +97,7 @@ async function readBuffer(req, limit = 12 * 1024 * 1024) {
   let size = 0
   for await (const chunk of req) {
     size += chunk.length
-    if (size > limit) throw new Error('Payload too large')
+    if (size > limit) throw new HttpError(413, 'Payload too large.')
     chunks.push(chunk)
   }
   return Buffer.concat(chunks)
@@ -185,9 +239,17 @@ async function createStripePortal({req,customer}) {
   return stripeRequest('/v1/billing_portal/sessions',{method:'POST',params})
 }
 
+// Links in emails and payment redirects must never trust an arbitrary Host
+// header (host-header injection / open redirect). Only known hosts are used.
+const appOrigin = (process.env.APP_ORIGIN || 'https://cobest.me').replace(/\/$/, '')
+const trustedHosts = new Set(['cobest.me', 'www.cobest.me', 'app.cobest.me', 'localhost', '127.0.0.1',
+  ...String(process.env.TRUSTED_HOSTS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)])
 function requestOrigin(req) {
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
-  return `${proto}://${req.headers.host || 'cobest.me'}`
+  const host = String(req.headers.host || '').toLowerCase()
+  const hostname = host.split(':')[0]
+  if (!trustedHosts.has(hostname) && !hostname.endsWith('.up.railway.app')) return appOrigin
+  const proto = String(req.headers['x-forwarded-proto'] || (hostname === 'localhost' || hostname === '127.0.0.1' ? 'http' : 'https')).split(',')[0].trim()
+  return `${proto === 'http' ? 'http' : 'https'}://${host}`
 }
 
 async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
@@ -286,6 +348,10 @@ function escapeHtml(value=''){
 
 function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
+}
+
+function isValidDomain(value='') {
+  return /^(?=.{3,253}$)(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,63}$/.test(String(value))
 }
 
 function isValidEmail(value='') {
@@ -513,10 +579,16 @@ async function handlePublicApi(req, res, url) {
 }
 
 async function handleApi(req, res, url) {
+  const rule = req.method === 'POST' ? rateRules[url.pathname] : null
+  if (rule && rateLimited(req, url.pathname, rule[0], rule[1])) {
+    res.setHeader('retry-after', String(Math.ceil(rule[1] / 1000)))
+    return sendJson(res, 429, { error: 'Too many attempts. Please wait a few minutes and try again.' })
+  }
   if (url.pathname === '/api/webhooks/stripe' && req.method === 'POST') {
     const raw=await readBuffer(req,2*1024*1024)
     if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
-    const event=JSON.parse(raw.toString('utf8'))
+    let event
+    try { event=JSON.parse(raw.toString('utf8')) } catch { return sendJson(res,400,{error:'Invalid JSON.'}) }
     const object=event?.data?.object||{}
     const orderId=Number(object?.metadata?.order_id)
     if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',object.id||'')
@@ -579,7 +651,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/auth/reset' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
-    const redirectTo = 'https://cobest.me/reset-password'
+    const redirectTo = `${appOrigin}/reset-password`
     const result = await supabaseFetch('/auth/v1/recover', {
       method: 'POST', headers: apiHeaders(), body: JSON.stringify({ email: body.email, redirect_to: redirectTo })
     })
@@ -691,13 +763,18 @@ async function handleApi(req, res, url) {
       supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,email,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
       supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,email,role,token,expires_at,accepted_at,created_at&order=id.desc`, { headers: apiHeaders(token) })
     ])
-    return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: invites.ok ? invites.data : [] })
+    // Invitation tokens are bearer credentials. Only people who can invite may see them.
+    const canManage = ['Owner','Admin'].includes(role)
+    const inviteRows = invites.ok && Array.isArray(invites.data) ? invites.data.map(inv => canManage ? inv : { ...inv, token: undefined }) : []
+    return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: inviteRows })
   }
 
   if (url.pathname === '/api/team/invite' && req.method === 'POST') {
     if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
     const body = await readJson(req)
-    if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
+    if (!body?.email || !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    // Admins may invite Editors and Viewers; only the Owner may create Admins.
+    if (body.role === 'Admin' && role !== 'Owner') return sendJson(res, 403, { error: 'Only the owner can invite admins.' })
     const inviteRole = ['Admin','Editor','Viewer'].includes(body.role) ? body.role : 'Editor'
     const result = await supabaseFetch('/rest/v1/workspace_invites', {
       method: 'POST',
@@ -754,6 +831,8 @@ async function handleApi(req, res, url) {
       }
       const mergedSettings={...(existing?.settings||{}),...(body.settings||{})}
       const slug = safeSlug(body.slug ?? existing?.slug ?? mergedOnboarding?.businessName ?? user.email?.split('@')[0] ?? 'store')
+      const customDomain = String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim()
+      if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
       const payload = {
         user_id: ownerId,
         onboarding: mergedOnboarding,
@@ -761,8 +840,9 @@ async function handleApi(req, res, url) {
         settings: mergedSettings,
         site_name: body.site_name ?? existing?.site_name ?? mergedOnboarding?.businessName ?? 'Untitled website',
         slug,
-        custom_domain: String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim(),
-        plan: body.plan ?? existing?.plan ?? 'Free',
+        custom_domain: customDomain,
+        // Plan changes only come from verified Stripe webhooks, never from the browser.
+        plan: existing?.plan ?? 'Free',
         currency: body.currency ?? existing?.currency ?? 'PHP',
         timezone: body.timezone ?? existing?.timezone ?? 'Asia/Manila',
         updated_at: new Date().toISOString()
@@ -789,6 +869,7 @@ async function handleApi(req, res, url) {
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
     const customDomain = String(body.custom_domain || '').toLowerCase().trim()
+    if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
     if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
     const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=workspace_id', {
       method: 'POST',
@@ -823,11 +904,17 @@ async function handleApi(req, res, url) {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
-    const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
+    let rawName = 'upload.bin'
+    try { rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin')).slice(0, 200) } catch {}
     const fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
     const storagePath = `${ownerId}/${siteId}/${Date.now()}-${fileName}`
-    const contentType = String(req.headers['content-type'] || 'application/octet-stream')
+    // Files are served publicly from storage. Never accept HTML, SVG or scripts,
+    // which would turn the media bucket into a stored-XSS host.
+    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    const allowedMedia = new Set(['image/png','image/jpeg','image/webp','image/gif','image/avif','video/mp4','video/webm','application/pdf'])
+    if (!allowedMedia.has(contentType)) return sendJson(res, 415, { error: 'Upload a PNG, JPG, WebP, GIF, AVIF, MP4, WebM or PDF file.' })
+    if (!/\.(png|jpe?g|webp|gif|avif|mp4|webm|pdf)$/i.test(fileName)) return sendJson(res, 415, { error: 'The file extension does not match an allowed media type.' })
     const upload = await fetch(`${supabaseUrl}/storage/v1/object/cobest-media/${encodeURI(storagePath)}`, {
       method: 'POST',
       headers: { apikey: supabaseAnonKey, authorization: `Bearer ${token}`, 'content-type': contentType, 'x-upsert': 'false' },
@@ -887,6 +974,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      for (const key of ['id','user_id','owner_user_id','site_id','created_at','updated_at']) delete body[key]
       const validated = validateResourceMutation(table, body, 'POST')
       if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
@@ -898,7 +986,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
-      delete body.user_id; delete body.owner_user_id; delete body.id; delete body.site_id
+      for (const key of ['id','user_id','owner_user_id','site_id','created_at']) delete body[key]
       const validated = validateResourceMutation(table, body, 'PATCH')
       if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
@@ -928,9 +1016,13 @@ createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url)
 
-    const urlPath = decodeURIComponent(url.pathname)
+    let urlPath = '/'
+    try { urlPath = decodeURIComponent(url.pathname) } catch { urlPath = '/' }
+    if (urlPath.includes('\0')) urlPath = '/'
     const safePath = normalize(urlPath).replace(/^([.][.][/\\])+/, '')
     let filePath = join(root, safePath === '/' ? 'index.html' : safePath)
+    // Never serve anything outside the build directory.
+    if (filePath !== root && !filePath.startsWith(root + sep)) filePath = join(root, 'index.html')
     try {
       const info = await stat(filePath)
       if (info.isDirectory()) filePath = join(filePath, 'index.html')
@@ -939,14 +1031,20 @@ createServer(async (req, res) => {
     }
     const body = await readFile(filePath)
     const extension = extname(filePath)
-    const headers = { 'content-type': mime[extension] || 'application/octet-stream' }
+    const headers = { ...securityHeaders, 'content-type': mime[extension] || 'application/octet-stream' }
     if (extension === '.html') headers['cache-control'] = 'no-store, max-age=0, must-revalidate'
     else if (url.pathname.startsWith('/assets/')) headers['cache-control'] = 'public, max-age=31536000, immutable'
     res.writeHead(200, headers)
     res.end(body)
   } catch (error) {
+    if (error instanceof HttpError) {
+      if (!res.headersSent) return sendJson(res, error.status, { error: error.message })
+      return
+    }
     console.error(error)
-    if ((req.url || '').startsWith('/api/')) return sendJson(res, 500, { error: error?.message || 'Server error' })
+    // Do not leak internal error details to clients.
+    if (res.headersSent) return res.end()
+    if ((req.url || '').startsWith('/api/')) return sendJson(res, 500, { error: 'Something went wrong. Please try again.' })
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('Server error')
   }

@@ -67,7 +67,7 @@ function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsP
   const body=renderPageBody(project,page.id,false,cmsItemId)
   const title=page.seo.title||page.name
   const description=page.seo.description||''
-  const og=page.seo.ogImage?`<meta property="og:image" content="${page.seo.ogImage}">`:''
+  const og=page.seo.ogImage?`<meta property="og:image" content="${escapeAttr(page.seo.ogImage)}">`:''
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -124,7 +124,7 @@ function siteRuntime(project:BuilderProject){
 function sitemap(project:BuilderProject){
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${project.pages.map(page=>`  <url><loc>${page.slug}</loc></url>`).join('\n')}
+${project.pages.map(page=>`  <url><loc>${escapeHtml(page.slug)}</loc></url>`).join('\n')}
 </urlset>`
 }
 

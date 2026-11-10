@@ -556,7 +556,7 @@ ${body}${emptyState}
   document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{
     if(document.documentElement.classList.contains('builder-editing')){event.preventDefault();return}
     const action=form.getAttribute('action');if(!action||action==='#'){event.preventDefault();form.dataset.state='success'}
-  }))
+  }));
   ${interactionRuntime}
 })()
 </script>

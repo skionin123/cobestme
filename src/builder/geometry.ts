@@ -59,7 +59,7 @@ export function applyNodeGeometry(
       }
     }
     if(change.x!=null||change.y!=null){
-      const current=String(props.translate||'0px 0px').split(/\\s+/)
+      const current=String(props.translate||'0px 0px').split(/\s+/)
       const x=bounded(change.x??parseFloat(current[0]),-5000,5000)
       const y=bounded(change.y??parseFloat(current[1]),-5000,5000)
       if(x!==null&&y!==null)props.translate=x+'px '+y+'px'
