@@ -5,7 +5,7 @@ test('guest can save, publish and reopen a browser-only demo without an account'
   await context.route('**/api/**',route=>{requests.push(route.request().url());return route.abort()})
   await page.setViewportSize({width:390,height:844})
   await page.goto('/')
-  await page.getByRole('button',{name:'Create my shop'}).click()
+  await page.locator('.lp-hero').getByRole('button',{name:'Create my shop'}).click()
   await page.getByLabel('Shop name').fill('Demo Ceramics')
   await page.getByRole('button',{name:'Create shop',exact:true}).click()
   await page.getByLabel('Product name').fill('Mug')

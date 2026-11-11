@@ -15,6 +15,7 @@ const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
 const SalesReport = React.lazy(()=>import('./SalesReport'))
 import { chooseLatestProject, loadProject } from './builder/persistence'
 import { safeHref } from './builder/sanitize'
+import Landing from './Landing.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -370,119 +371,6 @@ function Logo({ inverse = false }) {
 
 function Button({ children, variant = 'primary', className = '', ...props }) {
   return <button className={`btn btn-${variant} ${className}`} {...props}>{children}</button>
-}
-
-function Landing({ onStart, onLogin }) {
-  const faqs = [
-    ['What is CoBest?', 'CoBest is a website and commerce platform built around the business behind the site. Client discovery, website structure, content, products, customers, orders, analytics, and visual design live in one connected workspace.'],
-    ['Can I use CoBest for an online store?', 'Yes. CoBest is designed for product-based businesses as well as service businesses, portfolios, booking websites, and brand sites. Store projects include catalog, customer, order, and storefront workflows alongside the website builder.'],
-    ['How is CoBest different from a template builder?', 'CoBest starts with the business, audience, goals, brand direction, content readiness, and required functionality. Those decisions become project context that stays visible while the website is built and managed.'],
-    ['Can designers and business owners use the same workspace?', 'Yes. The structure separates project context, website design, content, and commerce so each person can work in the area they understand without losing the shared direction.']
-  ]
-  return (
-    <div className="landing">
-      <div className="announcement"><span>Open your online shop with CoBest.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
-      <nav className="landing-nav container">
-        <Logo />
-        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
-      </nav>
-
-      <main className="hero-wrap container" id="product">
-        <div className="hero-copy">
-          <h1>Your products.<br/><span className="hero-gradient">Your own shop.</span></h1>
-          <p>Give your shop a name, add your first product, and publish a storefront you can share with anyone.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Create my shop <ArrowRight size={17}/></Button><a className="btn btn-secondary" href="#templates">Explore designs <ArrowRight size={15}/></a></div>
-          <div className="trust-row"><span><Check size={15}/> Start for free</span><span><Check size={15}/> No coding needed</span></div>
-        </div>
-        <figure className="shop-example">
-          <figcaption>Example storefront</figcaption>
-          <div className="sample-shop">
-            <div className="sample-shop-header"><strong>Sunday Studio</strong><ShoppingBag size={18} aria-hidden="true"/></div>
-            <img src="/images/studio-mug.webp" alt="A cream enamel mug held against a rose-pink background" width="900" height="600" fetchPriority="high"/>
-            <div className="sample-shop-product"><strong>Everyday enamel mug</strong><span>₱350</span></div>
-          </div>
-        </figure>
-      </main>
-
-      <section className="shop-steps" aria-label="How to launch your shop">
-        <div className="container"><span><Store aria-hidden="true"/>Name your shop</span><ArrowRight aria-hidden="true"/><span><Package aria-hidden="true"/>Add a product</span><ArrowRight aria-hidden="true"/><span><ShoppingBag aria-hidden="true"/>Publish and share</span></div>
-      </section>
-
-      <section className="landing-section container" id="features">
-        <p className="section-kicker">YOUR SPACE TO CREATE</p><h2>From your first idea to your online storefront.</h2><p className="cb-section-lead">Design something worth sharing, then organize the products and business details behind it—all in one place.</p>
-        <div className="feature-grid four">
-          <article><div className="cb-feature-icon"><Palette size={25}/></div><span className="cb-feature-number">DESIGN</span><h3>Make it yours</h3><p>Start with a professional theme and customize your pages, colors, and content to match your brand.</p></article>
-          <article><div className="cb-feature-icon"><Package size={25}/></div><span className="cb-feature-number">PRODUCTS</span><h3>Show what you sell</h3><p>Organize your catalog, categories, prices, and product details together.</p></article>
-          <article><div className="cb-feature-icon"><ShoppingBag size={25}/></div><span className="cb-feature-number">BUSINESS</span><h3>Stay organized</h3><p>Work with your orders and customers without losing track of your website.</p></article>
-          <article><div className="cb-feature-icon"><BarChart3 size={25}/></div><span className="cb-feature-number">INSIGHTS</span><h3>See the big picture</h3><p>Keep useful store information and performance views in the same workspace.</p></article>
-        </div>
-      </section>
-
-      <section className="platform-section" id="website">
-        <div className="container platform-intro"><div><p className="section-kicker">WEBSITE + COMMERCE</p><h2>Your storefront and your back office belong together.</h2></div><p>Content, layout, products, and business data are separated cleanly but stay connected, so a product update does not require redesigning a page and a redesign does not erase the store.</p></div>
-        <div className="container platform-grid">
-          <article className="platform-card dark"><div className="platform-label"><FileText size={18}/> Business context</div><h3>Start with the information a good designer asks first.</h3><p>Business goals, audience, brand direction, content readiness, pages, functionality, and references become a working website brief inside the project.</p><div className="brief-mock"><span>Primary goal</span><strong>Sell thoughtfully curated home goods</strong><span>Direction</span><strong>Luxury · Minimal · Editorial</strong><span>Audience</span><strong>Design-conscious homeowners</strong></div></article>
-          <article className="platform-card"><div className="platform-label"><Palette size={18}/> Online store</div><h3>Build the storefront visually.</h3><p>Use reusable sections, live page preview, brand settings, and device controls to shape the customer experience without editing code.</p><div className="editor-mock"><aside><i/><i/><i/><i/></aside><main><div className="editor-mock-hero">New collection</div><div><i/><i/><i/></div></main><aside><span>Heading</span><b/><span>Spacing</span><b/><span>Alignment</span><b/></aside></div></article>
-          <article className="platform-card"><div className="platform-label"><ShoppingBag size={18}/> Commerce</div><h3>Manage the business without touching the design.</h3><p>Products, inventory, orders, and customers live in dedicated management screens while the website reads from the same store information.</p><div className="commerce-mock"><div><i/><span>Arc Table Lamp</span><b>₱3,490</b></div><div><i/><span>Forma Catchall</span><b>₱1,290</b></div><div><i/><span>Linen House Throw</span><b>₱2,790</b></div></div></article>
-          <article className="platform-card accent"><div className="platform-label"><Store size={18}/> Publishing</div><h3>Preview changes before they go live.</h3><p>Work on the storefront in a controlled editing environment, review the customer view, and keep the production domain separate from day-to-day design changes.</p><div className="publish-mock"><span>Workspace</span><strong>app.cobest.me</strong><ArrowRight size={20}/><span>Storefront</span><strong>aureliagoods.com</strong></div></article>
-        </div>
-      </section>
-
-      <section className="builder-showcase container">
-        <div className="builder-copy"><p className="section-kicker">VISUAL WEBSITE BUILDER</p><h2>Design from the customer’s point of view.</h2><p>Edit pages in the browser, control reusable sections, and see desktop, tablet, and mobile layouts while the business content and product catalog remain connected underneath.</p><div className="builder-points"><span><Check size={15}/> Live page preview</span><span><Check size={15}/> Desktop, tablet, mobile</span><span><Check size={15}/> Reusable sections</span><span><Check size={15}/> Brand-aware controls</span></div><Button onClick={onStart}>Start building <ArrowRight size={15}/></Button></div>
-        <div className="builder-visual"><div className="builder-bar"><span>Home</span><div><Monitor size={14}/><Tablet size={14}/><Smartphone size={14}/></div><b>Save</b></div><div className="builder-body"><aside><span>SECTIONS</span><b>Header</b><b className="active">Hero</b><b>Featured products</b><b>Brand story</b><b>Newsletter</b></aside><main><div className="builder-page"><small>NEW COLLECTION</small><h3>Objects for quieter living.</h3><button>Shop collection</button><div><i/><i/><i/></div></div></main><aside><span>HERO SETTINGS</span><label>Heading</label><b/><label>Alignment</label><b/><label>Spacing</label><b/></aside></div></div>
-      </section>
-
-      <section className="landing-section container" id="approach">
-        <p className="section-kicker">THE COBEST DIFFERENCE</p><h2>Do the discovery before the design decisions.</h2>
-        <div className="feature-grid four">
-          <article><span>01</span><h3>Understand</h3><p>Capture the business, target customer, goals, brand personality, visual references, content, and required functionality.</p></article>
-          <article><span>02</span><h3>Organize</h3><p>Turn those answers into a clear website brief, page structure, content checklist, and store setup that the whole team can use.</p></article>
-          <article><span>03</span><h3>Build</h3><p>Design the website with the project context still visible, instead of starting from a blank canvas with no business direction.</p></article>
-          <article><span>04</span><h3>Run</h3><p>Move from launch into everyday website, product, order, customer, content, and performance management without changing systems.</p></article>
-        </div>
-      </section>
-
-      <section className="landing-section container marketing-templates" id="templates">
-        <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
-        <div className="marketing-template-grid">
-          {[
-            ['market','Sunday Market','Bold type, a sunflower hero and raspberry accents.'],
-            ['atelier','Midnight Atelier','Editorial serif type, midnight ink and an arched cover.']
-          ].map(([category,name,note],i)=><article key={category}>
-            <div className={`marketing-template-art template-art-${i+1}`} aria-label={`${name} design illustration`}>
-              <div className="cb-theme-browser">
-                <div className="cb-theme-nav"><strong>{i===0?'studio.':'MAISON'}</strong><span>Home &nbsp; Shop &nbsp; About</span></div>
-                <div className="cb-theme-canvas"><div><small>{i===0?'MAKE ROOM FOR NEW IDEAS':'AN EDITORIAL POINT OF VIEW'}</small><h3>{i===0?'A brighter way to begin.':'Objects with a story.'}</h3><span className="cb-theme-cta">Explore more</span></div><div className="cb-theme-object"/></div>
-              </div>
-            </div>
-            <strong>{name}</strong><p>{note}</p>
-            <a className="theme-trial-link" href={`/demo?theme=${category}`}>Try this theme <ArrowRight size={13}/></a>
-          </article>)}
-        </div>
-      </section>
-
-      <section className="marketing-testimonials">
-        <div className="container"><p className="section-kicker">MADE FOR YOUR NEXT CHAPTER</p><h2>Whatever you're building, make it feel like you.</h2><p className="cb-usecase-lead">From a first online shop to a brand you're proud to share, CoBest brings the creative and practical parts together.</p>
-          <div className="cb-usecase-grid">
-            <article className="cb-usecase"><div className="cb-usecase-icon"><ShoppingBag size={27}/></div><h3>Your first online shop</h3><p>Give your products a home with thoughtful pages and a storefront that feels welcoming.</p></article>
-            <article className="cb-usecase"><div className="cb-usecase-icon"><Sparkles size={27}/></div><h3>Your growing brand</h3><p>Put your story, visuals, and unique personality front and center.</p></article>
-            <article className="cb-usecase"><div className="cb-usecase-icon"><Store size={27}/></div><h3>Your business workspace</h3><p>Keep website editing and the everyday work of running a store close together.</p></article>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section container marketing-resources" id="resources">
-        <p className="section-kicker">RESOURCES</p><h2>Learn the system, not just the buttons.</h2>
-        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Try mobile previews and learn how page sections adapt to different screen sizes.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Explore sections and learn how to organize a page without starting from a blank screen.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>See how pages, products, and the website editor fit together in one workspace.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
-      </section>
-
-      <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-intro"><p className="section-kicker">PRICING</p><h2>Build first. Pay when the business is ready to go live.</h2><p>Start the website without a card. Upgrade when you need a custom domain and a live commerce workspace.</p></div><div className="pricing-grid"><article><span>BUILD</span><h3>Free</h3><strong>₱0 <small>/ month</small></strong><p>For preparing the website and organizing the business before launch.</p><ul><li><Check size={14}/> 1 website</li><li><Check size={14}/> Guided onboarding</li><li><Check size={14}/> Website brief</li><li><Check size={14}/> Visual website builder</li><li><Check size={14}/> CoBest storefront address</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article><article className="featured-plan"><span>LAUNCH</span><div className="plan-badge">Most popular</div><h3>Launch</h3><strong>₱990 <small>/ site / month</small></strong><p>For businesses ready to publish, sell, and manage their website every day.</p><ul><li><Check size={14}/> Everything in Free</li><li><Check size={14}/> Custom domain</li><li><Check size={14}/> Products and inventory</li><li><Check size={14}/> Orders and customers</li><li><Check size={14}/> Remove CoBest branding</li></ul><Button onClick={onStart}>Start free</Button></article><article><span>GROW</span><h3>Growth</h3><strong>₱2,490 <small>/ site / month</small></strong><p>For growing businesses that need more people, reporting, and support.</p><ul><li><Check size={14}/> Everything in Launch</li><li><Check size={14}/> Team access</li><li><Check size={14}/> Advanced analytics</li><li><Check size={14}/> Priority support</li><li><Check size={14}/> Additional publishing controls</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article></div><p className="pricing-note">Pricing shown in Philippine pesos. You can change these plan names, prices, and entitlements before billing is connected.</p></div></section><section className="landing-cta"><div className="container"><p className="section-kicker">START WITH THE BUSINESS</p><h2>Build the store around what the business actually needs.</h2><p>Set the direction, organize the website, and manage the storefront from one place.</p><div><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><Button variant="secondary" onClick={onLogin}>Log in</Button></div></div></section>
-
-      <section className="faq-section container" id="faq"><div><p className="section-kicker">FAQ</p><h2>Questions about CoBest.</h2></div><div>{faqs.map(([q,a])=><details key={q}><summary>{q}<Plus size={17}/></summary><p>{a}</p></details>)}</div></section>
-      <footer className="landing-footer container"><Logo/><p>Website and commerce, built around the business.</p><div><span>cobest.me</span><span>Website</span><span>Commerce</span></div></footer>
-    </div>
-  )
 }
 
 function Onboarding({ data, setData, onComplete, onExit }) {
