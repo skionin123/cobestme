@@ -5,6 +5,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
+import { clipAddress, clipMetadata, clipText, preparePublishSnapshot, publicStorePayload, publishSummary, sniffMediaType } from './server-publish.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -55,9 +56,12 @@ class HttpError extends Error {
 // reset and anonymous public forms from brute force and email/spam abuse on a
 // single instance. Use a shared store (e.g. Redis) if the app is scaled out.
 const rateBuckets = new Map()
+// Railway's edge proxy overwrites X-Forwarded-For and X-Real-IP on every public
+// request (client-sent copies are discarded), so they can be used for limits.
 function clientIp(req) {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-  return forwarded || req.socket?.remoteAddress || 'unknown'
+  const real = String(req.headers['x-real-ip'] || '').trim()
+  return forwarded || real || req.socket?.remoteAddress || 'unknown'
 }
 function rateLimited(req, name, limit, windowMs) {
   const key = `${name}:${clientIp(req)}`
@@ -103,8 +107,8 @@ async function readBuffer(req, limit = 12 * 1024 * 1024) {
   return Buffer.concat(chunks)
 }
 
-async function readJson(req) {
-  const buffer = await readBuffer(req, 2 * 1024 * 1024)
+async function readJson(req, limit = 2 * 1024 * 1024) {
+  const buffer = await readBuffer(req, limit)
   if (!buffer.length) return {}
   try { return JSON.parse(buffer.toString('utf8')) } catch { return null }
 }
@@ -252,12 +256,26 @@ function requestOrigin(req) {
   return `${proto === 'http' ? 'http' : 'https'}://${host}`
 }
 
+// Where a shopper returns after paying. A store's own custom domain is used
+// only when that domain is registered to this exact store; otherwise the
+// platform address is used, so a forged Host header cannot redirect shoppers.
+async function storeReturnBase(req, slug) {
+  const hostname = String(req.headers.host || '').toLowerCase().split(':')[0]
+  const platform = trustedHosts.has(hostname) || hostname.endsWith('.up.railway.app')
+  if (!platform && isValidDomain(hostname)) {
+    const match = await supabaseFetch(`/rest/v1/published_stores?custom_domain=eq.${encodeURIComponent(hostname)}&select=slug&limit=1`, { headers: apiHeaders() })
+    if (match.ok && Array.isArray(match.data) && match.data[0]?.slug === slug) return `https://${hostname}/`
+  }
+  return `${requestOrigin(req)}/store/${encodeURIComponent(slug)}`
+}
+
 async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
   if (!stripeSecret) return null
+  const returnBase = await storeReturnBase(req, slug)
   const params = new URLSearchParams()
   params.set('mode','payment')
-  params.set('success_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=success&order=${encodeURIComponent(order.order_number)}`)
-  params.set('cancel_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled&order=${encodeURIComponent(order.order_number)}`)
+  params.set('success_url',`${returnBase}?payment=success&order=${encodeURIComponent(order.order_number)}`)
+  params.set('cancel_url',`${returnBase}?payment=cancelled&order=${encodeURIComponent(order.order_number)}`)
   params.set('customer_email',buyer.email)
   params.set('metadata[order_id]',String(order.id))
   params.set('metadata[order_number]',String(order.order_number))
@@ -291,13 +309,14 @@ async function paypalAccessToken() {
 async function createPayPalCheckout({req,order,total,currency,slug}) {
   const access=await paypalAccessToken()
   if(!access)return null
+  const returnBase=await storeReturnBase(req,slug)
   const response=await fetch(`${paypalBase}/v2/checkout/orders`,{
     method:'POST',
     headers:{authorization:`Bearer ${access}`,'content-type':'application/json','paypal-request-id':`cobest-${order.id}-${Date.now()}`},
     body:JSON.stringify({
       intent:'CAPTURE',
       purchase_units:[{custom_id:String(order.id),invoice_id:String(order.order_number),amount:{currency_code:String(currency||'PHP').toUpperCase(),value:Number(total||0).toFixed(2)}}],
-      payment_source:{paypal:{experience_context:{return_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?paypal=return`,cancel_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled`,user_action:'PAY_NOW'}}}
+      payment_source:{paypal:{experience_context:{return_url:`${returnBase}?paypal=return`,cancel_url:`${returnBase}?payment=cancelled`,user_action:'PAY_NOW'}}}
     })
   })
   const data=await response.json().catch(()=>({}))
@@ -393,6 +412,10 @@ function validateResourceMutation(table, body, method='POST') {
       next.usage_limit = value
     }
   }
+  if (table === 'media_assets') {
+    // Media links are shown as clickable links in the dashboard.
+    if (next.url != null && !/^https?:\/\//i.test(String(next.url).trim())) return { error: 'Media URL must start with http:// or https://.' }
+  }
   if (table === 'orders' && method === 'PATCH') {
     const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
     for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
@@ -401,6 +424,14 @@ function validateResourceMutation(table, body, method='POST') {
     if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
   }
   return { body: next }
+}
+
+// The owner's (or team member's) view of the row that is currently live.
+// `ok:false` means the lookup itself failed, which is different from "nothing published".
+async function readPublishedRow(token, ownerId, siteId) {
+  const found = await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${Number(siteId)}&owner_user_id=eq.${encodeURIComponent(ownerId)}&select=snapshot,published_at&limit=1`, { headers: apiHeaders(token) })
+  if (!found.ok || !Array.isArray(found.data)) return { ok: false, row: null }
+  return { ok: true, row: found.data[0] || null }
 }
 
 async function getPublishedStore(slug) {
@@ -419,20 +450,24 @@ async function getPublishedStoreByDomain(host) {
 async function handlePublicApi(req, res, url) {
   const storeMatch = url.pathname.match(/^\/api\/public\/store\/([^/]+)$/)
   if (storeMatch && req.method === 'GET') {
-    const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
+    let slug = ''
+    try { slug = decodeURIComponent(storeMatch[1]) } catch { slug = '' }
+    const store = slug ? await getPublishedStore(clipText(slug, 120)) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...publicStorePayload(store), payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
-    const store = host ? await getPublishedStoreByDomain(host) : null
+    const store = host && isValidDomain(host) ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...publicStorePayload(store), payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
-  const body = req.method === 'POST' ? await readJson(req) : {}
-  if (req.method === 'POST' && body === null) return sendJson(res, 400, { error: 'Invalid JSON.' })
+  // Anonymous visitors only ever send small forms; refuse large bodies early.
+  const body = req.method === 'POST' ? await readJson(req, 256 * 1024) : {}
+  if (req.method === 'POST' && (body === null || typeof body !== 'object' || Array.isArray(body))) return sendJson(res, 400, { error: 'Invalid JSON.' })
+  if (req.method === 'POST') body.slug = clipText(body.slug, 120)
 
   if(url.pathname==='/api/public/customer/link'&&req.method==='POST'){
     const token=authToken(req);const user=await getUser(token)
@@ -452,7 +487,7 @@ async function handlePublicApi(req, res, url) {
     const token=authToken(req);const user=await getUser(token)
     if(!user)return sendJson(res,401,{error:'Customer login required.'})
     const result=await userRpc('update_customer_portal_profile',{
-      p_slug:body.slug,p_name:body.name||'',p_phone:body.phone||'',p_address:body.address||{},
+      p_slug:body.slug,p_name:clipText(body.name,120),p_phone:clipText(body.phone,40),p_address:clipAddress(body.address),
       p_marketing_consent:Boolean(body.marketing_consent)
     },token)
     return sendJson(res,result.status,result.data)
@@ -468,11 +503,16 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
-    const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
+    const contactName = clipText(body.name, 120)
+    const contactMessage = clipText(body.message, 5000)
+    if (!contactMessage) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
+    const result = await rpc('contact_store', { p_slug: body.slug, p_name: contactName, p_email: clipText(body.email, 254), p_message: contactMessage })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New website message from ${body.name||body.email}`,`<p><strong>From:</strong> ${escapeHtml(body.name||'Visitor')} (${escapeHtml(body.email)})</p><p>${escapeHtml(body.message).replaceAll('\n','<br>')}</p>`).catch(()=>{})
+      // Subject lines must not contain line breaks (header injection).
+      const subjectName=(contactName||clipText(body.email,254)).replace(/[\r\n]+/g,' ')
+      if(to&&isValidEmail(to))sendEmail(to,`New website message from ${subjectName}`,`<p><strong>From:</strong> ${escapeHtml(contactName||'Visitor')} (${escapeHtml(body.email)})</p><p>${escapeHtml(contactMessage).replaceAll('\n','<br>')}</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -482,12 +522,15 @@ async function handlePublicApi(req, res, url) {
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const bookingTime=Date.parse(body.start_at)
     if (!Number.isFinite(bookingTime) || bookingTime <= Date.now()) return sendJson(res, 400, { error: 'Booking time must be in the future.' })
-    const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
+    const bookingName = clipText(body.name, 120)
+    const bookingNotes = clipText(body.notes, 2000)
+    const bookingStart = new Date(bookingTime).toISOString()
+    const result = await rpc('book_store', { p_slug: body.slug, p_name: bookingName, p_email: clipText(body.email, 254), p_phone: clipText(body.phone, 40), p_start_at: bookingStart, p_notes: bookingNotes })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(body.start_at)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
-      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(body.start_at)}</strong> has been received.</p>`).catch(()=>{})
+      if(to&&isValidEmail(to))sendEmail(to,`New booking request from ${bookingName.replace(/[\r\n]+/g,' ')}`,`<p><strong>Customer:</strong> ${escapeHtml(bookingName)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(bookingStart)}</p><p>${escapeHtml(bookingNotes)}</p>`).catch(()=>{})
+      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(bookingName)},</p><p>Your booking request for <strong>${escapeHtml(bookingStart)}</strong> has been received.</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -498,16 +541,17 @@ async function handlePublicApi(req, res, url) {
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return sendJson(res, 400, { error: 'Rating must be between 1 and 5.' })
     if (body.email && !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('review_store_product', {
-      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: rating, p_body: body.body || ''
+      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: clipText(body.name, 120),
+      p_email: clipText(body.email, 254), p_rating: rating, p_body: clipText(body.body, 2000)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/event' && req.method === 'POST') {
     if (!body?.slug || !body?.event_type) return sendJson(res, 400, { error: 'Store and event are required.' })
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(String(body.event_type))) return sendJson(res, 400, { error: 'Unknown event.' })
     const result = await rpc('track_store_event', {
-      p_slug: body.slug, p_event_type: body.event_type, p_path: body.path || '', p_metadata: body.metadata || {}
+      p_slug: body.slug, p_event_type: body.event_type, p_path: clipText(body.path, 300), p_metadata: clipMetadata(body.metadata)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -515,14 +559,14 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
-    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
+    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: clipText(body.order_number, 40), p_email: clipText(body.email, 254) })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
     return sendJson(res, 200, { order: result.data })
   }
 
   if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
-    if(!body?.paypal_order_id)return sendJson(res,400,{error:'PayPal order ID is required.'})
+    if(!body?.paypal_order_id||!/^[A-Za-z0-9-]{6,64}$/.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'PayPal order ID is required.'})
     try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:true,status:data.status})}
     catch(error){return sendJson(res,502,{error:error.message})}
   }
@@ -530,6 +574,10 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
+    if (Array.isArray(body.items) && body.items.length > 100) return sendJson(res, 400, { error: 'Too many items in one order.' })
+    body.buyer = { name: clipText(body.buyer.name, 120), email: clipText(body.buyer.email, 254), phone: clipText(body.buyer.phone, 40) }
+    body.discount_code = clipText(body.discount_code, 40)
+    if (!body.buyer.name) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
@@ -547,7 +595,7 @@ async function handlePublicApi(req, res, url) {
       p_shipping_amount: totals.shippingAmount,
       p_tax_amount: totals.taxAmount,
       p_total: totals.total,
-      p_shipping_address: body.shipping_address || {}
+      p_shipping_address: clipAddress(body.shipping_address)
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     const order=result.data
@@ -616,6 +664,9 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/auth/signup' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email || !body?.password) return sendJson(res, 400, { error: 'Email and password are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    if (String(body.password).length < 8) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' })
+    if (String(body.password).length > 200) return sendJson(res, 400, { error: 'Password is too long.' })
     const result = await supabaseFetch('/auth/v1/signup', {
       method: 'POST', headers: apiHeaders(), body: JSON.stringify({ email: body.email, password: body.password })
     })
@@ -858,23 +909,35 @@ async function handleApi(req, res, url) {
     }
   }
 
+  if (url.pathname === '/api/publish/status' && req.method === 'GET') {
+    const nothingLive = { published: false, published_at: null, ...publishSummary(null) }
+    if (!siteId) return sendJson(res, 200, nothingLive)
+    const live = await readPublishedRow(token, ownerId, siteId)
+    if (!live.ok) return sendJson(res, 502, { error: 'Could not check what is currently live. Please try again.' })
+    if (!live.row) return sendJson(res, 200, nothingLive)
+    return sendJson(res, 200, { published: true, published_at: live.row.published_at || null, ...publishSummary(live.row.snapshot) })
+  }
+
   if (url.pathname === '/api/publish' && req.method === 'POST') {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const body = await readJson(req)
-    if(body?.snapshot?.editor)delete body.snapshot.editor.previousShopDesign
-    for(const project of [body?.snapshot?.visual_project,body?.snapshot?.editor?.visualBuilderProject]){
-      if(project&&typeof project==='object')project.versions=[]
-    }
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
+    if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
     const customDomain = String(body.custom_domain || '').toLowerCase().trim()
     if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
-    if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
+    // What is live now decides what a partial publish may change: a product or
+    // theme publish must not push the visual editor's draft live, and must not
+    // drop custom pages that are already published.
+    const live = await readPublishedRow(token, ownerId, siteId)
+    if (!live.ok) return sendJson(res, 502, { error: 'Could not check what is currently live, so nothing was published. Please try again.' })
+    const snapshot = preparePublishSnapshot(body.snapshot, live.row?.snapshot || null)
+    if (!snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=workspace_id', {
       method: 'POST',
       headers: apiHeaders(token, { Prefer: 'resolution=merge-duplicates,return=representation' }),
-      body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
+      body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot, published_at: new Date().toISOString() })
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     const publishedWorkspace=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
@@ -885,7 +948,7 @@ async function handleApi(req, res, url) {
     if(!publishedWorkspace.ok||!Array.isArray(publishedWorkspace.data)||!publishedWorkspace.data.length){
       return sendJson(res, 502, { error: 'The published design was stored, but the site status could not be confirmed. Please try publishing again.' })
     }
-    return sendJson(res, 200, { ok: true, slug, custom_domain: customDomain, store_url: `/store/${slug}` })
+    return sendJson(res, 200, { ok: true, slug, custom_domain: customDomain, store_url: `/store/${slug}`, ...publishSummary(snapshot) })
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
@@ -906,15 +969,22 @@ async function handleApi(req, res, url) {
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
     let rawName = 'upload.bin'
     try { rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin')).slice(0, 200) } catch {}
-    const fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
+    let fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
-    const storagePath = `${ownerId}/${siteId}/${Date.now()}-${fileName}`
     // Files are served publicly from storage. Never accept HTML, SVG or scripts,
-    // which would turn the media bucket into a stored-XSS host.
-    const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    // which would turn the media bucket into a stored-XSS host. The type is
+    // read from the file's own bytes, not from what the browser claims.
     const allowedMedia = new Set(['image/png','image/jpeg','image/webp','image/gif','image/avif','video/mp4','video/webm','application/pdf'])
+    const contentType = sniffMediaType(buffer)
     if (!allowedMedia.has(contentType)) return sendJson(res, 415, { error: 'Upload a PNG, JPG, WebP, GIF, AVIF, MP4, WebM or PDF file.' })
-    if (!/\.(png|jpe?g|webp|gif|avif|mp4|webm|pdf)$/i.test(fileName)) return sendJson(res, 415, { error: 'The file extension does not match an allowed media type.' })
+    // The stored name always ends in an extension that matches the real content.
+    const extensions = {
+      'image/png': ['png'], 'image/jpeg': ['jpg','jpeg'], 'image/webp': ['webp'], 'image/gif': ['gif'], 'image/avif': ['avif'],
+      'video/mp4': ['mp4','m4v','mov'], 'video/webm': ['webm'], 'application/pdf': ['pdf']
+    }[contentType]
+    const currentExtension = (fileName.match(/\.([a-z0-9]{1,5})$/i)?.[1] || '').toLowerCase()
+    if (!extensions.includes(currentExtension)) fileName = `${fileName.replace(/\.[a-z0-9]{1,5}$/i, '') || 'upload'}.${extensions[0]}`
+    const storagePath = `${ownerId}/${siteId}/${Date.now()}-${fileName}`
     const upload = await fetch(`${supabaseUrl}/storage/v1/object/cobest-media/${encodeURI(storagePath)}`, {
       method: 'POST',
       headers: { apikey: supabaseAnonKey, authorization: `Bearer ${token}`, 'content-type': contentType, 'x-upsert': 'false' },
