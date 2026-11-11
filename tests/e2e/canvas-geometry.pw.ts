@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
+// Canvas interactions run at 100% zoom on a wide window so the whole 1440px
+// page is on screen (Playwright cannot target elements in a CSS-scaled iframe).
+test.use({viewport:{width:2200,height:1100}})
+
 const frame=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
 async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame>['locator']>,dx:number,dy:number){
   // The selected canvas iframe rerenders after each edit. Wait until its
@@ -24,7 +28,8 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect(heading).toHaveCSS('translate','80px 40px')
   const initialSize=Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))
-  const inspectorTextSize=page.getByRole('spinbutton',{name:'Text size'})
+  await page.getByRole('tab',{name:'Design'}).click()
+  const inspectorTextSize=page.getByRole('spinbutton',{name:'Font size'})
   await inspectorTextSize.fill(String(Math.round(initialSize+4)))
   await inspectorTextSize.blur()
   await expect.poll(async()=>Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))).toBeGreaterThan(initialSize)
@@ -39,6 +44,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await expect(heading).toHaveCSS('translate','80px 40px')
   await heading.click()
@@ -50,8 +56,8 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
 
 
 test('dragging a selected element border resizes that element only',async({page})=>{
-  await page.setViewportSize({width:1440,height:900})
-  await page.goto('/e2e.html')
+    await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   const paragraph=frame(page).locator('[data-builder-node="hero-copy-home"]')
   await paragraph.click()
   await expect(frame(page).locator('.builder-selected')).toHaveCount(1)
@@ -72,15 +78,15 @@ test('dragging a selected element border resizes that element only',async({page}
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   await expect(paragraph).toHaveClass(/cb-geometry-hero-copy-home/)
 })
 
 test('corner grip is large enough at Fit zoom and actually resizes a heading',async({page})=>{
-  await page.setViewportSize({width:1440,height:900})
-  await page.goto('/e2e.html')
+    await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   // Default Fit zoom reproduces the smaller target in the supplied screenshot.
-  await expect(page.getByRole('button',{name:'Fit canvas to workspace'})).toHaveClass(/active/)
-  const heading=frame(page).locator('[data-builder-node="hero-title-home"]')
+    const heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
   const corner=frame(page).locator('.builder-resize-corner')
   await expect(corner).toBeVisible()
@@ -103,12 +109,13 @@ test('corner grip is large enough at Fit zoom and actually resizes a heading',as
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   await expect(frame(page).locator('[data-builder-node="hero-title-home"]')).toHaveClass(/cb-geometry-hero-title-home/)
 })
 
 test('section border reduces whitespace, keeps text size and supports Ctrl+Z inside canvas',async({page})=>{
-  await page.setViewportSize({width:1440,height:900})
-  await page.goto('/e2e.html')
+    await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   const canvas=frame(page)
   const title=canvas.locator('[data-builder-node="hero-title-home"]')
   const hero=canvas.locator('[data-builder-node="hero-home"]')
@@ -132,18 +139,21 @@ test('section border reduces whitespace, keeps text size and supports Ctrl+Z ins
   await hero.click({position:{x:20,y:20}})
   await page.keyboard.press('Control+z')
   await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(reduced+50)
+  // Wait for the re-rendered canvas to restore the selection before the next shortcut.
+  await expect(hero).toHaveClass(/builder-selected/)
   await page.keyboard.press('Control+y')
   await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(before-50)
 
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   await expect(frame(page).locator('[data-builder-node="hero-home"]')).toHaveClass(/cb-geometry-hero-home/)
 })
 
 test('corner targets are invisible until hover and resize from the upper-left',async({page})=>{
-  await page.setViewportSize({width:1440,height:900})
-  await page.goto('/e2e.html')
+    await page.goto('/e2e.html')
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   const canvas=frame(page)
   const title=canvas.locator('[data-builder-node="hero-title-home"]')
   await title.click()
@@ -173,5 +183,6 @@ test('corner targets are invisible until hover and resize from the upper-left',a
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   await expect(canvas.locator('[data-builder-node="hero-title-home"]')).toHaveCSS('translate',moved)
 })

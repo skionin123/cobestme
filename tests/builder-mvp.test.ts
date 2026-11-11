@@ -28,11 +28,10 @@ describe('MVP builder surface',()=>{
     expect(settings).not.toContain('Custom attributes')
   })
 
-  it('keeps only MVP left and right panel tabs visible',()=>{
-    expect(visualBuilder).toContain("['add',PanelLeft,'Add'],['navigator',Layers,'Navigator'],['pages',FileJson,'Pages'],['assets',ImageIcon,'Assets']")
-    expect(visualBuilder).toContain("[['style','Style'],['settings','Settings']]")
-    expect(visualBuilder).not.toContain("['cms',Database,'CMS'],")
-    expect(visualBuilder).not.toContain("['components',Component,'Components'],")
+  it('keeps a small set of plain-language editor panels',()=>{
+    expect(visualBuilder).toContain("[['add','Add',Plus],['layers','Layers',Layers],['pages','Pages',FileText],['media','Media',ImageIcon],['theme','Theme',Palette]]")
+    expect(visualBuilder).not.toContain("'cms'")
+    expect(visualBuilder).not.toContain("'components'")
   })
 
   it('does not cap long-page canvas height',()=>{
@@ -40,13 +39,8 @@ describe('MVP builder surface',()=>{
     expect(visualBuilder).toContain('Math.max(viewportHeights[breakpoint],Math.ceil(Number(msg.height)))')
   })
 
-  it('shows the MVP breakpoints including the existing 767 layer',()=>{
-    const start=visualBuilder.indexOf('const breakpoints:')
-    const end=visualBuilder.indexOf('if(preview)',start)
-    const block=visualBuilder.slice(start,end)
-    expect(block).toContain("['desktop','Desktop 1440'")
-    expect(block).toContain("['tablet','Tablet 991'")
-    expect(block).toContain("['mobileLandscape','Mobile landscape 767'")
-    expect(block).toContain("['mobilePortrait','Mobile 478'")
+  it('offers Desktop, Tablet and Mobile editing that map to the compiled breakpoints',()=>{
+    expect(visualBuilder).toContain("[['desktop','Desktop',Monitor],['tablet','Tablet',Tablet],['mobilePortrait','Mobile',Smartphone]]")
+    expect(visualBuilder).toContain('mobilePortrait:390')
   })
 })

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
+import { createPrebuiltSection } from './elements'
 import { duplicateWithIndependentGeometry } from './duplicate'
 import { canAcceptChild, clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
@@ -26,6 +27,9 @@ interface BuilderState {
   history: BuilderProject[]
   future: BuilderProject[]
   saveStatus: 'saved' | 'saving' | 'dirty' | 'error'
+  /** Live computed style of the selected element, reported by the canvas. Display only. */
+  selectedComputed: Record<string,string>
+  setSelectedComputed:(id:string,style:Record<string,string>)=>void
   selectNode:(id:string|null)=>void
   hoverNode:(id:string|null)=>void
   setBreakpoint:(id:BreakpointId)=>void
@@ -105,20 +109,47 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     next.version=Math.max(current.version||0,next.version||0)+1
   }
 
+  // Typing in a text field or dragging a slider fires many small edits. Group
+  // rapid edits with the same label into one undo step and one version, so
+  // Undo reverts the whole word/drag instead of a single character.
+  let lastCommit:{label:string;target:string|null;at:number}|null=null
   const commit=(label:string,mutation:(draft:BuilderProject)=>void)=>{
     const state=get()
     const previous=clone(state.project)
     const draft=clone(state.project)
     mutation(draft)
+    if(JSON.stringify(draft)===JSON.stringify(previous))return
     advanceRevision(state.project,draft)
+    const now=Date.now()
+    const target=state.selectedNodeId
+    const grouped=!!lastCommit&&lastCommit.label===label&&lastCommit.target===target&&now-lastCommit.at<1200
+    lastCommit={label,target,at:now}
+    if(grouped&&state.history.length){
+      draft.versions=previous.versions||[]
+      set({project:draft,future:[],saveStatus:'dirty'})
+      return
+    }
     const version=makeVersion(previous,label)
     draft.versions=[version,...(draft.versions||[])].slice(0,20)
     set({
       project:draft,
-      history:[...state.history,previous],
+      history:[...state.history,previous].slice(-100),
       future:[],
       saveStatus:'dirty',
     })
+  }
+
+  const uniqueSlug=(project:BuilderProject,wanted:string)=>{
+    const taken=new Set(project.pages.map(p=>p.slug.replace(/\/+$/,'')||'/'))
+    const base=wanted.replace(/\/+$/,'')||'/page'
+    if(!taken.has(base))return base
+    for(let i=2;i<100;i++)if(!taken.has(base+'-'+i))return base+'-'+i
+    return base+'-'+Date.now().toString(36)
+  }
+  const findFirst=(node:BuilderNode,test:(n:BuilderNode)=>boolean):BuilderNode|null=>{
+    if(test(node))return node
+    for(const child of node.children||[]){const found=findFirst(child,test);if(found)return found}
+    return null
   }
 
   const currentPage=(project:BuilderProject)=>project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
@@ -132,7 +163,9 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     history:[],
     future:[],
     saveStatus:'saved',
-    selectNode:id=>set({selectedNodeId:id}),
+    selectedComputed:{},
+    setSelectedComputed:(id,style)=>{if(get().selectedNodeId===id)set({selectedComputed:style})},
+    selectNode:id=>set({selectedNodeId:id,selectedComputed:{}}),
     hoverNode:id=>set({hoveredNodeId:id}),
     setBreakpoint:breakpoint=>set({breakpoint}),
     setStyleState:styleState=>set({styleState}),
@@ -156,27 +189,40 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     addPage:name=>{
       const clean=name.trim()||'Untitled'
       const id=uid('page')
-      const slug='/'+slugify(clean)
-      const root:BuilderNode={id:uid('root'),type:'div',tag:'main',name:'Page',classes:['page-shell'],attributes:{},children:[]}
+      const slug=uniqueSlug(get().project,'/'+(slugify(clean)||'page'))
+      // New pages reuse the site's navigation and footer so visitors can move
+      // between pages, plus a simple heading section ready to edit.
+      const home=get().project.pages.find(p=>p.slug==='/')||get().project.pages[0]
+      const nav=home?.root.children.find(n=>n.type==='navbar')
+      const footer=home?.root.children.find(n=>n.type==='footer')
+      const intro=createPrebuiltSection('cta')
+      intro.name=clean+' intro'
+      const heading=findFirst(intro,n=>n.type==='heading')
+      if(heading)heading.content=clean
+      const root:BuilderNode={id:uid('root'),type:'div',tag:'main',name:'Page',classes:['page-shell'],attributes:{},children:[
+        ...(nav?[regenerateNodeIds(nav,'node')]:[]),
+        intro,
+        ...(footer?[regenerateNodeIds(footer,'node')]:[]),
+      ]}
       commit('Add page',draft=>{
         draft.pages.push({id,name:clean,slug,seo:{title:clean,description:'',slug},root})
         draft.activePageId=id
       })
-      set({selectedNodeId:root.id})
+      set({selectedNodeId:heading?.id||root.id})
     },
     renamePage:(pageId,name)=>commit('Rename page',draft=>{
+      // Renaming never changes the web address: links to this page keep working.
       const page=draft.pages.find(p=>p.id===pageId);if(!page)return
+      const previous=page.name
       page.name=name
-      page.slug=page.slug==='/'?'/':'/'+slugify(name)
-      page.seo.title=page.seo.title||name
-      page.seo.slug=page.slug
+      if(!page.seo.title||page.seo.title===previous)page.seo.title=name
     }),
     duplicatePage:pageId=>{
       const source=get().project.pages.find(p=>p.id===pageId);if(!source)return
       const page=clone(source)
       page.id=uid('page')
-      page.name=source.name+' Copy'
-      page.slug='/'+slugify(page.name)
+      page.name=source.name+' copy'
+      page.slug=uniqueSlug(get().project,'/'+slugify(page.name))
       page.seo={...page.seo,title:page.name,slug:page.slug}
       page.root=regenerateNodeIds(page.root,'node')
       commit('Duplicate page',draft=>{draft.pages.push(page);draft.activePageId=page.id})
@@ -201,7 +247,12 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     updatePageSeo:(pageId,key,value)=>commit('Update page SEO',draft=>{
       const page=draft.pages.find(p=>p.id===pageId);if(!page)return
       page.seo={...page.seo,[key]:value}
-      if(key==='slug'){page.slug=value.startsWith('/')?value:'/'+value;page.seo.slug=page.slug}
+      if(key==='slug'){
+        const previous=page.slug
+        page.slug=value.startsWith('/')?value:'/'+value;page.seo.slug=page.slug
+        // Keep buttons and links that pointed to the old address working.
+        if(previous&&previous!==page.slug)for(const p of draft.pages)walkNodes(p.root,node=>{if(node.attributes?.href===previous)node.attributes.href=page.slug})
+      }
     }),
     addNode:(parentId,node,index)=>{
       const page=currentPage(get().project)
@@ -371,6 +422,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     },
     importProject:project=>set({project:clone(project),history:[],future:[],selectedNodeId:project.pages.find(p=>p.id===project.activePageId)?.root.id||null,saveStatus:'dirty'}),
     undo:()=>{
+      lastCommit=null
       const state=get();const previous=state.history.at(-1);if(!previous)return
       const restored=clone(previous)
       advanceRevision(state.project,restored)
@@ -379,6 +431,7 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       set({project:restored,history:state.history.slice(0,-1),future:[clone(state.project),...state.future],saveStatus:'dirty',selectedNodeId:selected,hoveredNodeId:null})
     },
     redo:()=>{
+      lastCommit=null
       const state=get();const next=state.future[0];if(!next)return
       const restored=clone(next)
       advanceRevision(state.project,restored)

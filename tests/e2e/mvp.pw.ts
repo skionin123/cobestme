@@ -1,189 +1,146 @@
-import { test, expect, type Locator, type Page } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+
+// Full editor workflow for a business owner: add → edit → pages → mobile → export.
+// Canvas clicks use 100% zoom on a wide window (Playwright cannot target
+// elements inside a CSS-scaled iframe).
+test.use({viewport:{width:2200,height:1100}})
 
 const canvas=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
 const preview=(page:Page)=>page.frameLocator('iframe[title="CoBest preview"]')
-const palette=(page:Page,label:string)=>page.locator('.vb-palette-item',{hasText:label}).first()
+const panel=(page:Page,name:string)=>page.getByRole('navigation',{name:'Editor panels'}).getByRole('button',{name,exact:true})
 
-async function createBlankPage(page:Page,name='Landing'){
-  await page.getByRole('button',{name:'Pages',exact:true}).click()
-  await page.getByRole('button',{name:'Add page'}).click()
-  await page.getByPlaceholder('Page name').fill(name)
-  await page.getByRole('button',{name:'Create',exact:true}).click()
-  await expect(canvas(page).locator('.builder-empty-state')).toContainText('Start building your page')
-}
-
-async function dragPalette(page:Page,label:string,target:Locator){
-  const source=palette(page,label)
-  await expect(source).toBeVisible()
-  await source.dragTo(target,{force:true})
-}
-
-test.describe('CoBest MVP browser golden path',()=>{
-  test('builds, styles, previews, saves, reloads, navigates, uses assets and exports',async({page})=>{
+test.describe('CoBest editor workflow',()=>{
+  test('guided build: sections, text, links, pages, layers, theme, mobile and export',async({page})=>{
     await page.goto('/e2e.html')
-    await expect(page.getByText('COBEST DESIGNER')).toBeVisible()
+    await page.getByRole('button',{name:'Show canvas at actual size'}).click()
 
-    await expect(page.getByRole('button',{name:'Add',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Navigator',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Pages',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Assets',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Style',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeVisible()
-    await expect(page.getByRole('button',{name:'CMS'})).toHaveCount(0)
-    await expect(page.getByRole('button',{name:'Interactions'})).toHaveCount(0)
+    // Simple layout: five plain-language panels and a 4-step guide.
+    for(const name of ['Add','Layers','Pages','Media','Theme'])await expect(panel(page,name)).toBeVisible()
+    const guide=page.getByRole('region',{name:'Website setup steps'})
+    for(const step of ['Add sections','Make it yours','Check on mobile','Publish'])await expect(guide.getByText(step,{exact:true})).toBeVisible()
+    await expect(page.getByRole('tab',{name:'Advanced'})).toBeVisible()
 
-    await createBlankPage(page)
-    await page.getByRole('button',{name:'Add',exact:true}).click()
-
+    // 1. Add sections with one click; each lands after the current section.
     const frame=canvas(page)
-    const root=frame.locator('[data-builder-name="Page"]')
-    await dragPalette(page,'Section',root)
-    const section=frame.locator('[data-builder-type="section"]').first()
-    await expect(section).toBeVisible()
+    await page.locator('.ee-section-card',{hasText:'Features grid'}).click()
+    await page.locator('.ee-section-card',{hasText:'Contact'}).click()
+    await page.locator('.ee-section-card',{hasText:'Footer'}).click()
+    await expect(guide.getByRole('button',{name:/Step 1: Add sections \(done\)/})).toBeVisible()
 
-    await dragPalette(page,'Container',section)
-    const container=frame.locator('[data-builder-type="container"]').first()
-    await expect(container).toBeVisible()
-    await expect(container).toHaveCSS('min-height','72px')
-    expect(await container.evaluate(el=>getComputedStyle(el,'::after').content)).toContain('Drop elements here')
+    // 2. Edit text from the inspector; one Undo reverts the whole edit.
+    const title=frame.locator('[data-builder-node="hero-title-home"]')
+    await title.click()
+    await page.getByRole('tab',{name:'Content'}).click()
+    await page.getByLabel('Element text').fill('Fresh flowers, delivered today')
+    await expect(title).toHaveText('Fresh flowers, delivered today')
+    await page.getByRole('button',{name:'Undo'}).click()
+    await expect(title).toHaveText('Build something remarkable.')
+    await page.getByRole('button',{name:'Redo'}).click()
+    await expect(title).toHaveText('Fresh flowers, delivered today')
+    await page.getByRole('group',{name:'Heading level'}).getByRole('button',{name:'H2'}).click()
+    await expect(frame.locator('h2[data-builder-node="hero-title-home"]')).toBeVisible()
+    await page.getByRole('group',{name:'Heading level'}).getByRole('button',{name:'H1'}).click()
 
-    await dragPalette(page,'Heading',container)
-    await dragPalette(page,'Paragraph',container)
-    await dragPalette(page,'Button',container)
-    await dragPalette(page,'Image',container)
+    // Move up / down reorders within the parent.
+    const copy=frame.locator('[data-builder-node="hero-copy-home"]')
+    await copy.click()
+    await page.getByRole('button',{name:'Move up'}).click()
+    const order=await frame.locator('[data-builder-node="hero-copy-home"]').evaluate(el=>[...el.parentElement!.children].map(c=>(c as HTMLElement).dataset.builderNode))
+    expect(order[0]).toBe('hero-copy-home')
+    await page.getByRole('button',{name:'Undo'}).click()
 
-    let heading=frame.locator('[data-builder-type="heading"]').first()
-    let paragraph=frame.locator('[data-builder-type="paragraph"]').first()
-    let image=frame.locator('[data-builder-type="image"]').first()
-    let button=frame.locator('[data-builder-type="button"],[data-builder-type="link"]').filter({hasText:'Button'}).first()
+    // Links: choose a page, or a safe external address.
+    await frame.getByText('Start building').click()
+    await page.getByRole('tab',{name:'Content'}).click()
+    await page.getByLabel('Link type').selectOption('url')
+    await page.getByLabel('Link destination').fill('javascript:alert(1)')
+    await expect(page.getByText('blocked for safety')).toBeVisible()
+    await page.getByLabel('Link destination').fill('https://example.com/shop')
+    await page.getByLabel('Link destination').blur()
+    await expect(frame.getByText('Start building')).toHaveAttribute('href','https://example.com/shop')
 
-    await heading.dblclick()
-    await heading.fill('A professional website, built visually.')
-    await paragraph.click()
-    heading=frame.locator('[data-builder-type="heading"]').first()
-    await expect(heading).toHaveText('A professional website, built visually.')
+    // Pages: new pages get the site navigation, a heading and a unique address.
+    await panel(page,'Pages').click()
+    await page.getByRole('button',{name:'Add page'}).click()
+    await page.getByLabel('New page name').fill('About us')
+    await page.getByRole('button',{name:'Create page'}).click()
+    await expect(page.locator('.ee-page-button')).toContainText('About us')
+    await expect(frame.locator('[data-builder-type="heading"]').first()).toHaveText('About us')
+    await expect(page.getByLabel('Page URL')).toHaveValue('/about-us')
+    await page.getByLabel('Page URL').fill('/')
+    await page.getByLabel('Page URL').blur()
+    await expect(page.getByLabel('Page URL')).toHaveValue('/about-us')
+    await page.getByPlaceholder('e.g. Fresh flowers delivered in Manila').fill('About Bloom & Co')
+    await expect(page.getByLabel('Google preview')).toContainText('About Bloom & Co')
+    await page.getByRole('button',{name:'Add page'}).click()
+    await page.getByLabel('New page name').fill('About us')
+    await page.getByRole('button',{name:'Create page'}).click()
+    await expect(page.getByLabel('Page URL')).toHaveValue('/about-us-2')
+    page.once('dialog',d=>d.accept())
+    await page.getByRole('button',{name:'Delete About us',exact:true}).last().click()
 
-    await heading.click()
-    await expect(heading).toHaveClass(/builder-selected/)
-    await page.getByRole('button',{name:'Advanced styling'}).click()
-    const fontSize=page.locator('.vb-inspector-advanced label',{hasText:'Font size'}).first()
-    await fontSize.locator('input').fill('52')
+    // Layers: hide from the website, then show again.
+    await page.locator('.ee-page-button').click()
+    await page.getByRole('option',{name:/Home/}).click()
+    await panel(page,'Layers').click()
+    await page.getByRole('button',{name:'Hide Hero',exact:true}).click()
+    await expect(frame.locator('[data-builder-node="hero-home"]')).toHaveCount(0)
+    await page.getByRole('button',{name:'Show Hero',exact:true}).click()
+    await expect(frame.locator('[data-builder-node="hero-home"]')).toBeVisible()
 
-    const textColor=page.locator('.vb-right-content label',{hasText:'Text color'}).first().locator('input[type="color"]')
-    await textColor.evaluate((element)=>{
-      const input=element as HTMLInputElement
-      input.value='#17324d'
-      input.dispatchEvent(new Event('input',{bubbles:true}))
-      input.dispatchEvent(new Event('change',{bubbles:true}))
-    })
+    // Theme: brand color updates the site variable.
+    await panel(page,'Theme').click()
+    await page.getByLabel('Brand / buttons color').fill('#e11d48')
+    await expect.poll(()=>frame.locator('html').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim())).toBe('#e11d48')
 
-    await page.getByTitle('Tablet 991').click()
-    await expect(fontSize).toContainText('inherited · desktop')
-    await fontSize.locator('input').fill('38')
-    await expect(fontSize).toContainText('override')
+    // 3. Check on mobile from the guide; preview has no editor markup.
+    await guide.getByRole('button',{name:/Step 3: Check on mobile/}).click()
+    await expect(page.getByRole('dialog',{name:'Website preview'})).toBeVisible()
+    await expect(preview(page).locator('[data-builder-node]')).toHaveCount(0)
+    await expect(preview(page).getByText('Fresh flowers, delivered today')).toBeVisible()
+    await page.getByRole('button',{name:/Exit preview/}).click()
+    await expect(guide.getByRole('button',{name:/Step 3: Check on mobile \(done\)/})).toBeVisible()
 
-    await page.getByTitle('Mobile 478').click()
-    await expect(fontSize).toContainText('inherited · tablet')
-    await fontSize.locator('input').fill('30')
-    await page.getByTitle('Desktop 1440').click()
-    await expect(fontSize.locator('input')).toHaveValue('52')
-
-    image=frame.locator('[data-builder-type="image"]').first()
-    const containerNode=frame.locator('[data-builder-type="container"]').first()
-    const beforeOrder=await containerNode.evaluate(el=>
-      Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||'')
-    )
-    expect(beforeOrder.sort()).toEqual(['button','heading','image','paragraph'].sort())
-
-    await image.click()
-    await expect(frame.locator('.builder-node-label')).toContainText('Image')
-    await page.getByRole('button',{name:'Navigator',exact:true}).click()
-
-    const imageRow=page.locator('.vb-nav-row',{hasText:'Image'}).first()
-    const headingNode=frame.locator('[data-builder-type="heading"]').first()
-    const headingId=await headingNode.getAttribute('data-builder-node')
-    expect(headingId).toBeTruthy()
-    const imageWasBeforeHeading=beforeOrder.indexOf('image')<beforeOrder.indexOf('heading')
-    const dropTarget=page.locator(`[data-drop-id="${imageWasBeforeHeading?'after':'before'}:${headingId}"]`).first()
-    const dragHandle=imageRow.locator('.vb-nav-drag')
-    const sourceBox=await dragHandle.boundingBox()
-    const targetBox=await dropTarget.boundingBox()
-    expect(sourceBox).not.toBeNull();expect(targetBox).not.toBeNull()
-    await page.mouse.move(sourceBox!.x+sourceBox!.width/2,sourceBox!.y+sourceBox!.height/2)
-    await page.mouse.down()
-    await page.mouse.move(targetBox!.x+targetBox!.width/2,targetBox!.y+Math.max(1,targetBox!.height/2),{steps:14})
-    await page.mouse.up()
-    await expect.poll(async()=>{
-      const order=await containerNode.evaluate(el=>Array.from(el.children).map(child=>(child as HTMLElement).dataset.builderType||''))
-      return order.indexOf('image')<order.indexOf('heading')
-    }).toBe(!imageWasBeforeHeading)
-
-    await page.getByRole('button',{name:'Navigator',exact:true}).click()
-    const headingRow=page.locator('.vb-nav-row',{hasText:'Heading'}).first()
-    await headingRow.locator('.vb-nav-name').click()
-    await expect(frame.locator('[data-builder-type="heading"]').first()).toHaveClass(/builder-selected/)
-
-    await frame.locator('[data-builder-type="paragraph"]').first().click()
-    await expect(page.locator('.vb-nav-row.is-selected')).toContainText('Paragraph')
-
-    await page.getByRole('button',{name:'Assets',exact:true}).click()
-    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl7jZ0AAAAASUVORK5CYII=','base64')
-    await page.locator('input[type="file"]').setInputFiles({name:'hero.png',mimeType:'image/png',buffer:png})
-    await expect(page.getByText('hero.png',{exact:true})).toBeVisible()
-
-    image=frame.locator('[data-builder-type="image"]').first()
-    await image.click()
-    await page.getByRole('button',{name:'Settings',exact:true}).click()
-    await page.getByRole('button',{name:'Use image hero.png'}).click()
-    await expect(frame.locator('[data-builder-type="image"]').first()).toHaveAttribute('src',/data:image\/png;base64/)
-
+    // Save, reload and keep the work.
     await page.getByRole('button',{name:'Save',exact:true}).click()
     await expect(page.locator('.vb-save-status')).toHaveText('Saved')
-
     await page.reload()
-    await expect(page.getByText('COBEST DESIGNER')).toBeVisible()
-    heading=canvas(page).locator('[data-builder-type="heading"]').first()
-    await expect(heading).toHaveText('A professional website, built visually.')
-    await expect(canvas(page).locator('[data-builder-type="image"]').first()).toHaveAttribute('src',/data:image\/png;base64/)
+    await expect(canvas(page).locator('[data-builder-node="hero-title-home"]')).toHaveText('Fresh flowers, delivered today')
 
-    await heading.click()
-    await page.getByRole('button',{name:'Settings',exact:true}).click()
-    const contentInput=page.locator('.vb-right-content section',{hasText:'Content'}).locator('input').first()
-    await contentInput.fill('Temporary browser change')
-    await expect(canvas(page).locator('[data-builder-type="heading"]').first()).toHaveText('Temporary browser change')
-
-    await page.locator('.vb-stage-meta').click()
-    await page.getByTitle('Undo').click()
-    await expect(canvas(page).locator('[data-builder-type="heading"]').first()).toHaveText('A professional website, built visually.')
-    await page.getByTitle('Redo').click()
-    await expect(canvas(page).locator('[data-builder-type="heading"]').first()).toHaveText('Temporary browser change')
-    await page.getByTitle('Undo').click()
-
-    await page.getByRole('button',{name:'Preview',exact:true}).click()
-    const previewHeading=preview(page).locator('h1,h2,h3,h4,h5,h6').filter({hasText:'A professional website, built visually.'}).first()
-    await expect(previewHeading).toBeVisible()
-    await expect(preview(page).locator('[data-builder-node]')).toHaveCount(0)
-    await expect(previewHeading).toHaveCSS('font-size','52px')
-    await page.getByRole('button',{name:/Exit preview/}).click()
-
-    await page.getByRole('button',{name:'Export',exact:true}).click()
-    const downloadPromise=page.waitForEvent('download')
-    await page.getByRole('button',{name:/Export website ZIP/}).click()
-    const download=await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/\.zip$/)
+    // Version history and export live under More options.
+    await page.getByRole('button',{name:'More options'}).click()
+    const download=page.waitForEvent('download')
+    await page.getByRole('menuitem',{name:/Download website \(ZIP\)/}).click()
+    expect((await download).suggestedFilename()).toMatch(/\.zip$/)
+    await page.getByRole('button',{name:'More options'}).click()
+    await page.getByRole('menuitem',{name:/Version history/}).click()
+    await expect(page.getByRole('dialog',{name:'Version history'})).toContainText('Edit color variable')
   })
 
   test('keeps long pages scrollable to the bottom',async({page})=>{
     await page.goto('/e2e.html')
-    await createBlankPage(page,'Long Page')
-    await page.getByRole('button',{name:'Add',exact:true}).click()
-    const sectionButton=palette(page,'Section')
-    for(let i=0;i<18;i++)await sectionButton.click()
-
-    const stage=page.locator('.vb-stage')
+    const card=page.locator('.ee-section-card',{hasText:'Features grid'})
+    for(let i=0;i<12;i++)await card.click()
+    const stage=page.locator('.ee-stage')
     await expect.poll(()=>stage.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true)
     await stage.evaluate(el=>{el.scrollTop=el.scrollHeight})
     await expect.poll(()=>stage.evaluate(el=>el.scrollTop)).toBeGreaterThan(0)
-    await expect(canvas(page).locator('[data-builder-type="section"]')).toHaveCount(18)
+    await expect(canvas(page).locator('[data-builder-name="Features"]')).toHaveCount(12)
+  })
+
+  test('works on a laptop-sized screen without hiding the canvas',async({page})=>{
+    await page.setViewportSize({width:1280,height:800})
+    await page.goto('/e2e.html')
+    await expect(page.getByRole('button',{name:'Fit canvas to workspace'})).toHaveClass(/active/)
+    // Measure with getBoundingClientRect (includes the Fit scale transform).
+    await expect(page.getByTestId('canvas-zoom')).not.toHaveText('100%')
+    const boxes=await page.evaluate(()=>{
+      const r=(s:string)=>document.querySelector(s)!.getBoundingClientRect()
+      const stage=r('.ee-stage'),frame=r('iframe[title="CoBest visual builder canvas"]')
+      return {stageX:stage.x,stageW:stage.width,frameX:frame.x,frameW:frame.width}
+    })
+    expect(boxes.stageW).toBeGreaterThan(560)
+    expect(boxes.frameX).toBeGreaterThanOrEqual(boxes.stageX)
+    expect(boxes.frameX+boxes.frameW).toBeLessThanOrEqual(boxes.stageX+boxes.stageW)
   })
 })

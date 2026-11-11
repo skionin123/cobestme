@@ -1,4 +1,8 @@
 import {test,expect,type Page} from '@playwright/test'
+
+// Canvas interactions run at 100% zoom on a wide window so the whole 1440px
+// page is on screen (Playwright cannot target elements in a CSS-scaled iframe).
+test.use({viewport:{width:2200,height:1100}})
 const canvas=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
 async function moveBy(page:Page,dx:number,dy:number){
   const button=canvas(page).getByRole('button',{name:'Drag to move the selected element'})
@@ -27,6 +31,7 @@ test('snap toggle aligns moves and persists preference across reloads',async({pa
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-pressed','false')
   await page.reload()
+  await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   await expect(page.getByRole('button',{name:'Toggle alignment snapping'})).toHaveAttribute('aria-pressed','false')
   const selected=canvas(page).locator('[data-builder-node="hero-title-home"]')
   await selected.click()

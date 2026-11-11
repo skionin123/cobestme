@@ -580,7 +580,7 @@ const navGroups = [
   {label:'',items:[['dashboard','Overview',LayoutDashboard]]},
   {label:'Sales',items:[['orders','Orders',ShoppingBag],['customers','Customers',Users],['sales-report','Sales report',BarChart3]]},
   {label:'Catalog',items:[['products','Products',Package],['taxonomy','Categories & subcategories',Layers],['collections','Collections',Store],['discounts','Discounts',BriefcaseBusiness]]},
-  {label:'Online store',items:[['shop-design','Storefront editor',Store],['website','Website themes',Palette],['editor','Advanced editor',Pencil],['settings','Publish & domain',Settings]]},
+  {label:'Online store',items:[['shop-design','Storefront editor',Store],['website','Website themes',Palette],['editor','Website editor',Pencil],['settings','Publish & domain',Settings]]},
   {label:'Workspace',items:[['sites','My websites',Store]]},
 ]
 const navItems = navGroups.flatMap(group => group.items)

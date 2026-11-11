@@ -10,7 +10,7 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
   const body=renderPageBody(project,project.activePageId,editing)
   const activePage=project.pages.find(page=>page.id===project.activePageId)||project.pages[0]
   const emptyState=editing&&activePage?.root?.children?.length===0
-    ? '<div class="builder-empty-state"><strong>Start building your page</strong><span>Drag a Section onto the canvas.</span></div>'
+    ? '<div class="builder-empty-state"><strong>Start building your page</strong><span>Pick a section from Add on the left, or drag one here.</span></div>'
     : ''
   const interactionRuntime=compileInteractionRuntime(project)
   return `<!doctype html>
@@ -357,6 +357,15 @@ ${body}${emptyState}
     }
   }
   const send=(type,payload={})=>parent.postMessage({source:'cobest-builder',type,...payload},'*')
+  // Report what the selected element actually looks like, so the inspector can
+  // show real values (e.g. 64px heading) instead of generic defaults.
+  const reportComputed=(id)=>{
+    const el=id?document.querySelector('[data-builder-node="'+CSS.escape(id)+'"]'):null
+    if(!el)return
+    const cs=getComputedStyle(el)
+    const toHex=(value)=>{const v=String(value);if(!v.startsWith('rgb'))return '';const n=v.replace(/[^0-9.,]/g,'').split(',').map(Number);if(n.length<3)return '';if(n.length>3&&n[3]===0)return '';return '#'+n.slice(0,3).map(x=>Math.round(x).toString(16).padStart(2,'0')).join('')}
+    send('computed',{id,style:{fontSize:cs.fontSize,fontWeight:cs.fontWeight,lineHeight:cs.lineHeight==='normal'?'':String((parseFloat(cs.lineHeight)/parseFloat(cs.fontSize)).toFixed(2)),letterSpacing:cs.letterSpacing==='normal'?'0px':cs.letterSpacing,textAlign:cs.textAlign==='start'?'left':cs.textAlign,color:toHex(cs.color),backgroundColor:toHex(cs.backgroundColor),fontStyle:cs.fontStyle,paddingTop:cs.paddingTop,paddingRight:cs.paddingRight,paddingBottom:cs.paddingBottom,paddingLeft:cs.paddingLeft,marginTop:cs.marginTop,marginBottom:cs.marginBottom,gap:cs.gap==='normal'?'0px':cs.gap,borderRadius:cs.borderTopLeftRadius}})
+  }
   const reportSize=()=>{
     if(!document.documentElement.classList.contains('builder-editing'))return
     const bottoms=Array.from(document.querySelectorAll('[data-builder-node]')).map(el=>el.getBoundingClientRect().bottom+window.scrollY+40)
@@ -445,7 +454,9 @@ ${body}${emptyState}
       action='nudge-'+key.slice(5)+(event.shiftKey?'-large':'')
     if(!action)return
     // Preserve normal browser copy when nothing is selected in this canvas.
-    if(['copy','duplicate','delete'].includes(action)&&!selected)return
+    // The parent editor owns the selection; right after a re-render this frame
+    // may not know it yet, so let the parent decide for delete/duplicate.
+    if(action==='copy'&&!selected)return
     event.preventDefault();event.stopPropagation()
     send('editor-shortcut',{action})
   },true)
@@ -469,6 +480,7 @@ ${body}${emptyState}
     apply(selected,'builder-selected')
     drawLabel(el)
     send('select',{id:selected})
+    reportComputed(selected)
   }, true)
   document.addEventListener('dblclick', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
@@ -517,11 +529,16 @@ ${body}${emptyState}
       return
     }
     if(msg.type==='selection'){
+      const sameSelection=selected===(msg.selected||null)&&!!label&&label.isConnected
       clearClass(selected,'builder-selected');clearClass(hovered,'builder-hovered')
       selected=msg.selected||null;hovered=msg.hovered||null
       apply(selected,'builder-selected');apply(hovered,'builder-hovered')
       const selectedEl=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null
-      if(!nodeDragging)drawLabel(selectedEl)
+      // Hover-only updates must not rebuild the resize handles under the
+      // pointer; that would cancel a drag that is just starting.
+      if(!nodeDragging&&!sameSelection)drawLabel(selectedEl)
+      if(!sameSelection)reportComputed(selected)
+      if(msg.reveal&&selectedEl){const r=selectedEl.getBoundingClientRect();send('reveal',{top:r.top+window.scrollY,height:r.height})}
     }
     if(msg.type==='mode'){
       document.documentElement.classList.toggle('builder-editing',msg.editing!==false)

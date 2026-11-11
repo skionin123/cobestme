@@ -92,9 +92,33 @@ describe('MVP builder state history',()=>{
     expect(about?.slug).toBe('/about-us')
     expect(state.project.activePageId).toBe(about?.id)
 
+    // New pages reuse the site's navigation and footer and start with an editable heading.
+    expect(about!.root.children.length).toBeGreaterThan(0)
+    expect(JSON.stringify(about!.root)).toContain('About Us')
+
+    // Renaming keeps the web address so links to the page keep working.
     useBuilderStore.getState().renamePage(about!.id,'Company')
     state=useBuilderStore.getState()
-    expect(state.project.pages.find(page=>page.id===about!.id)?.slug).toBe('/company')
+    expect(state.project.pages.find(page=>page.id===about!.id)?.name).toBe('Company')
+    expect(state.project.pages.find(page=>page.id===about!.id)?.slug).toBe('/about-us')
+
+    // A second page with the same name gets a unique address.
+    useBuilderStore.getState().addPage('About Us')
+    state=useBuilderStore.getState()
+    expect(state.project.pages.filter(page=>page.slug.startsWith('/about-us')).map(p=>p.slug).sort()).toEqual(['/about-us','/about-us-2'])
+    useBuilderStore.getState().deletePage(state.project.activePageId)
+
+    // Changing an address updates links that pointed to it.
+    const home=useBuilderStore.getState().project.pages.find(p=>p.id===homeId)!
+    useBuilderStore.getState().setActivePage(homeId)
+    const link=JSON.stringify(home.root).match(/"id":"([^"]+)","type":"link"/)?.[1]
+    if(link){
+      useBuilderStore.getState().updateNodeAttribute(link,'href','/about-us')
+      useBuilderStore.getState().updatePageSeo(about!.id,'slug','/company')
+      const updated=JSON.stringify(useBuilderStore.getState().project.pages.find(p=>p.id===homeId)!.root)
+      expect(updated).toContain('"href":"/company"')
+      expect(updated).not.toContain('"href":"/about-us"')
+    }
 
     useBuilderStore.getState().setActivePage(homeId)
     useBuilderStore.getState().deletePage(homeId)

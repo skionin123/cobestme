@@ -61,6 +61,7 @@ export function DesignControls(){
   const selectedId=useBuilderStore(s=>s.selectedNodeId)
   const breakpoint=useBuilderStore(s=>s.breakpoint)
   const mutate=useBuilderStore(s=>s.mutate)
+  const computed=useBuilderStore(s=>s.selectedComputed)
   const page=project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
   const node=findNode(page.root,selectedId)
   if(!node||node.id===page.root.id||node.locked)return null
@@ -68,7 +69,8 @@ export function DesignControls(){
   const own=project.styles[cls]
   const desktop=own?.desktop.none||{}
   const responsive=own?.[breakpoint]?.none||{}
-  const read=(name:string)=>responsive[name]||desktop[name]||''
+  // Own overrides first; otherwise show the real rendered value from the canvas.
+  const read=(name:string)=>responsive[name]||desktop[name]||computed[name]||''
   const apply=(label:string,properties:Record<string,string|null>)=>
     mutate(label,draft=>{updateElementAppearance(draft,node.id,breakpoint,properties)})
   const text=fontTypes.has(node.type)
@@ -104,7 +106,7 @@ export function DesignControls(){
           onChange={n=>apply('Change font size',{fontSize:n+'px'})}/>
         <label className="vb-basic-field"><span>Font weight</span><select className={control} aria-label="Font weight"
           value={read('fontWeight')||'400'} onChange={e=>apply('Change font weight',{fontWeight:e.target.value})}>
-          {['300','400','500','600','700','800','900'].map(x=><option key={x} value={x}>{x==='400'?'Regular (400)':x==='700'?'Bold (700)':x}</option>)}
+          {Array.from(new Set(['300','400','500','600','700','800','900',read('fontWeight')||'400'])).sort((a,b)=>Number(a)-Number(b)).map(x=><option key={x} value={x}>{x==='400'?'Regular (400)':x==='700'?'Bold (700)':x}</option>)}
         </select></label>
       </div>
       <div className="vb-design-columns">

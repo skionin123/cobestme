@@ -459,7 +459,7 @@ function StyleGroup({title,children}:{title:string;children:React.ReactNode}){
 }
 
 /** Image tools live beside the selection, not hidden behind the Assets tab. */
-function ImageSettings({node}:{node:BuilderNode}){
+export function ImageSettings({node}:{node:BuilderNode}){
   const assets=useBuilderStore(s=>s.project.assets)
   const mutate=useBuilderStore(s=>s.mutate)
   const addAsset=useBuilderStore(s=>s.addAsset)
@@ -478,7 +478,7 @@ function ImageSettings({node}:{node:BuilderNode}){
   const upload=async(file?:File)=>{
     if(!file)return
     setError('')
-    if(!file.type.startsWith('image/')){setError('Choose an image file.');return}
+    if(!/^image\/(png|jpeg|webp|gif|avif)$/.test(file.type)){setError('Choose a PNG, JPG, WebP, GIF or AVIF image.');return}
     if(file.size>10*1024*1024){setError('Use an image smaller than 10 MB.');return}
     if(!isAuthenticated()&&file.size>1024*1024){
       setError('Local images must be under 1 MB. Sign in to upload larger files.');return
@@ -513,7 +513,7 @@ function ImageSettings({node}:{node:BuilderNode}){
       ?<img src={node.attributes.src} alt={node.attributes.alt||'Selected image preview'}/>
       :<div>No image selected</div>}</div>
     <input ref={fileRef} className="sr-only" aria-label="Upload replacement image"
-      type="file" accept="image/*" onChange={e=>void upload(e.target.files?.[0])}/>
+      type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" onChange={e=>void upload(e.target.files?.[0])}/>
     <button type="button" className="vb-image-upload" onClick={()=>fileRef.current?.click()}
       disabled={uploading}>{uploading?'Uploading image…':'Upload / Replace image'}</button>
     {error&&<p role="alert" className="vb-image-error">{error}</p>}
