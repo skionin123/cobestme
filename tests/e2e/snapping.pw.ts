@@ -36,5 +36,6 @@ test('snap toggle aligns moves and persists preference across reloads',async({pa
   const selected=canvas(page).locator('[data-builder-node="hero-title-home"]')
   await selected.click()
   await moveBy(page,17,11)
-  await expect.poll(()=>selected.evaluate(el=>getComputedStyle(el).translate)).not.toBe(snapped)
+  // The page is re-rendered after the move; reading it at that instant is retried.
+  await expect.poll(()=>selected.evaluate(el=>getComputedStyle(el).translate).catch(()=>snapped)).not.toBe(snapped)
 })

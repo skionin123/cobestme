@@ -34,7 +34,7 @@ test('canvas Move and resize persist into preview, undo, and a reload',async({pa
   const inspectorTextSize=page.getByRole('spinbutton',{name:'Font size'})
   await inspectorTextSize.fill(String(Math.round(initialSize+4)))
   await inspectorTextSize.blur()
-  await expect.poll(async()=>Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize))).toBeGreaterThan(initialSize)
+  await expect.poll(async()=>Number.parseFloat(await heading.evaluate(el=>getComputedStyle(el).fontSize).catch(()=>'0'))).toBeGreaterThan(initialSize)
   const initialWidth=await heading.evaluate(el=>el.getBoundingClientRect().width)
   await pointerDrag(page,frame(page).getByRole('button',{name:'Drag to resize the selected element'}),85,35)
   heading=frame(page).locator('[data-builder-node="hero-title-home"]')
@@ -104,7 +104,7 @@ test('corner grip is large enough at Fit zoom and actually resizes a heading',as
   await pointerDrag(page,corner,-85,-16)
   await expect(heading).toHaveClass(/cb-geometry-hero-title-home/)
   await expect.poll(()=>heading.evaluate(el=>el.getBoundingClientRect().width).catch(()=>Infinity)).toBeLessThan(before.width-40)
-  await expect.poll(()=>heading.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBe(before.fontSize)
+  await expect.poll(()=>heading.evaluate(el=>parseFloat(getComputedStyle(el).fontSize)).catch(()=>NaN)).toBe(before.fontSize)
   await expect(heading).toHaveClass(/cb-geometry-hero-title-home/)
   await expect(frame(page).locator('[data-builder-node="hero-copy-home"]')).not.toHaveClass(/cb-geometry-hero-title-home/)
 
@@ -140,11 +140,11 @@ test('section border reduces whitespace, keeps text size and supports Ctrl+Z ins
   // Unlike the parent window's handler, this shortcut runs with iframe focus.
   await hero.click({position:{x:20,y:20}})
   await page.keyboard.press('Control+z')
-  await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(reduced+50)
+  await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height).catch(()=>0)).toBeGreaterThan(reduced+50)
   // Wait for the re-rendered canvas to restore the selection before the next shortcut.
   await expect(hero).toHaveClass(/builder-selected/)
   await page.keyboard.press('Control+y')
-  await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height)).toBeLessThan(before-50)
+  await expect.poll(()=>hero.evaluate(el=>el.getBoundingClientRect().height).catch(()=>Infinity)).toBeLessThan(before-50)
 
   await page.getByRole('button',{name:'Save',exact:true}).click()
   await expect(page.locator('.vb-save-status')).toHaveText('Saved')

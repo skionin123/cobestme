@@ -11,12 +11,14 @@ import { preparePublishSnapshot, publicStorePayload, publishSummary } from '../.
 const canvas=(page:Page)=>page.frameLocator('iframe[title="CoBest visual builder canvas"]')
 const preview=(page:Page)=>page.frameLocator('iframe[title="CoBest preview"]')
 const rail=(page:Page,name:string)=>page.getByRole('navigation',{name:'Editor panels'}).getByRole('button',{name,exact:true})
-const sectionNames=(page:Page)=>canvas(page).locator('main > [data-builder-node]').evaluateAll(nodes=>nodes.map(node=>(node as HTMLElement).dataset.builderName))
+// The editing page is re-rendered after every change; reading it at that instant
+// gives an empty list, which the polls below simply retry.
+const sectionNames=(page:Page)=>canvas(page).locator('main > [data-builder-node]').evaluateAll(nodes=>nodes.map(node=>(node as HTMLElement).dataset.builderName)).catch(()=>[] as (string|undefined)[])
 
 /** Tap something inside the editing page by its position on screen (the page is shown scaled on small screens). */
 async function tapInCanvas(page:Page,selector:string){
   // Wait until the editing page has finished loading; a person cannot tap faster than that.
-  await expect.poll(()=>canvas(page).locator('html').evaluate(()=>document.readyState)).toBe('complete')
+  await expect.poll(()=>canvas(page).locator('html').evaluate(()=>document.readyState).catch(()=>'')).toBe('complete')
   const inner=await canvas(page).locator(selector).evaluate(el=>{
     const r=el.getBoundingClientRect()
     return {x:r.left+r.width/2,y:r.top+r.height/2,width:window.innerWidth}
@@ -133,8 +135,7 @@ test.describe('on a laptop',()=>{
     await page.locator('.ee-section-card',{hasText:'Features'}).click()
     await page.locator('.ee-section-card',{hasText:'Testimonials'}).click()
     await rail(page,'Layers').click()
-    const start=await sectionNames(page)
-    expect(start.slice(-3)).toEqual(['Hero','Features','Testimonials'])
+    await expect.poll(async()=>(await sectionNames(page)).slice(-3)).toEqual(['Hero','Features','Testimonials'])
 
     const row=(name:string)=>page.locator('.ee-layer-row',{has:page.getByRole('button',{name:'Select '+name+' layer',exact:true})}).first()
     const drag=async(from:string,to:string,zone:'before'|'inside'|'after')=>{
@@ -163,7 +164,7 @@ test.describe('on a laptop',()=>{
     // A section cannot be dropped into its own contents.
     await expect(row('Hero content')).toBeVisible()
     expect(await drag('Hero','Hero content','inside')).toEqual([])
-    expect((await sectionNames(page)).slice(-3)).toEqual(['Testimonials','Features','Hero'])
+    await expect.poll(async()=>(await sectionNames(page)).slice(-3)).toEqual(['Testimonials','Features','Hero'])
     // One Undo per move.
     await page.getByRole('button',{name:'Undo'}).click()
     await expect.poll(async()=>(await sectionNames(page)).slice(-3)).toEqual(['Testimonials','Hero','Features'])

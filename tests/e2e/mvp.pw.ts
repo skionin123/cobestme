@@ -47,8 +47,7 @@ test.describe('CoBest editor workflow',()=>{
     const copy=frame.locator('[data-builder-node="hero-copy-home"]')
     await copy.click()
     await page.getByRole('button',{name:'Move up'}).click()
-    const order=await frame.locator('[data-builder-node="hero-copy-home"]').evaluate(el=>[...el.parentElement!.children].map(c=>(c as HTMLElement).dataset.builderNode))
-    expect(order[0]).toBe('hero-copy-home')
+    await expect.poll(()=>frame.locator('[data-builder-node="hero-copy-home"]').evaluate(el=>(el.parentElement!.children[0] as HTMLElement).dataset.builderNode).catch(()=>'')).toBe('hero-copy-home')
     await page.getByRole('button',{name:'Undo'}).click()
 
     // Links: choose a page, or a safe external address.
@@ -94,7 +93,7 @@ test.describe('CoBest editor workflow',()=>{
     // Theme: brand color updates the site variable.
     await panel(page,'Theme').click()
     await page.getByLabel('Brand / buttons color').fill('#e11d48')
-    await expect.poll(()=>frame.locator('html').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim())).toBe('#e11d48')
+    await expect.poll(()=>frame.locator('html').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim()).catch(()=>'')).toBe('#e11d48')
 
     // 3. Check on mobile from the guide; preview has no editor markup.
     await guide.getByRole('button',{name:/Step 3: Check on mobile/}).click()

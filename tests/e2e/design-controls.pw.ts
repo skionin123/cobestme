@@ -16,9 +16,9 @@ test('heading design: real values shown, font, size and spacing persist',async({
   await page.getByRole('combobox',{name:'Font family'}).selectOption('"DM Sans", Arial, sans-serif')
   await expect(heading).toHaveCSS('font-family',/DM Sans/)
   await page.getByRole('spinbutton',{name:'Font size'}).fill('45')
-  await expect.poll(()=>heading.evaluate(el=>getComputedStyle(el).fontSize)).toBe('45px')
+  await expect.poll(()=>heading.evaluate(el=>getComputedStyle(el).fontSize).catch(()=>'')).toBe('45px')
   await page.getByRole('spinbutton',{name:'Padding top'}).fill('19')
-  await expect.poll(()=>heading.evaluate(el=>getComputedStyle(el).paddingTop)).toBe('19px')
+  await expect.poll(()=>heading.evaluate(el=>getComputedStyle(el).paddingTop).catch(()=>'')).toBe('19px')
 
   // Mobile edits only affect small screens.
   await page.getByRole('group',{name:'Edit for device'}).getByRole('button',{name:/Mobile/}).click()
@@ -45,7 +45,7 @@ test('section backgrounds and adding a ready-made section',async({page})=>{
   await design.getByRole('button',{name:'Gradient'}).click()
   await expect(hero).toHaveCSS('background-image',/linear-gradient/)
   await page.getByRole('slider',{name:'Gradient angle'}).fill('160')
-  await expect.poll(()=>hero.evaluate(el=>getComputedStyle(el).backgroundImage)).toContain('160deg')
+  await expect.poll(()=>hero.evaluate(el=>getComputedStyle(el).backgroundImage).catch(()=>'')).toContain('160deg')
   await design.getByRole('button',{name:'Solid'}).click()
   await expect(hero).toHaveCSS('background-image','none')
 
@@ -54,6 +54,8 @@ test('section backgrounds and adding a ready-made section',async({page})=>{
   await page.locator('.ee-section-card',{hasText:'FAQ'}).click()
   const faq=canvas(page).locator('[data-builder-name="FAQ"]')
   await expect(faq).toBeVisible()
-  const order=await canvas(page).locator('main > [data-builder-node]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.builderName))
-  expect(order.indexOf('FAQ')).toBe(order.indexOf('Hero')+1)
+  await expect.poll(async()=>{
+    const order=await canvas(page).locator('main > [data-builder-node]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.builderName)).catch(()=>[] as (string|undefined)[])
+    return order.includes('FAQ')&&order.indexOf('FAQ')===order.indexOf('Hero')+1
+  }).toBe(true)
 })
