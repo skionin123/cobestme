@@ -1,41 +1,51 @@
 :root{
-  --brand-plum:#302035;
-  --brand-berry:#832353;
-  --brand-gold:#f3cc62;
-  --brand-cream:#fbf8f3;
-  --brand-ink:#302535;
-  --brand-rose:#f7e5eb;
-  --brand-line:#e4dbe0;
+  --brand-navy:#0e1a3a;
+  --brand-blue:#2b59e6;
+  --brand-mango:#ffb547;
+  --brand-bg:#f3f6fb;
+  --brand-ink:#0e1a3a;
+  --brand-tint:#e4ecfd;
+  --brand-line:#dfe5f0;
 }
-.landing{--market-ink:var(--brand-plum);--market-berry:var(--brand-berry);--market-lemon:var(--brand-gold);background:var(--brand-cream)}
-.landing .hero-wrap:before{background:linear-gradient(105deg,#fff3ce 0%,#fbe7aa 55%,var(--brand-gold) 100%)}
-.landing .landing-nav{background:var(--brand-cream)}
-.landing .platform-section{background:var(--brand-plum)}
-.landing .marketing-templates{background:#f6eced}
-.landing .section-kicker{color:var(--brand-berry)}
-.landing .marketing-testimonials .section-kicker,.landing .platform-section .section-kicker{color:#ffdf90}
-.app-shell,.guest-shop{color:var(--brand-ink);background:var(--brand-cream)}
-body:has(.guest-shop){background:var(--brand-cream)}
-.app-shell .app-sidebar{background:var(--brand-plum)}
-.app-shell .app-nav button,.app-shell .sidebar-bottom button{color:#ecdfeb}
-.app-shell .app-nav button:hover,.app-shell .sidebar-bottom button:hover{background:#49364c;color:white}
-.app-shell .app-nav button.active{background:#5b3853;color:#fff;box-shadow:inset 3px 0 var(--brand-gold)}
-.app-shell .nav-group-label,.app-shell .site-switcher-copy>span{color:#e2cbd8}
-.app-shell .site-switcher,.app-shell .site-switcher-control{background:#392a3d;border-color:#6a5369;color:#fff}
-.app-shell .store-avatar,.app-shell .header-avatar,.guest-shop>header span{background:var(--brand-gold);color:var(--brand-plum)}
-.app-shell .app-header{background:#fffcf9;border-color:var(--brand-line)}
-.app-shell .btn-primary,.guest-shop .btn-primary{background:var(--brand-berry);border-color:var(--brand-berry);color:#fff}
-.app-shell .btn-primary:hover,.guest-shop .btn-primary:hover{background:#64183e}
-.app-shell .commerce-mvp-home .page-head{padding:clamp(18px,2.5vw,32px);border:1px solid var(--brand-line);border-left:5px solid var(--brand-gold);border-radius:16px;background:#fffdf9}
+.app-shell,.guest-shop{color:var(--brand-ink);background:var(--brand-bg)}
+body:has(.guest-shop){background:var(--brand-bg)}
+.app-shell .app-sidebar{background:var(--brand-navy)}
+.app-shell .app-nav button,.app-shell .sidebar-bottom button{color:#c9d3ea}
+.app-shell .app-nav button:hover,.app-shell .sidebar-bottom button:hover{background:#1b2b57;color:white}
+.app-shell .app-nav button.active{background:#24366b;color:#fff;box-shadow:inset 3px 0 var(--brand-mango)}
+.app-shell .nav-group-label,.app-shell .site-switcher-copy>span{color:#9fb0d6}
+.app-shell .site-switcher,.app-shell .site-switcher-control{background:#16244a;border-color:#33467a;color:#fff}
+.app-shell .store-avatar,.app-shell .header-avatar,.guest-shop>header span{background:var(--brand-mango);color:var(--brand-navy)}
+.app-shell .app-header{background:#ffffff;border-color:var(--brand-line)}
+.app-shell .btn-primary,.guest-shop .btn-primary{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
+.app-shell .btn-primary:hover,.guest-shop .btn-primary:hover{background:#1f46c4}
+.app-shell .commerce-mvp-home .page-head{padding:clamp(18px,2.5vw,32px);border:1px solid var(--brand-line);border-left:5px solid var(--brand-mango);border-radius:16px;background:#ffffff}
 .app-shell .commerce-mvp-home .page-actions{flex-wrap:wrap}
-.app-shell .commerce-mvp-home .overline,.guest-shop>header a{color:var(--brand-berry)}
-.app-shell .commerce-mvp-shortcut-icon{background:var(--brand-rose);color:var(--brand-berry)}
-.app-shell .commerce-mvp-shortcut:hover{border-color:#a16c87}
+.app-shell .commerce-mvp-home .overline,.guest-shop>header a{color:var(--brand-blue)}
+.app-shell .commerce-mvp-shortcut:hover{border-color:#7d97dd}
 .app-shell .commerce-mvp-home :is(.stat-card,.panel,.commerce-mvp-shortcut),.guest-shop .panel{border-color:var(--brand-line)}
-.guest-shop .shop-publish a,.app-shell .shop-publish a{color:var(--brand-berry)}
-.app-shell :focus-visible,.guest-shop :focus-visible{outline:3px solid #a76418;outline-offset:3px}
-.guest-editor{min-height:100vh;background:var(--brand-cream);color:var(--brand-ink)}.demo-editor-note{margin:0;padding:10px;text-align:center;background:var(--brand-plum);color:#fff}.guest-editor .btn-primary{background:var(--brand-berry);color:#fff}.guest-shop>.btn{margin-right:8px;margin-bottom:8px}.guest-shop:has(.designed-store){max-width:1280px}
-.landing .theme-trial-link{display:inline-flex;align-items:center;gap:8px;margin:6px 0 12px;font-weight:650;color:var(--brand-berry)}
-.landing .template-art-1 .cb-theme-canvas{background:#ffdc73;color:var(--brand-plum)}.landing .template-art-1 .cb-theme-object{background:repeating-radial-gradient(circle,#872750 0 9%,#ffc7d4 9% 17%,#f4af4d 17% 24%);border-radius:50%;transform:none}
-.landing .template-art-2 .cb-theme-canvas{background:#242c3e;color:#f3efe6}.landing .template-art-2 .cb-theme-object{grid-column:1;grid-row:1;background:repeating-linear-gradient(90deg,#293243 0 5%,#b6a184 5% 8%);border-radius:50% 50% 0 0;transform:none}
-.landing .template-art-2 .cb-theme-canvas>div:first-child{grid-column:2}.landing .template-art-2 .cb-theme-canvas h3{color:#f3efe6}.landing .template-art-1 .cb-theme-object:before,.landing .template-art-2 .cb-theme-object:before{display:none}
+.guest-shop .shop-publish a,.app-shell .shop-publish a{color:var(--brand-blue)}
+.app-shell :focus-visible,.guest-shop :focus-visible{outline:3px solid #2b59e6;outline-offset:3px}
+.guest-editor{min-height:100vh;background:var(--brand-bg);color:var(--brand-ink)}.demo-editor-note{margin:0;padding:10px;text-align:center;background:var(--brand-navy);color:#fff}.guest-editor .btn-primary{background:var(--brand-blue);color:#fff}.guest-shop>.btn{margin-right:8px;margin-bottom:8px}.guest-shop:has(.designed-store){max-width:1280px}
+
+/* Logo: the same blue mark as the homepage. */
+.logo-mark{background:var(--brand-blue);color:#fff;font-family:Manrope,'DM Sans',system-ui,sans-serif;font-weight:800}
+.logo-inverse .logo-mark{background:var(--brand-blue);color:#fff}
+/* Blue focus rings are hard to see on the navy sidebar. */
+.app-shell .app-sidebar :focus-visible{outline-color:var(--brand-mango)}
+/* The page behind the dashboard and the guest demo uses the same light blue-grey. */
+:root:has(.app-shell,.guest-shop,.guest-editor){background:var(--brand-bg)}
+/* Log in, sign up and password pages. Small print was 9-11px; raised for readability. */
+.auth-page{background:var(--brand-bg);color:var(--brand-ink)}
+.auth-top>button{font-size:14px;font-weight:600;color:var(--brand-ink)}
+.auth-card{border-color:var(--brand-line);box-shadow:0 24px 60px -30px rgba(14,26,58,.25)}
+.auth-card>p:not(.overline){color:#5b6680;font-size:14px}
+.auth-card .overline{color:var(--brand-blue)}
+.auth-page .btn-primary{background:var(--brand-blue);color:#fff}
+.auth-page .btn-primary:hover{background:#1f46c4}
+.auth-page .btn-secondary{border-color:#c9d2e3;color:var(--brand-ink)}
+.auth-link{font-size:14px;color:var(--brand-blue);font-weight:600}
+.auth-divider{border-color:var(--brand-line)}
+.auth-divider span{font-size:12px;color:#66728c}
+.auth-recovery-row span{font-size:12px;color:#66728c}
+.auth-page :focus-visible{outline:3px solid var(--brand-blue);outline-offset:3px}

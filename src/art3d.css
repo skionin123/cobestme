@@ -1,0 +1,93 @@
+/* CoBest's moving 3D pictures (see Art3D.jsx).
+   Motion runs only while <html data-motion="on">: the person can pause it,
+   and devices that ask for less motion start paused. */
+
+.i3d{position:relative;display:inline-block;flex:none;width:var(--i3d-size,64px);height:var(--i3d-size,64px);perspective:520px;vertical-align:middle;line-height:0;-webkit-user-select:none;user-select:none}
+.i3d-lift{position:absolute;inset:0;display:block;transform-style:preserve-3d}
+.i3d img{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;object-fit:contain}
+.i3d-still,.i3d-moving{transition:opacity .32s ease}
+.i3d-moving{opacity:0}
+.i3d.is-moving .i3d-moving{opacity:1}
+.i3d.is-moving .i3d-still{opacity:0}
+.i3d-ground{position:absolute;left:16%;right:16%;bottom:-11%;height:13%;border-radius:50%;background:radial-gradient(closest-side,rgba(14,26,58,.24),rgba(14,26,58,0));pointer-events:none}
+
+/* Keeps floating: homepage, log in. */
+html[data-motion="on"] .i3d-always.is-playing .i3d-lift{animation:i3d-float var(--i3d-dur,6.5s) ease-in-out var(--i3d-delay,0s) infinite}
+html[data-motion="on"] .i3d-always.is-playing .i3d-ground{animation:i3d-ground var(--i3d-dur,6.5s) ease-in-out var(--i3d-delay,0s) infinite}
+html[data-motion="on"] .i3d-always.is-playing.is-calm .i3d-lift{animation-name:i3d-float-calm}
+/* Moves for a few seconds, then rests: dashboard. */
+html[data-motion="on"] .i3d-enter.is-playing .i3d-lift,
+html[data-motion="on"] .i3d-hover.is-playing .i3d-lift{animation:i3d-nudge 4.2s ease-in-out 1 forwards}
+html[data-motion="on"] .i3d-enter.is-playing.is-first .i3d-lift{animation:i3d-arrive .7s cubic-bezier(.2,.9,.3,1.25) both,i3d-nudge 3.5s ease-in-out .7s 1 forwards}
+
+@keyframes i3d-float{
+  0%,100%{transform:translate3d(0,0,0) rotateX(0deg) rotateY(-10deg) rotateZ(-1.5deg)}
+  50%{transform:translate3d(0,-9%,0) rotateX(7deg) rotateY(10deg) rotateZ(1.5deg)}
+}
+@keyframes i3d-float-calm{
+  0%,100%{transform:translate3d(0,0,0) rotateY(-6deg)}
+  50%{transform:translate3d(0,-5%,0) rotateX(4deg) rotateY(6deg)}
+}
+@keyframes i3d-ground{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.78);opacity:.5}}
+@keyframes i3d-arrive{from{opacity:0;transform:translate3d(0,22%,0) rotateY(-80deg) scale(.55)}to{opacity:1;transform:none}}
+@keyframes i3d-nudge{
+  0%,100%{transform:none}
+  16%{transform:translate3d(0,-11%,0) rotateX(8deg) rotateY(16deg)}
+  40%{transform:translate3d(0,-2%,0) rotateX(-3deg) rotateY(-11deg)}
+  64%{transform:translate3d(0,-7%,0) rotateX(5deg) rotateY(8deg)}
+  86%{transform:translate3d(0,-1%,0) rotateY(-3deg)}
+}
+
+.motion-toggle{border:0;background:none;padding:6px 2px;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+/* ---- Dashboard page headers: the page's picture sits before the title ---- */
+.page-head>.page-art{align-self:center;margin-right:18px}
+.page-head>.page-art+div{margin-right:auto}
+@media(max-width:800px){.page-head>.page-art{--i3d-size:60px!important;align-self:flex-start;margin-right:0}}
+@media(max-width:560px){.page-head>.page-art{--i3d-size:54px!important;margin-bottom:-4px}}
+
+/* Empty lists show the page's picture instead of a line icon. */
+.empty-state>.i3d{margin-bottom:14px}
+
+/* Shortcut tiles on the overview. */
+.commerce-mvp-shortcut>.i3d{margin:-4px 0}
+
+/* ---- Log in, sign up, password pages ---- */
+.auth-page{position:relative;overflow:hidden}
+.auth-top,.auth-card{position:relative;z-index:1}
+.auth-art{position:absolute;inset:0;z-index:0;pointer-events:none;--px:0;--py:0;--auth-scale:1}
+.auth-art-item{position:absolute;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.auth-art-item .i3d img{filter:drop-shadow(0 16px 20px rgba(14,26,58,.18))}
+.auth-art-a{left:calc(50% - 470px);top:20%;transform:translate3d(calc(var(--px) * -28px),calc(var(--py) * -20px),0) scale(var(--auth-scale))}
+.auth-art-b{left:calc(50% + 320px);top:13%;transform:translate3d(calc(var(--px) * 16px),calc(var(--py) * 12px),0) scale(var(--auth-scale))}
+.auth-art-c{left:calc(50% - 410px);top:61%;transform:translate3d(calc(var(--px) * 20px),calc(var(--py) * 16px),0) scale(var(--auth-scale))}
+.auth-art-d{left:calc(50% + 350px);top:57%;transform:translate3d(calc(var(--px) * -34px),calc(var(--py) * -24px),0) scale(var(--auth-scale))}
+@media(max-width:1020px){
+  .auth-art{--auth-scale:.7}
+  .auth-art-c,.auth-art-d{display:none}
+  .auth-art-a{left:1%;top:17%}
+  .auth-art-b{left:auto;right:1%;top:12%}
+}
+@media(max-width:760px){
+  .auth-art{--auth-scale:.46}
+  .auth-art-item{transform-origin:top center}
+  .auth-art-a{left:-14px;top:74px}
+  .auth-art-b{right:-6px;top:78px}
+}
+
+/* ---- Small placements around the app ---- */
+.website-start-heading>.page-art{align-self:center}
+.website-start-heading>.page-art+div{margin-right:auto}
+.guest-title{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.guest-foot{margin-top:28px;font-size:14px;color:#5b6784}
+.shop-live{display:flex;align-items:center;gap:12px;font-weight:700}
+
+/* Sidebar: sign out and the pause button share one row. */
+.app-shell .sidebar-bottom{flex-direction:row;align-items:center;gap:6px}
+.app-shell .sidebar-bottom>button:not(.motion-toggle){flex:1}
+.sidebar-bottom .motion-toggle{text-decoration:none}
+.sidebar-bottom .motion-toggle.is-compact{flex:none;width:36px;height:36px;margin-left:auto;padding:0;justify-content:center}
+
+/* Log in pages: the pause link sits under the card. */
+.auth-motion{position:relative;z-index:1;display:block;margin:20px auto 0;font-size:13px;color:#5b6784}
+.auth-motion:hover,.guest-foot .motion-toggle:hover{color:var(--brand-blue,#2b59e6)}

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { createResource, deleteResource, updateResource } from './api.js'
 import { categoryIncludes, categorySlug, getPrimaryCategories, joinCategory, replaceCategoryPath, splitCategory } from './catalogHierarchy.js'
+import { PageArt } from './Art3D.jsx'
 
 export default function CatalogCategories({items=[],setItems,products=[],setProducts}){
   const [tab,setTab]=useState('primary')
@@ -85,7 +86,7 @@ export default function CatalogCategories({items=[],setItems,products=[],setProd
     finally{setBusy(false)}
   }
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">CATALOG</p><h1>Categories & brands</h1>
+    <div className="page-head"><PageArt/><div><p className="overline">CATALOG</p><h1>Categories & brands</h1>
       <p>Organize products using primary categories and subcategories, like Home → Lighting.</p></div></div>
     {error&&<div className="auth-message auth-error" role="alert">{error}</div>}
     <div className="tab-row">

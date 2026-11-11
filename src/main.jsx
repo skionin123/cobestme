@@ -4,8 +4,6 @@ import App from './App.jsx'
 import GuestShop from './GuestShop.jsx'
 import PublicStore from './PublicStore.jsx'
 import './styles.css'
-import './marketing-vibrant.css'
-import './marketing-reimagined.css'
 import './brand-theme.css'
 
 class AppErrorBoundary extends React.Component {

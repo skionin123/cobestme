@@ -15,6 +15,8 @@ const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
 const SalesReport = React.lazy(()=>import('./SalesReport'))
 import { chooseLatestProject, loadProject } from './builder/persistence'
 import { safeHref } from './builder/sanitize'
+import Landing from './Landing.jsx'
+import { AuthArt, MotionToggle, PageArt, PageContext } from './Art3D.jsx'
 
 const APP_NAME = 'CoBest'
 
@@ -372,119 +374,6 @@ function Button({ children, variant = 'primary', className = '', ...props }) {
   return <button className={`btn btn-${variant} ${className}`} {...props}>{children}</button>
 }
 
-function Landing({ onStart, onLogin }) {
-  const faqs = [
-    ['What is CoBest?', 'CoBest is a website and commerce platform built around the business behind the site. Client discovery, website structure, content, products, customers, orders, analytics, and visual design live in one connected workspace.'],
-    ['Can I use CoBest for an online store?', 'Yes. CoBest is designed for product-based businesses as well as service businesses, portfolios, booking websites, and brand sites. Store projects include catalog, customer, order, and storefront workflows alongside the website builder.'],
-    ['How is CoBest different from a template builder?', 'CoBest starts with the business, audience, goals, brand direction, content readiness, and required functionality. Those decisions become project context that stays visible while the website is built and managed.'],
-    ['Can designers and business owners use the same workspace?', 'Yes. The structure separates project context, website design, content, and commerce so each person can work in the area they understand without losing the shared direction.']
-  ]
-  return (
-    <div className="landing">
-      <div className="announcement"><span>Open your online shop with CoBest.</span><button onClick={onStart}>Start free <ArrowRight size={13}/></button></div>
-      <nav className="landing-nav container">
-        <Logo />
-        <div className="landing-nav-links"><a href="#product">Product</a><a href="#features">Features</a><a href="#templates">Templates</a><a href="#resources">Resources</a><a href="#pricing">Pricing</a><Button variant="ghost" onClick={onLogin}>Log in</Button><Button onClick={onStart}><span className="nav-cta-long">Start Building Free</span><span className="nav-cta-short">Start free</span></Button></div>
-      </nav>
-
-      <main className="hero-wrap container" id="product">
-        <div className="hero-copy">
-          <h1>Your products.<br/><span className="hero-gradient">Your own shop.</span></h1>
-          <p>Give your shop a name, add your first product, and publish a storefront you can share with anyone.</p>
-          <div className="hero-actions"><Button onClick={onStart}>Create my shop <ArrowRight size={17}/></Button><a className="btn btn-secondary" href="#templates">Explore designs <ArrowRight size={15}/></a></div>
-          <div className="trust-row"><span><Check size={15}/> Start for free</span><span><Check size={15}/> No coding needed</span></div>
-        </div>
-        <figure className="shop-example">
-          <figcaption>Example storefront</figcaption>
-          <div className="sample-shop">
-            <div className="sample-shop-header"><strong>Sunday Studio</strong><ShoppingBag size={18} aria-hidden="true"/></div>
-            <img src="/images/studio-mug.webp" alt="A cream enamel mug held against a rose-pink background" width="900" height="600" fetchPriority="high"/>
-            <div className="sample-shop-product"><strong>Everyday enamel mug</strong><span>₱350</span></div>
-          </div>
-        </figure>
-      </main>
-
-      <section className="shop-steps" aria-label="How to launch your shop">
-        <div className="container"><span><Store aria-hidden="true"/>Name your shop</span><ArrowRight aria-hidden="true"/><span><Package aria-hidden="true"/>Add a product</span><ArrowRight aria-hidden="true"/><span><ShoppingBag aria-hidden="true"/>Publish and share</span></div>
-      </section>
-
-      <section className="landing-section container" id="features">
-        <p className="section-kicker">YOUR SPACE TO CREATE</p><h2>From your first idea to your online storefront.</h2><p className="cb-section-lead">Design something worth sharing, then organize the products and business details behind it—all in one place.</p>
-        <div className="feature-grid four">
-          <article><div className="cb-feature-icon"><Palette size={25}/></div><span className="cb-feature-number">DESIGN</span><h3>Make it yours</h3><p>Start with a professional theme and customize your pages, colors, and content to match your brand.</p></article>
-          <article><div className="cb-feature-icon"><Package size={25}/></div><span className="cb-feature-number">PRODUCTS</span><h3>Show what you sell</h3><p>Organize your catalog, categories, prices, and product details together.</p></article>
-          <article><div className="cb-feature-icon"><ShoppingBag size={25}/></div><span className="cb-feature-number">BUSINESS</span><h3>Stay organized</h3><p>Work with your orders and customers without losing track of your website.</p></article>
-          <article><div className="cb-feature-icon"><BarChart3 size={25}/></div><span className="cb-feature-number">INSIGHTS</span><h3>See the big picture</h3><p>Keep useful store information and performance views in the same workspace.</p></article>
-        </div>
-      </section>
-
-      <section className="platform-section" id="website">
-        <div className="container platform-intro"><div><p className="section-kicker">WEBSITE + COMMERCE</p><h2>Your storefront and your back office belong together.</h2></div><p>Content, layout, products, and business data are separated cleanly but stay connected, so a product update does not require redesigning a page and a redesign does not erase the store.</p></div>
-        <div className="container platform-grid">
-          <article className="platform-card dark"><div className="platform-label"><FileText size={18}/> Business context</div><h3>Start with the information a good designer asks first.</h3><p>Business goals, audience, brand direction, content readiness, pages, functionality, and references become a working website brief inside the project.</p><div className="brief-mock"><span>Primary goal</span><strong>Sell thoughtfully curated home goods</strong><span>Direction</span><strong>Luxury · Minimal · Editorial</strong><span>Audience</span><strong>Design-conscious homeowners</strong></div></article>
-          <article className="platform-card"><div className="platform-label"><Palette size={18}/> Online store</div><h3>Build the storefront visually.</h3><p>Use reusable sections, live page preview, brand settings, and device controls to shape the customer experience without editing code.</p><div className="editor-mock"><aside><i/><i/><i/><i/></aside><main><div className="editor-mock-hero">New collection</div><div><i/><i/><i/></div></main><aside><span>Heading</span><b/><span>Spacing</span><b/><span>Alignment</span><b/></aside></div></article>
-          <article className="platform-card"><div className="platform-label"><ShoppingBag size={18}/> Commerce</div><h3>Manage the business without touching the design.</h3><p>Products, inventory, orders, and customers live in dedicated management screens while the website reads from the same store information.</p><div className="commerce-mock"><div><i/><span>Arc Table Lamp</span><b>₱3,490</b></div><div><i/><span>Forma Catchall</span><b>₱1,290</b></div><div><i/><span>Linen House Throw</span><b>₱2,790</b></div></div></article>
-          <article className="platform-card accent"><div className="platform-label"><Store size={18}/> Publishing</div><h3>Preview changes before they go live.</h3><p>Work on the storefront in a controlled editing environment, review the customer view, and keep the production domain separate from day-to-day design changes.</p><div className="publish-mock"><span>Workspace</span><strong>app.cobest.me</strong><ArrowRight size={20}/><span>Storefront</span><strong>aureliagoods.com</strong></div></article>
-        </div>
-      </section>
-
-      <section className="builder-showcase container">
-        <div className="builder-copy"><p className="section-kicker">VISUAL WEBSITE BUILDER</p><h2>Design from the customer’s point of view.</h2><p>Edit pages in the browser, control reusable sections, and see desktop, tablet, and mobile layouts while the business content and product catalog remain connected underneath.</p><div className="builder-points"><span><Check size={15}/> Live page preview</span><span><Check size={15}/> Desktop, tablet, mobile</span><span><Check size={15}/> Reusable sections</span><span><Check size={15}/> Brand-aware controls</span></div><Button onClick={onStart}>Start building <ArrowRight size={15}/></Button></div>
-        <div className="builder-visual"><div className="builder-bar"><span>Home</span><div><Monitor size={14}/><Tablet size={14}/><Smartphone size={14}/></div><b>Save</b></div><div className="builder-body"><aside><span>SECTIONS</span><b>Header</b><b className="active">Hero</b><b>Featured products</b><b>Brand story</b><b>Newsletter</b></aside><main><div className="builder-page"><small>NEW COLLECTION</small><h3>Objects for quieter living.</h3><button>Shop collection</button><div><i/><i/><i/></div></div></main><aside><span>HERO SETTINGS</span><label>Heading</label><b/><label>Alignment</label><b/><label>Spacing</label><b/></aside></div></div>
-      </section>
-
-      <section className="landing-section container" id="approach">
-        <p className="section-kicker">THE COBEST DIFFERENCE</p><h2>Do the discovery before the design decisions.</h2>
-        <div className="feature-grid four">
-          <article><span>01</span><h3>Understand</h3><p>Capture the business, target customer, goals, brand personality, visual references, content, and required functionality.</p></article>
-          <article><span>02</span><h3>Organize</h3><p>Turn those answers into a clear website brief, page structure, content checklist, and store setup that the whole team can use.</p></article>
-          <article><span>03</span><h3>Build</h3><p>Design the website with the project context still visible, instead of starting from a blank canvas with no business direction.</p></article>
-          <article><span>04</span><h3>Run</h3><p>Move from launch into everyday website, product, order, customer, content, and performance management without changing systems.</p></article>
-        </div>
-      </section>
-
-      <section className="landing-section container marketing-templates" id="templates">
-        <p className="section-kicker">TEMPLATES</p><h2>Start with structure, then make it entirely yours.</h2>
-        <div className="marketing-template-grid">
-          {[
-            ['market','Sunday Market','Bold type, a sunflower hero and raspberry accents.'],
-            ['atelier','Midnight Atelier','Editorial serif type, midnight ink and an arched cover.']
-          ].map(([category,name,note],i)=><article key={category}>
-            <div className={`marketing-template-art template-art-${i+1}`} aria-label={`${name} design illustration`}>
-              <div className="cb-theme-browser">
-                <div className="cb-theme-nav"><strong>{i===0?'studio.':'MAISON'}</strong><span>Home &nbsp; Shop &nbsp; About</span></div>
-                <div className="cb-theme-canvas"><div><small>{i===0?'MAKE ROOM FOR NEW IDEAS':'AN EDITORIAL POINT OF VIEW'}</small><h3>{i===0?'A brighter way to begin.':'Objects with a story.'}</h3><span className="cb-theme-cta">Explore more</span></div><div className="cb-theme-object"/></div>
-              </div>
-            </div>
-            <strong>{name}</strong><p>{note}</p>
-            <a className="theme-trial-link" href={`/demo?theme=${category}`}>Try this theme <ArrowRight size={13}/></a>
-          </article>)}
-        </div>
-      </section>
-
-      <section className="marketing-testimonials">
-        <div className="container"><p className="section-kicker">MADE FOR YOUR NEXT CHAPTER</p><h2>Whatever you're building, make it feel like you.</h2><p className="cb-usecase-lead">From a first online shop to a brand you're proud to share, CoBest brings the creative and practical parts together.</p>
-          <div className="cb-usecase-grid">
-            <article className="cb-usecase"><div className="cb-usecase-icon"><ShoppingBag size={27}/></div><h3>Your first online shop</h3><p>Give your products a home with thoughtful pages and a storefront that feels welcoming.</p></article>
-            <article className="cb-usecase"><div className="cb-usecase-icon"><Sparkles size={27}/></div><h3>Your growing brand</h3><p>Put your story, visuals, and unique personality front and center.</p></article>
-            <article className="cb-usecase"><div className="cb-usecase-icon"><Store size={27}/></div><h3>Your business workspace</h3><p>Keep website editing and the everyday work of running a store close together.</p></article>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section container marketing-resources" id="resources">
-        <p className="section-kicker">RESOURCES</p><h2>Learn the system, not just the buttons.</h2>
-        <div className="resource-grid"><article><span>GUIDE</span><h3>Responsive design fundamentals</h3><p>Try mobile previews and learn how page sections adapt to different screen sizes.</p><button onClick={onStart}>Open builder <ArrowRight size={13}/></button></article><article><span>PLAYBOOK</span><h3>Reusable component systems</h3><p>Explore sections and learn how to organize a page without starting from a blank screen.</p><button onClick={onStart}>Start a project <ArrowRight size={13}/></button></article><article><span>REFERENCE</span><h3>CMS and clean export</h3><p>See how pages, products, and the website editor fit together in one workspace.</p><button onClick={onStart}>Explore CoBest <ArrowRight size={13}/></button></article></div>
-      </section>
-
-      <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-intro"><p className="section-kicker">PRICING</p><h2>Build first. Pay when the business is ready to go live.</h2><p>Start the website without a card. Upgrade when you need a custom domain and a live commerce workspace.</p></div><div className="pricing-grid"><article><span>BUILD</span><h3>Free</h3><strong>₱0 <small>/ month</small></strong><p>For preparing the website and organizing the business before launch.</p><ul><li><Check size={14}/> 1 website</li><li><Check size={14}/> Guided onboarding</li><li><Check size={14}/> Website brief</li><li><Check size={14}/> Visual website builder</li><li><Check size={14}/> CoBest storefront address</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article><article className="featured-plan"><span>LAUNCH</span><div className="plan-badge">Most popular</div><h3>Launch</h3><strong>₱990 <small>/ site / month</small></strong><p>For businesses ready to publish, sell, and manage their website every day.</p><ul><li><Check size={14}/> Everything in Free</li><li><Check size={14}/> Custom domain</li><li><Check size={14}/> Products and inventory</li><li><Check size={14}/> Orders and customers</li><li><Check size={14}/> Remove CoBest branding</li></ul><Button onClick={onStart}>Start free</Button></article><article><span>GROW</span><h3>Growth</h3><strong>₱2,490 <small>/ site / month</small></strong><p>For growing businesses that need more people, reporting, and support.</p><ul><li><Check size={14}/> Everything in Launch</li><li><Check size={14}/> Team access</li><li><Check size={14}/> Advanced analytics</li><li><Check size={14}/> Priority support</li><li><Check size={14}/> Additional publishing controls</li></ul><Button variant="secondary" onClick={onStart}>Start free</Button></article></div><p className="pricing-note">Pricing shown in Philippine pesos. You can change these plan names, prices, and entitlements before billing is connected.</p></div></section><section className="landing-cta"><div className="container"><p className="section-kicker">START WITH THE BUSINESS</p><h2>Build the store around what the business actually needs.</h2><p>Set the direction, organize the website, and manage the storefront from one place.</p><div><Button onClick={onStart}>Start free <ArrowRight size={16}/></Button><Button variant="secondary" onClick={onLogin}>Log in</Button></div></div></section>
-
-      <section className="faq-section container" id="faq"><div><p className="section-kicker">FAQ</p><h2>Questions about CoBest.</h2></div><div>{faqs.map(([q,a])=><details key={q}><summary>{q}<Plus size={17}/></summary><p>{a}</p></details>)}</div></section>
-      <footer className="landing-footer container"><Logo/><p>Website and commerce, built around the business.</p><div><span>cobest.me</span><span>Website</span><span>Commerce</span></div></footer>
-    </div>
-  )
-}
-
 function Onboarding({ data, setData, onComplete, onExit }) {
   const steps = ['Business', 'Goals', 'Audience', 'Style', 'Brand', 'Content', 'Structure', 'Review']
   const [step, setStep] = useState(0)
@@ -608,9 +497,9 @@ function AppShell({ page, setPage, children, onRestart, onSignOut, businessName,
         </label>
       </div>
       <nav className="app-nav">{navGroups.map(group=><div className="nav-group" key={group.label||'primary'}>{group.label&&<span className="nav-group-label">{group.label}</span>}{group.items.map(([id,label,I])=><button key={id} className={page===id?'active':''} onClick={()=>{setPage(id);setMobile(false)}}><I size={17}/><span>{label}</span></button>)}</div>)}</nav>
-      <div className="sidebar-bottom">{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}</div>
+      <div className="sidebar-bottom">{onSignOut&&<button onClick={onSignOut}><X size={18}/> Sign out</button>}<MotionToggle compact/></div>
     </aside>
-    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><div className="header-avatar">CO</div></div></header>{cloudError&&<div className="app-sync-warning auth-message auth-error">{cloudError}</div>}{children}</main>
+    <main className="app-main"><header className="app-header"><button className="menu-button" onClick={()=>setMobile(true)}><Menu size={20}/></button><div className="breadcrumb"><span>{businessName||APP_NAME}</span><b>/</b><strong>{navItems.find(x=>x[0]===page)?.[1]||'Workspace'}</strong></div><div className="header-actions"><div className="header-avatar">CO</div></div></header>{cloudError&&<div className="app-sync-warning auth-message auth-error">{cloudError}</div>}<PageContext.Provider value={page}>{children}</PageContext.Provider></main>
   </div>
 }
 
@@ -618,7 +507,7 @@ function Dashboard({ data, products, customers=[], orders=[], setPage }) {
   const completeness = Math.min(96, 48 + data.pages.length * 4 + data.styles.length * 5 + products.length * 3)
   const paidSales = orders.filter(o=>o.payment_status==='Paid').reduce((sum,o)=>sum+Number(o.total||0),0)
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
+    <div className="page-head"><PageArt/><div><p className="overline">STORE HOME</p><h1>Good morning.</h1><p>Manage {data.businessName} from one place.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('processes')}><Sparkles size={15}/> Setup & workflow</Button><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> View store</Button><Button onClick={()=>setPage('editor')}><Pencil size={15}/> Edit website</Button></div></div>
     <div className="stat-grid"><Stat title="Sales" value={formatPrice(paidSales)} note={paidSales?"Paid revenue":"No paid sales yet"} icon={BarChart3}/><Stat title="Orders" value={String(orders.length)} note={orders.length?"Orders recorded":"No orders yet"} icon={ShoppingBag}/><Stat title="Conversion" value="—" note="Available after traffic" icon={Store}/><Stat title="Customers" value={String(customers.length)} note={customers.length?"Customer records":"No customers yet"} icon={Users}/></div>
     <div className="dashboard-grid commerce-home-grid"><section className="panel"><div className="panel-head"><div><span>Store activity</span><h3>Ready for your first visit</h3></div><Button variant="ghost" onClick={()=>setPage('analytics')}>View analytics <ArrowRight size={14}/></Button></div><div className="empty-panel"><BarChart3 size={24}/><strong>Performance will appear here</strong><p>Once your storefront receives traffic and orders, CoBest will show sales and conversion activity here.</p></div></section><section className="panel"><div className="panel-head"><div><span>Orders</span><h3>Nothing needs attention</h3></div><Button variant="ghost" onClick={()=>setPage('orders')}>View orders <ArrowRight size={14}/></Button></div><div className="empty-panel"><ShoppingBag size={24}/><strong>No orders yet</strong><p>New orders will appear here with payment and fulfillment status.</p></div></section></div>
     <div className="progress-panel"><div className="progress-ring" style={{'--p':`${completeness*3.6}deg`}}><span>{completeness}%</span></div><div className="progress-copy"><span>Store setup</span><h2>Keep building the storefront.</h2><p>Your business direction is captured. Continue refining pages, products, content, and the customer experience.</p><div className="progress-line"><i style={{width:`${completeness}%`}}/></div></div><div className="progress-action"><Button variant="secondary" onClick={()=>setPage('processes')}>Continue setup</Button></div></div>
@@ -649,7 +538,7 @@ function ProcessCenter({data,editor,workspace,products=[],collections=[],media=[
     {title:'Analytics',value:'Store performance',note:'Review traffic, conversion, product performance, and sales signals.',page:'analytics',icon:BarChart3}
   ]
   return <div className="page-wrap process-center">
-    <div className="page-head"><div><p className="overline">STORE OPERATING SYSTEM</p><h1>Setup & workflow</h1><p>Work through CoBest in the right order, then run day-to-day operations from the same workspace.</p></div>{next&&<Button onClick={()=>setPage(next.page)}>Next: {next.title} <ArrowRight size={15}/></Button>}</div>
+    <div className="page-head"><PageArt/><div><p className="overline">STORE OPERATING SYSTEM</p><h1>Setup & workflow</h1><p>Work through CoBest in the right order, then run day-to-day operations from the same workspace.</p></div>{next&&<Button onClick={()=>setPage(next.page)}>Next: {next.title} <ArrowRight size={15}/></Button>}</div>
     <div className="process-summary panel"><div className="process-progress"><div className="progress-ring" style={{'--p':(percent*3.6)+'deg'}}><span>{percent}%</span></div><div><span className="overline">LAUNCH READINESS</span><h2>{complete} of {setup.length} setup steps complete</h2><p>{next?'Recommended next step: '+next.title+'.':'Core setup is complete. Continue operating and improving the store.'}</p></div></div><div className="process-summary-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview</Button><Button variant="secondary" onClick={()=>setPage('settings')}><Settings size={15}/> Publishing</Button></div></div>
     <div className="process-layout"><section className="panel"><div className="panel-head"><div><span>Launch process</span><h3>Build → organize → publish</h3></div></div><div className="process-step-list">{setup.map((x,i)=><div className={'process-step '+(x.done?'done':'')} key={x.title}><div className="process-step-number">{x.done?<Check size={15}/>:String(i+1).padStart(2,'0')}</div><div><strong>{x.title}</strong><p>{x.note}</p></div><button onClick={()=>setPage(x.page)}>{x.done?'Review':x.action}<ArrowRight size={14}/></button></div>)}</div></section>
     <section className="panel"><div className="panel-head"><div><span>Daily operations</span><h3>Run the business</h3></div></div><div className="process-ops">{operations.map(x=>{const I=x.icon;return <button key={x.title} onClick={()=>setPage(x.page)}><div className="process-op-icon"><I size={18}/></div><div><strong>{x.title}</strong><span>{x.value}</span><p>{x.note}</p></div><ArrowRight size={15}/></button>})}</div></section></div>
@@ -670,7 +559,7 @@ function Brief({data}) {
     ['Content readiness', [['Assets ready',data.contentReady.join(', ')],['Existing website',data.currentWebsite||'None provided'],['Target launch',data.launchDate||'Not set']]],
     ['Website structure', [['Pages',data.pages.join(', ')],['Features',data.features.join(', ')]]]
   ]
-  return <div className="page-wrap brief-page"><div className="page-head"><div><p className="overline">SINGLE SOURCE OF TRUTH</p><h1>Website brief</h1><p>Everything captured during onboarding, organized for the project.</p></div><Button variant="secondary" onClick={()=>window.print()}><Eye size={15}/> Preview / print brief</Button></div><div className="brief-layout"><aside className="brief-index"><span>Contents</span>{sections.map((x,i)=><a key={x[0]} href={`#brief-${i}`}>{String(i+1).padStart(2,'0')} {x[0]}</a>)}</aside><div className="brief-doc"><div className="brief-cover"><span>WEBSITE PROJECT BRIEF</span><h2>{data.businessName}</h2><p>{data.websiteType} · {data.styles.join(' + ')}</p><div className="brief-colors">{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}}/>)}</div></div>{sections.map((s,i)=><section key={s[0]} id={`brief-${i}`}><p className="overline">{String(i+1).padStart(2,'0')}</p><h3>{s[0]}</h3>{s[1].map(([label,val])=><div className="brief-row" key={label}><span>{label}</span><p>{val||'Not provided'}</p></div>)}</section>)}</div></div></div>
+  return <div className="page-wrap brief-page"><div className="page-head"><PageArt/><div><p className="overline">SINGLE SOURCE OF TRUTH</p><h1>Website brief</h1><p>Everything captured during onboarding, organized for the project.</p></div><Button variant="secondary" onClick={()=>window.print()}><Eye size={15}/> Preview / print brief</Button></div><div className="brief-layout"><aside className="brief-index"><span>Contents</span>{sections.map((x,i)=><a key={x[0]} href={`#brief-${i}`}>{String(i+1).padStart(2,'0')} {x[0]}</a>)}</aside><div className="brief-doc"><div className="brief-cover"><span>WEBSITE PROJECT BRIEF</span><h2>{data.businessName}</h2><p>{data.websiteType} · {data.styles.join(' + ')}</p><div className="brief-colors">{[data.primaryColor,data.secondaryColor,data.accentColor].map(c=><i key={c} style={{background:c}}/>)}</div></div>{sections.map((s,i)=><section key={s[0]} id={`brief-${i}`}><p className="overline">{String(i+1).padStart(2,'0')}</p><h3>{s[0]}</h3>{s[1].map(([label,val])=><div className="brief-row" key={label}><span>{label}</span><p>{val||'Not provided'}</p></div>)}</section>)}</div></div></div>
 }
 
 function Modal({title,onClose,children}) { return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div> }
@@ -702,7 +591,7 @@ function OnlineStorePage({pages,setPages,setPage,editor,setEditor}) {
     const list=[...(pages||[])];const i=list.indexOf(p);const j=i+delta;if(i<0||j<0||j>=list.length)return
     ;[list[i],list[j]]=[list[j],list[i]];setPages?.(list)
   }
-  return <div className="page-wrap"><div className="page-head"><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
+  return <div className="page-wrap"><div className="page-head"><PageArt/><div><p className="overline">SALES CHANNEL</p><h1>Online store</h1><p>Manage pages, storefront structure, preview, and publishing.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>setPage('storefront')}><Eye size={15}/> Preview store</Button><Button onClick={()=>openPage(editor.currentPage||'Home')}><Palette size={15}/> Customize</Button></div></div>
     <div className="online-store-grid"><section className="panel theme-card"><div className="panel-head"><div><span>Theme</span><h3>{themeDisplayName(selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential')}</h3></div><span className="status active">Editing</span></div><div className="theme-preview"><div><small>LIVE PREVIEW</small><h4>{editor.hero?.heading||'Your storefront'}</h4><span>{editor.hero?.button||'Shop now'}</span></div><div className="theme-products"><i/><i/><i/></div></div><div className="theme-actions"><strong>Choose one of two</strong><div><select className="toolbar-select" value={selectableThemeNames.includes(editor.theme?.name)?editor.theme.name:'Essential'} onChange={e=>applyTheme(e.target.value)}>{selectableThemeNames.map(x=><option key={x} value={x}>{themeDisplayName(x)}</option>)}</select><Button variant="secondary" onClick={()=>openPage('Home')}>Customize home</Button></div></div></section><section className="panel store-settings-card"><div className="panel-head"><div><span>Publishing</span><h3>Production controls</h3></div></div><SummaryRow label="Preview" value="Available"/><SummaryRow label="Draft save" value="Automatic"/><SummaryRow label="Public store" value="Publish from Settings"/><Button variant="secondary" onClick={()=>setPage('settings')}>Publishing settings <ArrowRight size={14}/></Button></section></div>
     <div className="page-section-head"><div><span>Website structure</span><h2>Pages</h2></div><Button variant="secondary" onClick={()=>setAdding(true)}><Plus size={15}/> Add page</Button></div>
     <div className="page-list">{(pages||[]).map((p,i)=>{const visible=pageMeta[p]?.visible!==false;return <div className="page-list-row" key={p}><div className="page-icon"><FileText size={18}/></div><div><strong>{p}</strong><span>/{p==='Home'?'':p.toLowerCase().replaceAll(' ','-')}</span></div><button className={`status ${visible?'active':'draft'}`} onClick={()=>toggleVisible(p)}>{visible?'Visible':'Hidden'}</button><small>{i===0?'Homepage':'Page'}</small><div className="row-actions"><button title="Move up" disabled={i===0} onClick={()=>move(p,-1)}>↑</button><button title="Move down" disabled={i===(pages||[]).length-1} onClick={()=>move(p,1)}>↓</button><button title="Edit page" onClick={()=>openPage(p)}><Pencil size={16}/></button>{p!=='Home'&&<button title="Delete page" onClick={()=>removePage(p)}><X size={16}/></button>}</div></div>})}</div>
@@ -760,7 +649,7 @@ function ThemeLibrary({editor,setEditor,setPage}) {
   const pickerRecipe=pickerTheme?(themeRecipes[pickerTheme]||themeRecipes.Essential):null
 
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Two professional starting points only. Choose one, then focus on editing the actual page instead of browsing endless themes.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
+    <div className="page-head"><PageArt/><div><p className="overline">ONLINE STORE</p><h1>Theme library</h1><p>Two professional starting points only. Choose one, then focus on editing the actual page instead of browsing endless themes.</p></div><Button onClick={()=>setPage('editor')}>Customize current theme <ArrowRight size={15}/></Button></div>
 
     <section className="panel current-theme-panel compact-current-theme">
       <div className="current-theme-layout">
@@ -810,7 +699,7 @@ function NavigationManager({pages=[],editor,setEditor}) {
   const remove=item=>setList(list.filter(x=>x!==item))
   const move=(item,delta)=>{const next=[...list];const i=next.indexOf(item);const j=i+delta;if(i<0||j<0||j>=next.length)return;const temp=next[i];next[i]=next[j];next[j]=temp;setList(next)}
   return <div className="page-wrap">
-    <div className="page-head"><div><p className="overline">ONLINE STORE</p><h1>Navigation</h1><p>Control the order customers move through your store. Menus are built from your existing pages.</p></div></div>
+    <div className="page-head"><PageArt/><div><p className="overline">ONLINE STORE</p><h1>Navigation</h1><p>Control the order customers move through your store. Menus are built from your existing pages.</p></div></div>
     <div className="settings-columns"><section className="panel"><div className="panel-head"><div><span>Menus</span><h3>Choose menu</h3></div></div><div className="nav-menu-tabs"><button className={menuType==='main'?'active':''} onClick={()=>setMenuType('main')}>Main menu <b>{main.length}</b></button><button className={menuType==='footer'?'active':''} onClick={()=>setMenuType('footer')}>Footer menu <b>{footer.length}</b></button></div><div className="nav-add-row"><select value={selectedPage} onChange={e=>setSelectedPage(e.target.value)}><option value="">Select a page</option>{pages.filter(p=>p!=='Home').map(p=><option key={p}>{p}</option>)}</select><Button onClick={add} disabled={!selectedPage||list.includes(selectedPage)}><Plus size={15}/> Add</Button></div><p className="field-help">Create missing pages first in Online store → Overview & pages.</p></section>
     <section className="panel"><div className="panel-head"><div><span>{menuType==='main'?'Main menu':'Footer menu'}</span><h3>Menu order</h3></div></div><div className="navigation-list">{list.map((item,i)=><div key={item}><span className="drag-dots">⠿</span><strong>{item}</strong><small>{'/'+item.toLowerCase().replaceAll(' ','-')}</small><div className="row-actions"><button disabled={i===0} onClick={()=>move(item,-1)}>↑</button><button disabled={i===list.length-1} onClick={()=>move(item,1)}>↓</button><button onClick={()=>remove(item)}><X size={15}/></button></div></div>)}{!list.length&&<div className="empty-panel"><Menu size={22}/><strong>No menu items yet</strong><p>Add pages to this menu.</p></div>}</div></section></div>
   </div>
@@ -1073,7 +962,7 @@ function ResetRequest({onBack}) {
       } else setError(raw)
     }finally{setBusy(false)}
   }
-  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back to login</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Reset your password</h1><p>Enter your account email and CoBest will send a password-reset link back to this website.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" autoComplete="email" required/></Field><Button type="submit" disabled={busy}>{busy?'Sending…':'Send reset link'}</Button><div className="auth-divider"><span>Remembered your password?</span></div><Button type="button" variant="secondary" onClick={onBack}>Back to log in</Button></form></div>
+  return <div className="auth-page"><AuthArt kind="recover"/><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back to login</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Reset your password</h1><p>Enter your account email and CoBest will send a password-reset link back to this website.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" autoComplete="email" required/></Field><Button type="submit" disabled={busy}>{busy?'Sending…':'Send reset link'}</Button><div className="auth-divider"><span>Remembered your password?</span></div><Button type="button" variant="secondary" onClick={onBack}>Back to log in</Button></form><MotionToggle className="auth-motion"/></div>
 }
 
 function Recovery({onDone}) {
@@ -1090,7 +979,7 @@ function Recovery({onDone}) {
     try{await updatePassword(password);setMessage('Password updated. You can now log in with the new password.');setTimeout(onDone,900)}
     catch(err){setError(err.message)}finally{setBusy(false)}
   }
-  return <div className="auth-page"><div className="auth-top"><button onClick={onDone}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Set a new password</h1><p>Choose a new password for your CoBest account.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="New password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} required/></Field><Field label="Confirm password"><input type="password" minLength="8" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field><Button type="submit" disabled={busy}>{busy?'Updating…':'Update password'}</Button></form></div>
+  return <div className="auth-page"><AuthArt kind="recover"/><div className="auth-top"><button onClick={onDone}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">ACCOUNT RECOVERY</p><h1>Set a new password</h1><p>Choose a new password for your CoBest account.</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="New password"><input type="password" minLength="8" value={password} onChange={e=>setPassword(e.target.value)} required/></Field><Field label="Confirm password"><input type="password" minLength="8" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field><Button type="submit" disabled={busy}>{busy?'Updating…':'Update password'}</Button></form><MotionToggle className="auth-motion"/></div>
 }
 
 function Auth({variant='login',onSuccess,onBack,onSwitch,onForgot}) {
@@ -1123,7 +1012,7 @@ function Auth({variant='login',onSuccess,onBack,onSwitch,onForgot}) {
     finally { setBusy(false) }
   }
 
-  return <div className="auth-page"><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><div className="password-input-wrap"><input type={showPassword?'text':'password'} minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete={signup?'new-password':'current-password'} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button></div></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<div className="auth-recovery-row"><button type="button" className="auth-link" onClick={onForgot}>Forgot password?</button><span>Reset your password securely on cobest.me.</span></div>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form></div>
+  return <div className="auth-page"><AuthArt kind={signup?'signup':'login'}/><div className="auth-top"><button onClick={onBack}><ArrowLeft size={16}/> Back</button><Logo/></div><form className="auth-card" onSubmit={submit}><p className="overline">{signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</p><h1>{signup?'Start with CoBest':'Log in to CoBest'}</h1><p>{signup?'Create an account, then build your business brief and storefront.':'Manage your website, products, customers, and store.'}</p>{error&&<div className="auth-message auth-error">{error}</div>}{message&&<div className="auth-message auth-success">{message}</div>}<Field label="Email address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" required/></Field><Field label="Password"><div className="password-input-wrap"><input type={showPassword?'text':'password'} minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" autoComplete={signup?'new-password':'current-password'} required/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button></div></Field><Button type="submit" disabled={busy}>{busy?'Please wait…':signup?'Create account':'Log in'}</Button>{!signup&&<div className="auth-recovery-row"><button type="button" className="auth-link" onClick={onForgot}>Forgot password?</button><span>Reset your password securely on cobest.me.</span></div>}<div className="auth-divider"><span>{signup?'Already have an account?':'New to CoBest?'}</span></div><Button type="button" variant="secondary" onClick={onSwitch}>{signup?'Log in':'Create an account'}</Button></form><MotionToggle className="auth-motion"/></div>
 }
 
 export default function App() {
@@ -1486,6 +1375,6 @@ export default function App() {
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
   if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={storeSnapshot} liveInfo={liveInfo} onPublished={rememberLive} onUnpublished={()=>setLiveInfo(info=>info?{...info,published:false}:info)} onEditPages={()=>setPage('editor')}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
-  if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
+  if(page==='help') content=<div className="page-wrap"><div className="page-head"><PageArt/><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
   return <AppShell page={previewTheme?'shop-design':page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite} cloudError={cloudLoadError}>{content}</AppShell>
 }

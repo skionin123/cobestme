@@ -8,7 +8,7 @@
 .website-start-primary{background:#252541;color:#fff;border:1px solid #252541}
 .website-start-secondary{background:#fff;color:#34334c;border:1px solid #dadbe1}
 .website-current-project{display:flex;align-items:center;gap:16px;padding:18px 20px;margin:0 0 36px;background:#f4f6fb;border:1px solid #e6eaf3;border-radius:14px}
-.website-current-mark{border-radius:12px;background:#e7eaff;color:#4f46e5;padding:12px}
+.website-current-mark{border-radius:12px;background:#e4ecfd;color:#2b59e6;padding:12px}
 .website-current-project>div:nth-child(2){display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
 .website-current-project span{font-size:9px;letter-spacing:.12em;font-weight:800;color:#777aa4}
 .website-current-project strong{font-size:18px;letter-spacing:-.02em}
@@ -73,8 +73,8 @@
 .store-theme-sample .design-hero-copy{padding:16px}.store-theme-sample h1{font-size:clamp(20px,8cqw,38px);margin:0}
 .store-theme-sample .design-hero p{display:none}.store-theme-sample .design-art{min-height:145px;max-width:none;height:100%;margin:0}
 .store-theme-sample .skin-atelier .design-art{grid-column:1;grid-row:1}.store-theme-sample .skin-atelier .design-hero-copy{grid-column:2;grid-row:1}
-.store-theme-info{padding:20px;display:flex;flex:1;flex-direction:column;align-items:start}.store-theme-info h2{color:var(--brand-plum);font-size:21px;margin:0}.store-theme-info p{color:#625966;font-size:14px;margin:8px 0 18px}.store-theme-info .btn{margin-top:auto}
-.advanced-theme-library{padding:18px 0;border-top:1px solid var(--brand-line)}.advanced-theme-library summary{cursor:pointer;font-weight:650}.advanced-theme-library>p{margin:12px 0;color:#625966}
+.store-theme-info{padding:20px;display:flex;flex:1;flex-direction:column;align-items:start}.store-theme-info h2{color:var(--brand-navy);font-size:21px;margin:0}.store-theme-info p{color:#595d66;font-size:14px;margin:8px 0 18px}.store-theme-info .btn{margin-top:auto}
+.advanced-theme-library{padding:18px 0;border-top:1px solid var(--brand-line)}.advanced-theme-library summary{cursor:pointer;font-weight:650}.advanced-theme-library>p{margin:12px 0;color:#595d66}
 .store-theme-sample .skin-atelier .design-hero{grid-template-columns:.8fr 1.2fr;padding:10px}
 .store-theme-sample .skin-atelier .design-hero-copy{padding:12px}
 .store-theme-sample .skin-atelier h1{font-size:clamp(18px,7cqw,32px)}
