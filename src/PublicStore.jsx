@@ -4,6 +4,10 @@ import { getPublicStore, getPublicStoreByDomain, isAuthenticated, logout, public
 import {StorefrontDesign} from './StorefrontEditor.jsx'
 import ProductGrid from './ProductGrid.jsx'
 import { createPublishedDocument } from './builder/publicDocument'
+import { HOST_MESSAGE_SOURCE, mapFormFields, SITE_MESSAGE_SOURCE } from './builder/runtime'
+import { clampInt, safeHref, sanitizeCustomCss } from './builder/sanitize'
+import { normalizeProject } from './builder/validate'
+import { homeSourceOf, liveVisualProject } from '../server-publish.mjs'
 
 const money = (value, currency='PHP') => new Intl.NumberFormat('en-PH',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value||0))
 const keyFor = slug => `cobest-public-cart-${slug||'store'}`
@@ -12,25 +16,58 @@ function Modal({title,onClose,children}) {
   return <div className="modal-backdrop public-modal"><div className="modal"><div className="modal-head"><h3>{title}</h3><button onClick={onClose}><X size={20}/></button></div>{children}</div></div>
 }
 
-function VisualProjectFrame({project,page,onNavigate}) {
+// Web addresses of the pages every store has, besides its own custom pages.
+const BUILT_IN_PATHS={Shop:'/shop',Privacy:'/privacy',Terms:'/terms','Refund Policy':'/refund-policy'}
+const nameToPath=name=>'/'+String(name).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
+const tidyPath=path=>('/'+String(path||'').split(/[?#]/)[0].replace(/\.html$/,'').replace(/^\/+|\/+$/g,'')).toLowerCase()
+
+/** The address shown in the browser for a page of the store. */
+function pathForPage(name,visualPages){
+  if(name==='Home')return '/'
+  if(BUILT_IN_PATHS[name])return BUILT_IN_PATHS[name]
+  const visual=visualPages.find(p=>p.name===name)
+  if(visual)return tidyPath(visual.slug)
+  return nameToPath(name)
+}
+
+/** The page a web address points at ("Home" when nothing matches). */
+function pageForPath(path,visualPages,pageNames){
+  const clean=tidyPath(path)
+  if(clean==='/')return 'Home'
+  const builtIn=Object.keys(BUILT_IN_PATHS).find(name=>BUILT_IN_PATHS[name]===clean&&pageNames.includes(name))
+  if(builtIn)return builtIn
+  const visual=visualPages.find(p=>tidyPath(p.slug)===clean)
+  if(visual)return visual.name
+  return pageNames.find(name=>nameToPath(name)===clean)||'Home'
+}
+
+function VisualProjectFrame({project,page,slug,onLink}) {
   const frameRef=useRef(null)
   const srcDoc=useMemo(()=>createPublishedDocument(project,page.id),[project,page.id])
   useEffect(()=>{
-    const handler=event=>{
-      // Only accept navigation requests from this site's own frame.
-      if(event.source!==frameRef.current?.contentWindow)return
+    const handler=async event=>{
+      // Only this site's own frame may ask for navigation or send a form.
+      const frame=frameRef.current?.contentWindow
+      if(!frame||event.source!==frame)return
       const msg=event.data||{}
-      if(msg.source!=='cobest-public-visual'||msg.type!=='navigate')return
-      const href=String(msg.href||'')
-      if(href==='/shop'||href==='shop'){onNavigate('Shop');return}
-      const normalized=href.split('?')[0].split('#')[0].replace(/\.html$/,'')
-      const target=(project.pages||[]).find(p=>!p.isCollectionTemplate&&(p.slug===normalized||p.slug.replace(/\/$/,'')===normalized.replace(/\/$/,'')))
-      if(target)onNavigate(target.name)
+      if(msg.source!==SITE_MESSAGE_SOURCE)return
+      if(msg.type==='navigate'){onLink(String(msg.href||''));return}
+      if(msg.type==='form-submit'&&typeof msg.id==='string'){
+        // Forms on custom pages are delivered to the owner's CoBest Inbox.
+        const reply=(ok,error='')=>frame.postMessage({source:HOST_MESSAGE_SOURCE,type:'form-result',id:msg.id.slice(0,40),ok,error},'*')
+        const mapped=mapFormFields(msg.fields)
+        if(mapped.missing==='email')return reply(false,'Please enter your email address so we can reply.')
+        if(mapped.missing==='message')return reply(false,'Please write a message.')
+        try{await publicAction('contact',{slug,name:mapped.name,email:mapped.email,message:mapped.message});reply(true)}
+        catch(err){reply(false,err?.message||'')}
+      }
     }
     window.addEventListener('message',handler)
     return()=>window.removeEventListener('message',handler)
-  },[project,onNavigate])
-  return <iframe ref={frameRef} className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups" srcDoc={srcDoc}/>
+  },[slug,onLink])
+  // The frame has no access to this page (no same-origin), so custom code on a
+  // website cannot read a visitor's or owner's CoBest session.
+  return <iframe ref={frameRef} className="visual-published-frame" title={page.seo?.title||page.name} sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" srcDoc={srcDoc}/>
 }
 
 export default function PublicStore({slug:slugProp,host}) {
@@ -55,21 +92,34 @@ export default function PublicStore({slug:slugProp,host}) {
     load.then(data=>{
       if(!active)return
       setStore(data)
-      const saved=localStorage.getItem(keyFor(data.slug))
-      if(saved){try{setCart(JSON.parse(saved))}catch{}}
-      publicAction('event',{slug:data.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:'Home'}}).catch(()=>{})
-    }).catch(err=>setError(err.message)).finally(()=>setLoading(false))
+      // Open the page the address points at, so links to a page can be shared.
+      const first=pageForPath(window.location.pathname.slice(basePath(data).length),visualPagesOf(data),pageNamesOf(data))
+      setPage(first)
+      let saved=null
+      try{saved=localStorage.getItem(keyFor(data.slug))}catch{}
+      if(saved){try{const items=JSON.parse(saved);if(Array.isArray(items))setCart(items.filter(x=>x&&typeof x==='object'&&Number(x.quantity)>0))}catch{}}
+      publicAction('event',{slug:data.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:first}}).catch(()=>{})
+    }).catch(err=>setError(err.message)).finally(()=>{if(active)setLoading(false)})
     return()=>{active=false}
   },[slugProp,host])
 
   useEffect(()=>{
-    if(store?.slug) localStorage.setItem(keyFor(store.slug),JSON.stringify(cart))
+    if(store?.slug){try{localStorage.setItem(keyFor(store.slug),JSON.stringify(cart))}catch{}}
   },[cart,store?.slug])
+
+  // The browser's Back and Forward buttons move between pages of the store.
+  useEffect(()=>{
+    if(!store)return
+    const onPop=()=>setPage(pageForPath(window.location.pathname.slice(basePath(store).length),visualPagesOf(store),pageNamesOf(store)))
+    window.addEventListener('popstate',onPop)
+    return()=>window.removeEventListener('popstate',onPop)
+  },[store])
 
   useEffect(()=>{
     if(!store)return
-    const visualProject=store?.visual_project||store?.editor?.visualBuilderProject
-    const visualPage=visualProject?.pages?.find(p=>!p.isCollectionTemplate&&(p.name===page||(page==='Home'&&(p.slug==='/'||p.id===visualProject.activePageId))))
+    const visualProject=liveVisualProject(store)
+    const visualPage=(page!=='Home'||homeSourceOf(store)==='custom')
+      ?visualProject?.pages?.find(p=>!p.isCollectionTemplate&&(p.name===page||(page==='Home'&&(p.slug==='/'||p.id===visualProject.activePageId)))):null
     const legacyMeta=store?.editor?.pageMeta?.[page]||{}
     const defaultTitle=store?.settings?.seoTitle||store?.onboarding?.businessName||'Store'
     document.title=visualPage?.seo?.title||legacyMeta.seo_title||`${page==='Home'?'':page+' · '}${defaultTitle}`
@@ -106,14 +156,14 @@ export default function PublicStore({slug:slugProp,host}) {
     const matchesCategory=category==='All'||p.category===category
     return matchesQ&&matchesCategory
   })
-  const visualProject=store?.visual_project||store?.editor?.visualBuilderProject||null
+  // Checked and repaired once per store, so a damaged project cannot break the page.
+  const visualProject=useMemo(()=>normalizeProject(liveVisualProject(store)),[store])
   const visualPages=(visualProject?.pages||[]).filter(p=>!p.isCollectionTemplate)
-  const visualPageNames=visualPages.map(p=>p.name)
-  const pageMeta=store?.editor?.pageMeta||{}
+  // Which homepage visitors see: the shop, or the custom Home page.
+  const customHome=!!visualProject&&homeSourceOf(store)==='custom'
   const policyPages=[store?.settings?.privacyPolicy&&'Privacy',store?.settings?.termsPolicy&&'Terms',store?.settings?.refundPolicy&&'Refund Policy'].filter(Boolean)
-  const sourcePages=visualProject?visualPageNames:(store?.pages||store?.onboarding?.pages||[])
-  const pages=Array.from(new Set(['Home',...sourcePages,'Shop',...policyPages])).filter(p=>visualProject||p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
-  const visualPage=visualProject?(visualPages.find(p=>p.name===page)||(page==='Home'?visualPages.find(p=>p.slug==='/'||p.id===visualProject.activePageId)||visualPages[0]:null)):null
+  const pages=pageNamesOf(store)
+  const visualPage=visualProject?(visualPages.find(p=>p.name===page&&(page!=='Home'||customHome))||(page==='Home'&&customHome?visualPages.find(p=>p.slug==='/'||p.id===visualProject.activePageId)||visualPages[0]:null)):null
   const headerMenu=Array.isArray(store?.editor?.header?.menu)&&store.editor.header.menu.length?store.editor.header.menu:pages.filter(p=>p!=='Home').slice(0,5)
   const footerMenu=Array.isArray(store?.editor?.footer?.menu)&&store.editor.footer.menu.length?store.editor.footer.menu:[]
   const currency=store?.settings?.currency||'PHP'
@@ -124,8 +174,13 @@ export default function PublicStore({slug:slugProp,host}) {
     setPage(name)
     setMenuOpen(false)
     window.scrollTo({top:0,behavior:'smooth'})
-    if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:window.location.pathname,metadata:{page:name}}).catch(()=>{})
+    // Give every page its own address (shareable, and Back works).
+    const address=(basePath(store)+pathForPage(name,visualPages)).replace(/\/+$/,'')||'/'
+    try{if(address!==window.location.pathname)window.history.pushState({page:name},'',address)}catch{}
+    if(store?.slug) publicAction('event',{slug:store.slug,event_type:'page_view',path:address,metadata:{page:name}}).catch(()=>{})
   }
+  // A link clicked inside a custom page, e.g. "/about" or "/shop".
+  const followLink=href=>navigate(pageForPath(href,visualPages,pages))
   const add=p=>{
     const stock=p.inventory==null?null:Math.max(0,Math.floor(Number(p.inventory)||0))
     if(stock===0){setNotice(`${p.name} is out of stock.`);setTimeout(()=>setNotice(''),2600);return}
@@ -154,23 +209,25 @@ export default function PublicStore({slug:slugProp,host}) {
   const pageData=store?.editor?.pageContent?.[page]||{}
   const features=store?.onboarding?.features||[]
 
-  const designedHome=store.editor?.shopDesign&&!store.visual_project
-  if(!(designedHome&&page==='Home')&&visualProject&&visualPage&&page!=='Shop'&&!policyPages.includes(page)){
+  // The shop homepage uses the Storefront editor's design when there is one.
+  const designedHome=!!store.editor?.shopDesign&&!customHome
+  if(visualProject&&visualPage&&page!=='Shop'&&!policyPages.includes(page)){
     return <div className="visual-published-shell">
-      <VisualProjectFrame project={visualProject} page={visualPage} onNavigate={navigate}/>
+      <VisualProjectFrame project={visualProject} page={visualPage} slug={store.slug} onLink={followLink}/>
       {notice&&<div className="public-toast">{notice}</div>}
-      <div className="visual-commerce-dock">
+      {/* Shopping buttons only when there is something to buy. */}
+      {(products.length>0||itemCount>0)&&<div className="visual-commerce-dock">
         <button onClick={()=>navigate('Shop')}><ShoppingBag size={16}/> Shop</button>
         <button onClick={()=>setAccountOpen(true)}>Account</button>
         <button onClick={()=>setCartOpen(true)}><ShoppingBag size={16}/> Cart {itemCount>0&&<b>{itemCount}</b>}</button>
-      </div>
+      </div>}
       {cartOpen&&<CartDrawer cart={cart} currency={currency} subtotal={subtotal} onClose={()=>setCartOpen(false)} qty={qty} remove={remove} onCheckout={()=>{setCartOpen(false);setCheckoutOpen(true)}}/>}
       {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order,warning='')=>{setCart([]);setCheckoutOpen(false);setNotice(warning||`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),8000)}}/>}
       {accountOpen&&<CustomerAccount slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
     </div>
   }
 
-  return <div data-store-design={designedHome?store.editor.shopDesign.theme:undefined} className={`public-store-shell public-style-${store?.editor?.theme?.styleKey||'essential'}`} style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{store.editor.customCss}</style>:null}
+  return <div data-store-design={designedHome?store.editor.shopDesign.theme:undefined} className={`public-store-shell public-style-${store?.editor?.theme?.styleKey||'essential'}`} style={{'--brand':store?.editor?.theme?.ink||store?.onboarding?.primaryColor||'#171717','--paper':store?.editor?.theme?.paper||store?.onboarding?.secondaryColor||'#f4f1eb','--surface':store?.editor?.theme?.surface||'#ffffff','--accent':store?.editor?.theme?.accent||store?.onboarding?.accentColor||'#b69a78','--display-font':store?.editor?.theme?.displayFont||'Georgia, Times New Roman, serif','--heading-weight':store?.editor?.typography?.headingWeight||600,'--body-weight':store?.editor?.typography?.bodyWeight||400,'--nav-weight':store?.editor?.typography?.navWeight||500,'--button-weight':store?.editor?.typography?.buttonWeight||600,'--h1-size':`${store?.editor?.typography?.h1Size||62}px`,'--h2-size':`${store?.editor?.typography?.h2Size||36}px`,'--body-size':`${store?.editor?.typography?.bodySize||16}px`,'--body-line':store?.editor?.typography?.lineHeight||1.6,'--letter-spacing':`${store?.editor?.typography?.letterSpacing||0}px`,fontFamily:store?.editor?.theme?.fontFamily||'Arial, Helvetica, sans-serif'}}>{store?.editor?.customCss?<style>{sanitizeCustomCss(store.editor.customCss)}</style>:null}
     <header className="public-store-header">
       <button className="public-store-menu" onClick={()=>setMenuOpen(v=>!v)}><Menu size={20}/></button>
       <button className="public-store-brand" onClick={()=>navigate('Home')}>{store?.onboarding?.businessName||store?.settings?.siteName||'Store'}</button>
@@ -197,6 +254,23 @@ export default function PublicStore({slug:slugProp,host}) {
     {checkoutOpen&&<Checkout store={store} cart={cart} currency={currency} paymentOptions={store.payment_options||{}} onClose={()=>setCheckoutOpen(false)} onComplete={(order,warning='')=>{setCart([]);setCheckoutOpen(false);setNotice(warning||`Order ${order.order_number} created successfully.`);setTimeout(()=>setNotice(''),8000)}}/>}
     {accountOpen&&<CustomerAccount slug={store.slug} currency={currency} onClose={()=>setAccountOpen(false)}/>}
   </div>
+}
+
+/** Where the store lives: "/store/<slug>" on CoBest, or the root of its own domain. */
+function basePath(store){
+  const match=window.location.pathname.match(/^\/store\/[^/]+/)
+  return match?match[0]:''
+}
+function visualPagesOf(store){
+  return (liveVisualProject(store)?.pages||[]).filter(p=>p&&typeof p==='object'&&!p.isCollectionTemplate&&typeof p.name==='string'&&typeof p.slug==='string')
+}
+/** Every page name this store can show. */
+function pageNamesOf(store){
+  const visual=visualPagesOf(store)
+  const pageMeta=store?.editor?.pageMeta||{}
+  const policyPages=[store?.settings?.privacyPolicy&&'Privacy',store?.settings?.termsPolicy&&'Terms',store?.settings?.refundPolicy&&'Refund Policy'].filter(Boolean)
+  const source=visual.length?visual.map(p=>p.name):(Array.isArray(store?.pages)?store.pages:Array.isArray(store?.onboarding?.pages)?store.onboarding.pages:[]).filter(name=>typeof name==='string')
+  return Array.from(new Set(['Home',...source,'Shop',...policyPages])).filter(p=>visual.length||p==='Home'||p==='Shop'||policyPages.includes(p)||pageMeta[p]?.visible!==false)
 }
 
 function Home({store,products,currency,onShop,onAdd,onOpen}) {
@@ -356,12 +430,12 @@ function defaultPageBody(name,store){
 
 function ContentBlock({block,products=[],currency='PHP',onAdd,onOpen}) {
   const items=String(block.items||'').split(',').map(x=>x.trim()).filter(Boolean)
-  const columns=Number(block.columns||1)
+  const columns=clampInt(block.columns,1,6,1)
   const visible=(products||[]).filter(x=>x.status==='Active').slice(0,Number(block.productLimit||4))
   const style={background:block.background||'#fff',color:block.text||'#171717',padding:`${block.padding??48}px 5vw`,margin:`${block.margin||0}px 0`,border:`${block.borderWidth||0}px solid ${block.borderColor||'#dddddd'}`,borderRadius:`${block.radius||0}px`,fontSize:`${block.fontSize||16}px`}
   if(block.type==='spacer') return <section className="public-content-block public-block-spacer" style={{...style,minHeight:`${block.padding??48}px`}}/>
   if(block.type==='products') return <section className="public-content-block public-block-products" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><div className="public-section-title"><h2>{block.title||'Products'}</h2></div><ProductGrid products={visible} currency={currency} onAdd={onAdd} onOpen={onOpen}/></div></section>
-  if(block.type==='cta') return <section className="public-content-block public-block-cta" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><h2>{block.title}</h2><p>{block.body}</p><a className="btn btn-primary" href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
+  if(block.type==='cta') return <section className="public-content-block public-block-cta" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><h2>{block.title}</h2><p>{block.body}</p><a className="btn btn-primary" href={safeHref(block.buttonLink)}>{block.buttonLabel||'Learn more'}</a></div></section>
   if(block.type==='quote') return <section className="public-content-block public-block-quote" style={style}><div className="public-block-inner" style={{maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
   return <section className="public-content-block" style={style}><div style={{display:'grid',gridTemplateColumns:block.columnTemplate||`repeat(${columns},minmax(0,1fr))`,gap:`${block.gap??24}px`,maxWidth:`${block.maxWidth||1180}px`,margin:'0 auto'}}>{Array.from({length:columns}).map((_,i)=><div key={i}>{block.type==='image'&&block.imageUrl&&<img src={block.imageUrl} alt={block.title||''}/>}<h2>{block.title}</h2>{block.type==='text'&&<p>{block.body}</p>}{['list','menu'].includes(block.type)&&<ul>{items.map(x=><li key={x}>{x}</li>)}</ul>}{block.type==='image'&&block.body&&<p>{block.body}</p>}</div>)}</div></section>
 }

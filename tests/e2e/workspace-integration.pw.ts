@@ -129,7 +129,7 @@ test('real application shell saves each site and reopens its own builder documen
   await expect(page.getByRole('button',{name:'Back to dashboard'})).toBeVisible()
   await page.getByRole('button',{name:'Back to dashboard'}).click()
   await expect(page.getByRole('heading',{name:'Store overview'})).toBeVisible()
-  await page.locator('.app-nav').getByRole('button',{name:'Website editor',exact:true}).click()
+  await page.locator('.app-nav').getByRole('button',{name:'Advanced editor',exact:true}).click()
   await expect(page.getByRole('textbox',{name:'Website name'})).toHaveValue('Alpha Draft Only')
   await page.getByRole('button',{name:'Back to dashboard'}).click()
   await page.locator('.app-nav').getByRole('button',{name:'Website themes',exact:true}).click()

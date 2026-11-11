@@ -60,3 +60,8 @@
 .skin-atelier .public-product-name{font:500 clamp(16px,2cqw,24px)/1.2 Georgia,serif}
 @container(min-width:760px){.design-collection .public-products{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @container(min-width:1100px){.design-collection .public-products{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.design-home-choice{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:12px 14px;border:1px solid #e3b9ca;border-radius:12px;background:#fffafb;max-width:720px;cursor:pointer}
+.design-home-choice input{width:18px;height:18px;margin-top:2px;accent-color:#832353;flex:0 0 auto}
+.design-home-choice span{display:grid;gap:2px}
+.design-home-choice small{color:#665c6b;font-size:13px}

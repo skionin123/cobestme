@@ -165,6 +165,12 @@ export async function publishStore(payload) {
   })
 }
 
+/** What is live right now: which homepage visitors see and whether custom pages are published. */
+export async function getPublishStatus() {
+  const data = await request('/api/publish/status')
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : null
+}
+
 export async function unpublishStore() {
   return request('/api/unpublish', { method: 'POST', body: '{}' })
 }

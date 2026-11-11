@@ -29,7 +29,7 @@ export function StorefrontDesign({name,design={},products=[],currency='PHP',hero
   </div>
 }
 
-export default function StorefrontEditor({name,design,previousDesign,initialTheme,backLabel='Store overview',products,currency='PHP',onSave,onPublish,onBack}){
+export default function StorefrontEditor({name,design,previousDesign,initialTheme,backLabel='Store overview',products,currency='PHP',liveInfo=null,onSave,onPublish,onBack}){
   const defaults={theme:'market',heading:name,intro:'',collection:'Shop the collection',cover:'auto'}
   const baseline={...defaults,...design}
   const [history,setHistory]=useState(()=>initialTheme&&initialTheme!==baseline.theme
@@ -43,6 +43,10 @@ export default function StorefrontEditor({name,design,previousDesign,initialThem
   const [message,setMessage]=useState('')
   const [error,setError]=useState('')
   const [url,setUrl]=useState('')
+  // The homepage may currently be a custom page from the Advanced editor.
+  // Publishing this design only replaces it when the owner says so.
+  const customHomeLive=!!liveInfo?.published&&liveInfo.home_source==='custom'
+  const [makeHome,setMakeHome]=useState(false)
   function edit(next){
     setHistory(h=>JSON.stringify(h.current)===JSON.stringify(next)?h:
       {past:[...h.past,h.current].slice(-100),current:next,future:[]})
@@ -63,7 +67,11 @@ export default function StorefrontEditor({name,design,previousDesign,initialThem
     let confirmed=false
     try{
       await onSave(draft);confirmed=true;setSaved(JSON.stringify(draft))
-      if(publish){setUrl(await onPublish(draft));setMessage('Design published.')}
+      if(publish){
+        const keepCustomHome=customHomeLive&&!makeHome
+        setUrl(await onPublish(draft,customHomeLive&&makeHome?{homeSource:'storefront'}:{}))
+        setMessage(keepCustomHome?'Design published. Your homepage still shows your custom Home page.':'Design published.')
+      }
       else setMessage('Design saved. Publish when you’re ready.')
     }catch(err){setError((confirmed?'Design saved. Publishing failed. ':'')+(err.message||'Please retry.'))}
     finally{setBusy(false)}
@@ -75,6 +83,8 @@ export default function StorefrontEditor({name,design,previousDesign,initialThem
     <div><button className="btn btn-secondary" disabled={busy} onClick={()=>save(false)}>Save design</button>
     <button className="btn btn-primary" disabled={busy} onClick={()=>save(true)}>Publish design</button></div></header>
     {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message} {url&&<a href={url}>Open storefront</a>}</p>}
+    {customHomeLive&&<label className="design-home-choice"><input type="checkbox" checked={makeHome} onChange={e=>setMakeHome(e.target.checked)}/>
+      <span><strong>Make this storefront design my homepage</strong><small>Right now visitors first see the Home page from the Advanced editor. Leave this off to keep it.</small></span></label>}
     <div className="design-mobile-switch"><button aria-pressed={!mobilePreview} onClick={()=>setMobilePreview(false)}>Edit settings</button><button aria-pressed={mobilePreview} onClick={()=>setMobilePreview(true)}>Preview storefront</button></div>
     <div className={'design-layout'+(mobilePreview?' show-preview':'')}>
       <fieldset disabled={busy} className="design-controls"><legend>Store design</legend>
