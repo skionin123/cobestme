@@ -6,6 +6,7 @@ import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
 import { clipAddress, clipMetadata, clipText, preparePublishSnapshot, publicStorePayload, publishSummary, sniffMediaType } from './server-publish.mjs'
+import { clientAddress, rateLimitKey } from './server-network.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -39,7 +40,10 @@ const securityHeaders = {
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'SAMEORIGIN',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(self)',
-  'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  // One week, and this host only. Raise it once HTTPS is confirmed on every
+  // CoBest hostname: a browser that has seen this header refuses plain HTTP
+  // (and certificate warnings) for that long.
+  'strict-transport-security': 'max-age=604800',
   'content-security-policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
 }
 
@@ -56,12 +60,10 @@ class HttpError extends Error {
 // reset and anonymous public forms from brute force and email/spam abuse on a
 // single instance. Use a shared store (e.g. Redis) if the app is scaled out.
 const rateBuckets = new Map()
-// Railway's edge proxy overwrites X-Forwarded-For and X-Real-IP on every public
-// request (client-sent copies are discarded), so they can be used for limits.
+// Limits are counted per visitor. server-network.mjs works out who that is,
+// including behind Cloudflare, where many visitors arrive from one address.
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-  const real = String(req.headers['x-real-ip'] || '').trim()
-  return forwarded || real || req.socket?.remoteAddress || 'unknown'
+  return rateLimitKey(clientAddress(req.headers, req.socket?.remoteAddress))
 }
 function rateLimited(req, name, limit, windowMs) {
   const key = `${name}:${clientIp(req)}`

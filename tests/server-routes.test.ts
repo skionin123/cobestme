@@ -234,6 +234,22 @@ describe('anonymous forms',()=>{
     // Someone else is not locked out.
     expect((await call('/api/auth/login',{method:'POST',body:{email:'a@b.co',password:'wrong-password'}})).status).toBe(400)
   })
+
+  it('counts visitors separately when they all arrive through Cloudflare',async()=>{
+    // Behind Cloudflare every request reaches the server from a Cloudflare address.
+    const viaCloudflare=(visitor:string)=>({'x-forwarded-for':'172.68.10.20','x-real-ip':'172.68.10.20','cf-connecting-ip':visitor})
+    const login=(headers:Record<string,string>)=>call('/api/auth/login',{method:'POST',body:{email:'a@b.co',password:'wrong-password'},headers}).then(r=>r.status)
+    // Thirty different people logging in are not mistaken for one person.
+    for(let i=0;i<30;i++)expect(await login(viaCloudflare(`112.200.5.${i+1}`))).toBe(400)
+    // One person hammering the login is still stopped.
+    let last=0
+    for(let i=0;i<11;i++)last=await login(viaCloudflare('49.145.7.8'))
+    expect(last).toBe(429)
+    // Pretending to be Cloudflare from an ordinary address does not get around the limit.
+    last=0
+    for(let i=0;i<11;i++)last=await login({'x-forwarded-for':'198.51.100.4','x-real-ip':'198.51.100.4','cf-connecting-ip':`112.200.9.${i+1}`})
+    expect(last).toBe(429)
+  })
 })
 
 describe('sign up',()=>{
