@@ -2,7 +2,6 @@
 .commerce-mvp-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .commerce-mvp-shortcut{background:white;border:1px solid #e3e5ec;border-radius:13px;text-align:left;padding:20px;display:flex;align-items:center;gap:15px;cursor:pointer;min-height:112px;color:#22252d;transition:border-color .2s,box-shadow .2s}
 .commerce-mvp-shortcut:hover{border-color:#aeb3da;box-shadow:0 8px 22px rgba(20,30,65,.06)}
-.commerce-mvp-shortcut-icon{background:#eef1fb;color:#4a538c;padding:13px;border-radius:12px}
 .commerce-mvp-shortcut>span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:5px;min-width:0}
 .commerce-mvp-shortcut strong{font-size:13px}.commerce-mvp-shortcut small{font-size:11px;color:#757c8c;line-height:1.45}
 .commerce-mvp-shortcut>svg{flex-shrink:0;color:#9297a4}

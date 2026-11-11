@@ -4,6 +4,7 @@ import { createDefaultProject } from './builder/defaultProject'
 import { builderTemplates } from './builder/templates'
 import {StorefrontDesign,storefrontThemes} from './StorefrontEditor.jsx'
 import './website-start.css'
+import { PageArt } from './Art3D.jsx'
 
 const blankTemplate={id:'blank',name:'Blank',build(){
   const project=createDefaultProject()
@@ -25,7 +26,7 @@ export default function WebsiteStart({project,siteName,products=[],design,hasSho
     finally{setBusy('')}
   }
   return <div className="website-start page-wrap">
-    <div className="website-start-heading"><div><h1>Website themes</h1><p>Preview a theme with your shop’s content. Your live site changes when you publish.</p></div></div>
+    <div className="website-start-heading"><PageArt/><div><h1>Website themes</h1><p>Preview a theme with your shop’s content. Your live site changes when you publish.</p></div></div>
     <div className="store-theme-gallery">
       {storefrontThemes.map(theme=><article className="store-theme-tile" key={theme.id}>
         <div className="store-theme-sample" aria-hidden="true">

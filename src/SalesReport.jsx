@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { BarChart3, Download } from 'lucide-react'
 import { calculateSalesReport } from './salesMetrics.js'
 import './sales-report.css'
+import { PageArt } from './Art3D.jsx'
 
 const money=(amount,currency='PHP')=>{
   try{return new Intl.NumberFormat('en-PH',{style:'currency',currency}).format(amount)}
@@ -21,7 +22,7 @@ export default function SalesReport({orders=[],products=[],currency='PHP'}){
     URL.revokeObjectURL(url)
   }
   return <div className="page-wrap cobest-sales-report">
-    <div className="page-head"><div><p className="overline">REPORTS</p><h1>Sales report</h1>
+    <div className="page-head"><PageArt/><div><p className="overline">REPORTS</p><h1>Sales report</h1>
       <p>Track paid-order revenue, order activity, and your top products. No estimated sales or unconfirmed payments.</p></div>
       <div className="page-actions"><select aria-label="Sales report period" className="toolbar-select" value={period} onChange={e=>setPeriod(e.target.value)}>
         <option value="7">Last 7 days</option><option value="30">Last 30 days</option>

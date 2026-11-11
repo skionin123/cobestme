@@ -1,7 +1,8 @@
 import React from 'react'
 import ShopLaunch from './ShopLaunch'
-import { ArrowRight, BarChart3, Boxes, LayoutTemplate, Package, ShoppingBag, Users } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import './store-overview.css'
+import { Icon3D, PageArt, pageArtName } from './Art3D.jsx'
 
 const fmt=(amount,currency)=>{
   try{return new Intl.NumberFormat('en-PH',{style:'currency',currency}).format(amount)}
@@ -11,15 +12,15 @@ export default function StoreOverview({products=[],orders=[],customers=[],curren
   const paid=orders.filter(o=>String(o.payment_status||'').toLowerCase()==='paid')
   const grossPaidSales=paid.reduce((sum,o)=>sum+Math.max(0,Number(o.total)||0),0)
   const quick=[
-    {name:'Manage products',note:'Names, prices, photos, inventory and variants',icon:Package,to:'products'},
-    {name:'Categories & subcategories',note:'Organize your catalog in two levels',icon:Boxes,to:'taxonomy'},
-    {name:'Orders',note:'Review payment and fulfillment status',icon:ShoppingBag,to:'orders'},
-    {name:'Sales report',note:'Paid sales, order totals and top products',icon:BarChart3,to:'sales-report'},
-    {name:'Customers',note:'Contacts and purchase history',icon:Users,to:'customers'},
-    {name:'Website themes',note:'Simple or Professional, editable in the builder',icon:LayoutTemplate,to:'website'},
+    {name:'Manage products',note:'Names, prices, photos, inventory and variants',to:'products'},
+    {name:'Categories & subcategories',note:'Organize your catalog in two levels',to:'taxonomy'},
+    {name:'Orders',note:'Review payment and fulfillment status',to:'orders'},
+    {name:'Sales report',note:'Paid sales, order totals and top products',to:'sales-report'},
+    {name:'Customers',note:'Contacts and purchase history',to:'customers'},
+    {name:'Website themes',note:'Simple or Professional, editable in the builder',to:'website'},
   ]
   return <div className="page-wrap commerce-mvp-home">
-    <div className="page-head"><div><p className="overline">YOUR STORE</p><h1>Store overview</h1>
+    <div className="page-head"><PageArt/><div><p className="overline">YOUR STORE</p><h1>Store overview</h1>
       <p>Manage your website, products, categories, orders and sales from one place.</p></div>
       <div className="page-actions"><a className="btn btn-secondary" href="/demo">Test shop workflow</a><button disabled={!launchProps.ready||!launchProps.workspace?.id} className="btn btn-primary" onClick={()=>onNavigate('shop-design')}>Edit storefront <ArrowRight size={15}/></button></div>
     </div>
@@ -32,9 +33,9 @@ export default function StoreOverview({products=[],orders=[],customers=[],curren
       <div className="stat-card"><span>Customers</span><strong>{customers.length}</strong><small>Stored customer profiles</small></div>
     </div>}
     <div className="commerce-mvp-section"><h2>Manage your store</h2><p>Manage photos, categories, orders and customers.</p></div>
-    <div className="commerce-mvp-shortcuts">{quick.map(({name,note,icon:Icon,to})=>
+    <div className="commerce-mvp-shortcuts">{quick.map(({name,note,to})=>
       <button key={to} onClick={()=>onNavigate(to)} className="commerce-mvp-shortcut">
-        <span className="commerce-mvp-shortcut-icon"><Icon size={20}/></span>
+        <Icon3D name={pageArtName(to)} size={46} play="hover" hoverParent ground={false}/>
         <span><strong>{name}</strong><small>{note}</small></span>
         <ArrowRight size={17}/>
       </button>)}

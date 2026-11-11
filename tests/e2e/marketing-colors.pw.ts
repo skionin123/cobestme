@@ -8,14 +8,22 @@ test('CoBest homepage speaks to first-time shop owners and leads to creating a s
   // The hero picture: a phone showing a shop, with 3D images around it.
   const scene=page.getByRole('img',{name:/example shop on a phone/i})
   await expect(scene).toBeVisible()
-  await expect(scene.locator('.lp-float')).toHaveCount(3)
-  // Every 3D image and the product photo actually load.
+  await expect(scene.locator('.lp-float')).toHaveCount(6)
+  // Every 3D image and the product photo actually load. Pictures further down
+  // the page wait until they are near the screen, so read the page top to bottom first.
+  await page.evaluate(async()=>{
+    for(let y=0;y<document.documentElement.scrollHeight;y+=500){
+      window.scrollTo({top:y,behavior:'instant'})
+      await new Promise(resolve=>setTimeout(resolve,80))
+    }
+    window.scrollTo({top:0,behavior:'instant'})
+  })
   const images=await landing.locator('img').evaluateAll(async nodes=>Promise.all(nodes.map(async node=>{
     const image=node as HTMLImageElement
     try{await image.decode()}catch{}
     return {src:image.getAttribute('src'),width:image.naturalWidth}
   })))
-  expect(images.length).toBeGreaterThan(10)
+  expect(images.length).toBeGreaterThan(15)
   for(const image of images)expect(image.width,image.src||'').toBeGreaterThan(0)
   // One page, six short parts, with one brand colour on the main buttons.
   for(const name of ['Three steps to your first order','Everything a small shop needs, in one place','Start from a theme','Free to start. Upgrade when you’re ready.','Questions people ask','Your shop can be live today.'])

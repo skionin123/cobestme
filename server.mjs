@@ -1126,6 +1126,8 @@ createServer(async (req, res) => {
     const headers = { ...securityHeaders, 'content-type': mime[extension] || 'application/octet-stream' }
     if (extension === '.html') headers['cache-control'] = 'no-store, max-age=0, must-revalidate'
     else if (url.pathname.startsWith('/assets/')) headers['cache-control'] = 'public, max-age=31536000, immutable'
+    // Pictures keep their file names between releases, so browsers may reuse them for a day.
+    else if (url.pathname.startsWith('/images/')) headers['cache-control'] = 'public, max-age=86400, stale-while-revalidate=604800'
     res.writeHead(200, headers)
     res.end(body)
   } catch (error) {

@@ -1,12 +1,14 @@
 import React, {useRef,useState} from 'react'
 import ProductGrid from './ProductGrid.jsx'
 import {uploadMedia} from './api.js'
+import { Icon3D } from './Art3D.jsx'
 
 export default function ShopLaunch({workspace,ready,publishReady,products,currency,onCreate,onAdd,onPublish,demo=false,onUpload=uploadMedia}){
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [notice,setNotice]=useState('')
   const [publishedUrl,setPublishedUrl]=useState('')
+  const [celebrate,setCelebrate]=useState(false)
   const uploadedPhoto=useRef(null)
   const activeProducts=products.filter(product=>product.status==='Active')
   const activeCount=activeProducts.length
@@ -16,6 +18,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
     setBusy(true)
     setError('')
     setNotice('')
+    setCelebrate(false)
     try{await action()}catch(err){setError(err.message||'Unable to save. Please try again.')}
     finally{setBusy(false)}
   }
@@ -28,6 +31,7 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
   async function publish(){
     const url=await onPublish()
     setPublishedUrl(url)
+    setCelebrate(true)
     setNotice(demo?'Your demo preview is ready.':'Your shop is live. Share the link with customers.')
   }
   function add(event){
@@ -103,6 +107,6 @@ export default function ShopLaunch({workspace,ready,publishReady,products,curren
       </div>
     </>}
     {error&&<p role="alert">{error}</p>}
-    {notice&&<p role="status">{notice}</p>}
+    {notice&&<p role="status" className={celebrate?'shop-live':undefined}>{celebrate&&<Icon3D name="party" size={52} play="enter" ground={false}/>}{notice}</p>}
   </section>
 }

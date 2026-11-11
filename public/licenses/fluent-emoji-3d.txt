@@ -1,6 +1,11 @@
 The 3D images in public/images/3d are from Microsoft Fluent Emoji
 (https://github.com/microsoft/fluentui-emoji), converted to WebP.
 
+The moving images (the files ending in -anim.webp) are from Microsoft
+Fluent Emoji Animated (https://github.com/microsoft/fluentui-emoji-animated),
+converted to animated WebP at 12 frames per second. Both sets are under the
+MIT License below.
+
 MIT License
 
 Copyright (c) Microsoft Corporation.

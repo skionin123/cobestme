@@ -1,11 +1,11 @@
-import React from 'react'
+import React,{useRef} from 'react'
 import { Check, Plus, ShoppingBag } from 'lucide-react'
+import { Icon3D, MotionToggle, art3dSrc, useScene3D } from './Art3D.jsx'
 import './landing.css'
 
 // The public cobest.me homepage. Written for people opening their first
-// online shop. 3D images: Microsoft Fluent Emoji (MIT), see /licenses.
-
-const img=name=>`/images/3d/${name}.webp`
+// online shop. 3D pictures: Microsoft Fluent Emoji (MIT), see /licenses.
+// The phone, payment card and coins are real 3D objects built in CSS.
 
 const steps=[
   ['shopping-bags','Name your shop','Type your shop’s name to begin. You can change it any time.'],
@@ -44,25 +44,58 @@ function Mark(){
   return <span className="lp-logo"><span className="lp-logo-mark" aria-hidden="true">C</span>CoBest</span>
 }
 
-/** The hero picture: a phone showing a shop, with 3D objects around it. */
+const layers=count=>Array.from({length:count},(_,index)=>index)
+
+/** A payment card with real thickness that turns in space. */
+function Card3D(){
+  return <span className="lp-card3d"><span className="lp-card3d-spin">
+    {layers(4).map(layer=><i key={layer} className="lp-card3d-edge" style={{'--i':layer}}/>)}
+    <i className="lp-card3d-rim"/>
+    <span className="lp-card3d-face lp-card3d-front"><i className="lp-card3d-chip"/><b>CoBest</b><em>•••• 4417</em></span>
+    <span className="lp-card3d-face lp-card3d-back"><i className="lp-card3d-stripe"/><i className="lp-card3d-sign"/></span>
+  </span></span>
+}
+
+/** A peso coin that spins. */
+function Coin3D({size=56,speed=3.4,delay=0}){
+  return <span className="lp-coin" style={{'--coin':size+'px','--coin-speed':speed+'s','--coin-delay':delay+'s'}}><span className="lp-coin-spin">
+    {layers(5).map(layer=><i key={layer} className="lp-coin-edge" style={{'--i':layer}}/>)}
+    <i className="lp-coin-rim"/>
+    <b className="lp-coin-face lp-coin-front">₱</b>
+    <b className="lp-coin-face lp-coin-back">₱</b>
+  </span></span>
+}
+
+/** The hero picture: a 3D scene that turns slowly and follows the pointer and the scroll. */
 function HeroScene(){
-  return <div className="lp-scene" role="img" aria-label="An example shop on a phone, with a new order coming in">
-    <img className="lp-float lp-float-bags" src={img('shopping-bags')} alt="" width="256" height="256"/>
-    <img className="lp-float lp-float-package" src={img('package')} alt="" width="256" height="256"/>
-    <img className="lp-float lp-float-card" src={img('card')} alt="" width="256" height="256"/>
-    <div className="lp-phone" aria-hidden="true">
-      <div className="lp-phone-screen">
-        <div className="lp-shop-bar"><strong>Sunday Studio</strong><ShoppingBag size={16}/></div>
-        <img className="lp-shop-photo" src="/images/studio-mug.webp" alt="" width="900" height="600" fetchPriority="high"/>
-        <div className="lp-shop-item"><span>Enamel mug</span><b>₱350</b></div>
-        <span className="lp-shop-button">Add to cart</span>
-        <div className="lp-shop-more"><i/><i/></div>
+  const scene=useRef(null)
+  useScene3D(scene,{scroll:true})
+  return <div className="lp-scene" ref={scene} role="img" aria-label="An example shop on a phone, with a new order coming in">
+    <div className="lp-stage-scale"><div className="lp-stage-tilt"><div className="lp-stage">
+      <span className="lp-float lp-float-card"><Card3D/></span>
+      <div className="lp-phone">
+        {layers(6).map(layer=><i key={layer} className="lp-phone-edge" style={{'--i':layer}}/>)}
+        <div className="lp-phone-body">
+          <div className="lp-phone-screen">
+            <div className="lp-shop-bar"><strong>Sunday Studio</strong><ShoppingBag size={16}/></div>
+            <img className="lp-shop-photo" src="/images/studio-mug.webp" alt="" width="900" height="600" fetchpriority="high"/>
+            <div className="lp-shop-item"><span>Enamel mug</span><b>₱350</b></div>
+            <span className="lp-shop-button">Add to cart</span>
+            <div className="lp-shop-more"><i/><i/></div>
+            <i className="lp-phone-glare"/>
+          </div>
+        </div>
       </div>
-    </div>
-    <div className="lp-order" aria-hidden="true">
-      <img src={img('check')} alt="" width="40" height="40"/>
-      <span><strong>New order</strong><small>Enamel mug, ₱350</small></span>
-    </div>
+      <span className="lp-float lp-float-bags"><Icon3D name="shopping-bags" size={150} ground={false}/></span>
+      <span className="lp-float lp-float-coin-a"><Coin3D size={58}/></span>
+      <span className="lp-float lp-float-coin-b"><Coin3D size={40} speed={4.6} delay={-1.3}/></span>
+      <span className="lp-float lp-float-package"><Icon3D name="package" size={128} ground={false} delay={-2.4}/></span>
+      <span className="lp-float lp-float-order"><span className="lp-order">
+        <img src={art3dSrc('check')} alt="" width="40" height="40"/>
+        <span><strong>New order</strong><small>Enamel mug, ₱350</small></span>
+      </span></span>
+    </div></div></div>
+    <i className="lp-scene-shadow"/>
   </div>
 }
 
@@ -99,8 +132,7 @@ export default function Landing({ onStart, onLogin }){
         <div className="lp-wrap">
           <h2 id="lp-steps-title">Three steps to your first order</h2>
           <ol>{steps.map(([icon,title,text],index)=><li key={title}>
-            <img src={img(icon)} alt="" width="96" height="96"/>
-            <span className="lp-step-number">{index+1}</span>
+            <span className="lp-step-art"><Icon3D name={icon} size={96} delay={index*-1.7} lazy/><span className="lp-step-number">{index+1}</span></span>
             <h3>{title}</h3><p>{text}</p>
           </li>)}</ol>
         </div>
@@ -113,8 +145,8 @@ export default function Landing({ onStart, onLogin }){
             <p>Your website, products, orders, customers and messages live together, so you never copy things between apps.</p>
             <button type="button" className="lp-btn lp-btn-primary" onClick={onStart}>Create my shop</button>
           </div>
-          <ul className="lp-feature-list">{features.map(([icon,title,text])=><li key={title}>
-            <img src={img(icon)} alt="" width="56" height="56"/>
+          <ul className="lp-feature-list">{features.map(([icon,title,text],index)=><li key={title}>
+            <Icon3D name={icon} size={56} calm ground={false} delay={index*-1.1} lazy/>
             <div><h3>{title}</h3><p>{text}</p></div>
           </li>)}</ul>
         </div>
@@ -167,7 +199,10 @@ export default function Landing({ onStart, onLogin }){
 
       <section className="lp-faq" id="questions" aria-labelledby="lp-faq-title">
         <div className="lp-wrap lp-faq-grid">
-          <h2 id="lp-faq-title">Questions people ask</h2>
+          <div className="lp-faq-side">
+            <h2 id="lp-faq-title">Questions people ask</h2>
+            <Icon3D name="bulb" size={136} delay={-1} lazy className="lp-faq-art"/>
+          </div>
           <div>{faqs.map(([question,answer])=><details key={question}>
             <summary>{question}<Plus size={18} aria-hidden="true"/></summary>
             <p>{answer}</p>
@@ -177,7 +212,7 @@ export default function Landing({ onStart, onLogin }){
 
       <section className="lp-final" aria-labelledby="lp-final-title">
         <div className="lp-wrap lp-final-inner">
-          <img className="lp-final-art" src={img('rocket')} alt="" width="160" height="160"/>
+          <Icon3D name="rocket" size={132} ground={false} lazy className="lp-final-art"/>
           <div>
             <h2 id="lp-final-title">Your shop can be live today.</h2>
             <p>Start free. Add a product, publish, and share your link.</p>
@@ -190,7 +225,7 @@ export default function Landing({ onStart, onLogin }){
     <footer className="lp-footer lp-wrap">
       <Mark/>
       <p>Online shops for small businesses.</p>
-      <nav aria-label="Footer"><a href="#features">Features</a><a href="#pricing">Pricing</a><button type="button" className="lp-link-button" onClick={onLogin}>Log in</button><a href="/licenses/fluent-emoji-3d.txt">Image credits</a></nav>
+      <nav aria-label="Footer"><a href="#features">Features</a><a href="#pricing">Pricing</a><button type="button" className="lp-link-button" onClick={onLogin}>Log in</button><a href="/licenses/fluent-emoji-3d.txt">Image credits</a><MotionToggle className="lp-link-button"/></nav>
     </footer>
   </div>
 }

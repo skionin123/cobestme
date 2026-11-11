@@ -6,6 +6,9 @@ test('guest can save, publish and reopen a browser-only demo without an account'
   await page.setViewportSize({width:390,height:844})
   await page.goto('/')
   await page.locator('.lp-hero').getByRole('button',{name:'Create my shop'}).click()
+  // The demo carries the same moving 3D pictures as the rest of CoBest, with its own pause link.
+  await expect(page.locator('.guest-title .i3d-still')).toHaveAttribute('src','/images/3d/rocket.webp')
+  await expect(page.getByRole('button',{name:'Pause animations'})).toBeVisible()
   await page.getByLabel('Shop name').fill('Demo Ceramics')
   await page.getByRole('button',{name:'Create shop',exact:true}).click()
   await page.getByLabel('Product name').fill('Mug')
@@ -14,6 +17,9 @@ test('guest can save, publish and reopen a browser-only demo without an account'
     name:'mug.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')
   })
   await page.getByRole('button',{name:'Save and publish'}).click()
+  // Publishing is celebrated: the party popper appears beside the confirmation.
+  await expect(page.locator('.shop-live')).toContainText('Your demo preview is ready.')
+  await expect(page.locator('.shop-live .i3d-still')).toHaveAttribute('src','/images/3d/party.webp')
   await page.getByRole('link',{name:'Open demo preview'}).click()
   await page.reload()
   await expect(page.getByRole('heading',{name:'Demo Ceramics'})).toBeVisible()

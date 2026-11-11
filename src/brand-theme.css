@@ -22,7 +22,6 @@ body:has(.guest-shop){background:var(--brand-bg)}
 .app-shell .commerce-mvp-home .page-head{padding:clamp(18px,2.5vw,32px);border:1px solid var(--brand-line);border-left:5px solid var(--brand-mango);border-radius:16px;background:#ffffff}
 .app-shell .commerce-mvp-home .page-actions{flex-wrap:wrap}
 .app-shell .commerce-mvp-home .overline,.guest-shop>header a{color:var(--brand-blue)}
-.app-shell .commerce-mvp-shortcut-icon{background:var(--brand-tint);color:var(--brand-blue)}
 .app-shell .commerce-mvp-shortcut:hover{border-color:#7d97dd}
 .app-shell .commerce-mvp-home :is(.stat-card,.panel,.commerce-mvp-shortcut),.guest-shop .panel{border-color:var(--brand-line)}
 .guest-shop .shop-publish a,.app-shell .shop-publish a{color:var(--brand-blue)}

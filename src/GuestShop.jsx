@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react'
 import ShopLaunch from './ShopLaunch.jsx'
 import StorefrontEditor,{StorefrontDesign} from './StorefrontEditor.jsx'
 import './store-overview.css'
+import { Icon3D, MotionToggle } from './Art3D.jsx'
 
 const emptyShop=()=>({name:'',products:[],published:null})
 
@@ -80,7 +81,7 @@ export default function GuestShop({preview}){
   if(editing&&shop?.name)return <main className="guest-editor"><p className="demo-editor-note">Guest demo · Publishing updates this browser’s preview.</p><StorefrontEditor name={shop.name} design={shop.design} previousDesign={shop.previousDesign} initialTheme={theme} products={shop.products} onSave={saveDesign} onPublish={publish} onBack={()=>{window.history.replaceState({},'', '/demo');setEditing(false)}}/></main>
   return <main className="guest-shop">
     <header><a href={preview?'/demo':'/'}>{preview?'← Back to demo':'← CoBest'}</a><span>Guest demo</span></header>
-    {!preview&&<h1>Try your shop</h1>}
+    {!preview&&<div className="guest-title"><h1>Try your shop</h1><Icon3D name="rocket" size={84}/></div>}
     <p>{preview?'This storefront preview is visible in this browser only.':'Test creating a shop and publishing products. Your demo is saved in this browser, including after a refresh.'}</p>
     {error?<p role="alert">{error}</p>:!shop?<p role="status">Loading demo…</p>:preview?
       (shop.published?<StorefrontDesign name={shop.published.name} design={shop.published.design} products={shop.published.products} currency="PHP"/>:<p>Publish a product in the demo to see it here.</p>):
@@ -92,5 +93,6 @@ export default function GuestShop({preview}){
       if(!window.confirm('Clear this browser’s demo shop and start again?'))return
       try{await update(emptyShop)}catch{setError('Could not reset the demo. Refresh and try again.')}
     }}>Start demo again</button>}
+    {!preview&&<footer className="guest-foot"><MotionToggle/></footer>}
   </main>
 }
