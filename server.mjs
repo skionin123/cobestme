@@ -256,6 +256,20 @@ function requestOrigin(req) {
   return `${proto === 'http' ? 'http' : 'https'}://${host}`
 }
 
+// A test deployment (COBEST_TEST_DEPLOYMENT=1) runs new code against the same
+// database as the live website. Real shops must not change from it, so it only
+// publishes or unpublishes shops that were created on the test deployment, or
+// whose name starts with "Test".
+const testDeployment = /^(1|true|yes|on)$/i.test(String(process.env.COBEST_TEST_DEPLOYMENT || '').trim())
+const TEST_DEPLOYMENT_MESSAGE = 'This is the test version of CoBest. To keep your live website safe, it cannot publish or unpublish a shop from the live site. Create a new shop here with the + button next to the shop name, and test with that one.'
+async function blockedOnTestDeployment(token, ownerId, siteId) {
+  if (!testDeployment) return false
+  const site = await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}&select=site_name,settings&limit=1`, { headers: apiHeaders(token) })
+  const row = site.ok && Array.isArray(site.data) ? site.data[0] : null
+  if (!row) return true
+  return !(row.settings?.createdOnTestDeployment === true || /^\s*test/i.test(String(row.site_name || '')))
+}
+
 // Where a shopper returns after paying. A store's own custom domain is used
 // only when that domain is registered to this exact store; otherwise the
 // platform address is used, so a forged Host header cannot redirect shoppers.
@@ -658,7 +672,7 @@ async function handleApi(req, res, url) {
   if (url.pathname.startsWith('/api/public/')) return handlePublicApi(req, res, url)
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return sendJson(res, 200, { ok: true, backendConfigured: Boolean(supabaseUrl && supabaseAnonKey), version: 'full-feature-foundation' })
+    return sendJson(res, 200, { ok: true, backendConfigured: Boolean(supabaseUrl && supabaseAnonKey), version: 'full-feature-foundation', ...(testDeployment ? { testDeployment: true } : {}) })
   }
 
   if (url.pathname === '/api/auth/signup' && req.method === 'POST') {
@@ -795,7 +809,7 @@ async function handleApi(req, res, url) {
     const result=await supabaseFetch('/rest/v1/workspaces',{
       method:'POST',headers:apiHeaders(token,{Prefer:'return=representation'}),
       body:JSON.stringify({user_id:ownerId,site_name:siteName,slug,onboarding:{businessName:siteName,pages:['Home']},
-        editor:{hero:{heading:siteName,body:'',button:'Shop now'},sectionOrder:['hero','featured'],header:{menu:['Shop']},footer:{menu:['Shop']}},settings:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
+        editor:{hero:{heading:siteName,body:'',button:'Shop now'},sectionOrder:['hero','featured'],header:{menu:['Shop']},footer:{menu:['Shop']}},settings:testDeployment?{createdOnTestDeployment:true}:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
     })
     return sendJson(res,result.status,result.data)
   }
@@ -881,6 +895,10 @@ async function handleApi(req, res, url) {
         mergedEditor.previousShopDesign=existing.editor.shopDesign
       }
       const mergedSettings={...(existing?.settings||{}),...(body.settings||{})}
+      // The marker is set by the server only: a shop made on the live site
+      // cannot be turned into a "test shop" from the browser.
+      if(existing?.settings?.createdOnTestDeployment===true||(testDeployment&&!siteId))mergedSettings.createdOnTestDeployment=true
+      else delete mergedSettings.createdOnTestDeployment
       const slug = safeSlug(body.slug ?? existing?.slug ?? mergedOnboarding?.businessName ?? user.email?.split('@')[0] ?? 'store')
       const customDomain = String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim()
       if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
@@ -923,6 +941,7 @@ async function handleApi(req, res, url) {
     const body = await readJson(req)
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
+    if(await blockedOnTestDeployment(token,ownerId,siteId))return sendJson(res,403,{error:TEST_DEPLOYMENT_MESSAGE})
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
     const customDomain = String(body.custom_domain || '').toLowerCase().trim()
@@ -954,6 +973,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
+    if(await blockedOnTestDeployment(token,ownerId,siteId))return sendJson(res,403,{error:TEST_DEPLOYMENT_MESSAGE})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
     })
