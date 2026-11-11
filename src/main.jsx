@@ -37,8 +37,10 @@ class AppErrorBoundary extends React.Component {
 const hostname = window.location.hostname.toLowerCase()
 const slugMatch = window.location.pathname.match(/^\/store\/([^/]+)/)
 const platformHost = hostname === 'cobest.me' || hostname === 'www.cobest.me' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.up.railway.app')
+// A malformed address must show "Store unavailable", not a blank page.
+const safeDecode = value => { try { return decodeURIComponent(value) } catch { return value } }
 const routedApp = slugMatch
-  ? <PublicStore slug={decodeURIComponent(slugMatch[1])}/>
+  ? <PublicStore slug={safeDecode(slugMatch[1])}/>
   : !platformHost
     ? <PublicStore host={hostname}/>
     : /^\/demo(?:\/preview)?\/?$/.test(window.location.pathname)

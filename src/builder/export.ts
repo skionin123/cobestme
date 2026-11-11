@@ -1,5 +1,7 @@
-import { compileInteractionRuntime, compileProjectCss, renderPageBody } from './compiler'
-import type { BuilderNode, BuilderProject, ExportedProject } from './types'
+import { compileProjectCss, fontLinks, renderPageBody } from './compiler'
+import { rewriteLinksForExport, siteRuntime } from './runtime'
+import { normalizeProject } from './validate'
+import type { BuilderProject, ExportedProject } from './types'
 
 type ZipValue=string|Uint8Array
 
@@ -64,10 +66,13 @@ function pageFileName(slug:string){
 
 function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsPath='site.js',cmsItemId?:string){
   const page=project.pages.find(p=>p.id===pageId)||project.pages[0]
-  const body=renderPageBody(project,page.id,false,cmsItemId)
+  // Page links such as "/about" become "about.html" so they work on any host.
+  const files=new Map<string,string>()
+  for(const item of project.pages)if(!item.isCollectionTemplate)files.set((item.slug.replace(/\/+$/,'')||'/').toLowerCase(),pageFileName(item.slug))
+  const body=rewriteLinksForExport(renderPageBody(project,page.id,false,cmsItemId),files)
   const title=page.seo.title||page.name
   const description=page.seo.description||''
-  const og=page.seo.ogImage?`<meta property="og:image" content="${page.seo.ogImage}">`:''
+  const og=page.seo.ogImage?`<meta property="og:image" content="${escapeAttr(page.seo.ogImage)}">`:''
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -76,9 +81,7 @@ function shellHtml(project:BuilderProject,pageId:string,cssPath='styles.css',jsP
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeAttr(description)}">
   ${og}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  ${fontLinks}
   <link rel="stylesheet" href="${cssPath}">
 </head>
 <body>
@@ -91,40 +94,10 @@ ${body}
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]||ch))}
 function escapeAttr(value=''){return escapeHtml(value).replace(/\n/g,' ')}
 
-function siteRuntime(project:BuilderProject){
-  return `(() => {
-  document.querySelectorAll('.nav-menu-button').forEach(button=>button.addEventListener('click',()=>{
-    const nav=button.closest('nav');const links=nav?.querySelector('.nav-links');if(!links)return;
-    const open=links.dataset.open==='true';links.dataset.open=String(!open);links.style.display=open?'':'flex';
-  }));
-  document.querySelectorAll('[data-tabs]').forEach(tabs=>{
-    const buttons=[...tabs.querySelectorAll('[data-tab]')];const panes=[...tabs.querySelectorAll('[data-pane]')];
-    buttons.forEach((button,index)=>button.addEventListener('click',()=>{buttons.forEach(x=>x.removeAttribute('aria-selected'));panes.forEach(x=>x.hidden=true);button.setAttribute('aria-selected','true');if(panes[index])panes[index].hidden=false;}));
-  });
-  document.querySelectorAll('[data-slider]').forEach(slider=>{
-    const slides=[...slider.children];let index=0;const show=()=>slides.forEach((x,i)=>x.hidden=i!==index);show();
-    slider.addEventListener('click',()=>{index=(index+1)%slides.length;show()});
-  });
-  document.querySelectorAll('[data-dropdown]').forEach(dropdown=>{
-    const toggle=dropdown.querySelector('[data-dropdown-toggle]'),list=dropdown.querySelector('[data-dropdown-list]');
-    toggle?.addEventListener('click',event=>{event.preventDefault();if(list)list.hidden=!list.hidden});
-  });
-  document.querySelectorAll('[data-lightbox]').forEach(link=>link.addEventListener('click',event=>{
-    event.preventDefault();const src=link.getAttribute('href');if(!src)return;
-    const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.86);display:grid;place-items:center;padding:30px;cursor:zoom-out';
-    const img=document.createElement('img');img.src=src;img.style.cssText='max-width:min(1200px,92vw);max-height:90vh;object-fit:contain';overlay.appendChild(img);overlay.onclick=()=>overlay.remove();document.body.appendChild(overlay);
-  }));
-  document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{
-    const action=form.getAttribute('action');if(!action||action==='#'){event.preventDefault();form.dataset.state='success';}
-  }));
-  ${compileInteractionRuntime(project)}
-})();`
-}
-
 function sitemap(project:BuilderProject){
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${project.pages.map(page=>`  <url><loc>${page.slug}</loc></url>`).join('\n')}
+${project.pages.filter(page=>!page.isCollectionTemplate).map(page=>`  <url><loc>${escapeHtml(pageFileName(page.slug))}</loc></url>`).join('\n')}
 </urlset>`
 }
 
@@ -156,7 +129,7 @@ export function exportFiles(project:BuilderProject){
     return next
   }
   files['styles.css']=rewriteAssets(compileProjectCss(project))
-  files['site.js']=siteRuntime(project)
+  files['site.js']=siteRuntime(project,'export')
   for(const page of project.pages){
     if(page.isCollectionTemplate&&page.collectionId){
       const collection=project.collections.find(c=>c.id===page.collectionId)
@@ -197,7 +170,12 @@ export function downloadProjectJson(project:BuilderProject){
 
 export async function importProjectJson(file:File){
   const text=await file.text()
-  const data=JSON.parse(text) as ExportedProject
-  if(data?.schemaVersion!==1||!data.project?.pages)throw new Error('This is not a supported CoBest project file.')
-  return data.project
+  let data:ExportedProject
+  try{data=JSON.parse(text) as ExportedProject}catch{throw new Error('This file is not a CoBest website backup.')}
+  if(data?.schemaVersion!==1||!data.project)throw new Error('This file is not a CoBest website backup.')
+  // Backups can be edited by hand or come from someone else: check and repair
+  // the structure before it replaces the website being edited.
+  const project=normalizeProject(data.project)
+  if(!project)throw new Error('This backup is damaged and could not be opened.')
+  return project
 }

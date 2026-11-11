@@ -40,7 +40,7 @@ describe('visual builder canvas document',()=>{
     const editing=createCanvasDocument(project,'desktop',true)
     const preview=createCanvasDocument(project,'desktop',false)
     expect(editing).toContain('Start building your page')
-    expect(editing).toContain('Drag a Section onto the canvas.')
+    expect(editing).toContain('Pick a section from Add on the left, or drag one here.')
     const previewBody=preview.split('<body>')[1].split('<script>')[0]
     expect(previewBody).not.toContain('Start building your page')
   })

@@ -1,3 +1,5 @@
+import { ensureKitStyles } from './kit'
+import { P } from './samples'
 import type { BuilderNode, BuilderProject } from './types'
 
 const node=(partial:Partial<BuilderNode> & Pick<BuilderNode,'id'|'type'|'tag'|'name'>):BuilderNode=>({
@@ -7,7 +9,13 @@ const node=(partial:Partial<BuilderNode> & Pick<BuilderNode,'id'|'type'|'tag'|'n
   ...partial,
 })
 
-export const createDefaultProject=():BuilderProject=>({
+export const createDefaultProject=():BuilderProject=>{
+  const project=buildDefaultProject()
+  for(const page of project.pages)ensureKitStyles(project,page.root)
+  return project
+}
+
+const buildDefaultProject=():BuilderProject=>({
   id:'cobest-starter-project',
   name:'Untitled CoBest Site',
   version:1,
@@ -68,24 +76,23 @@ export const createDefaultProject=():BuilderProject=>({
       classes:['page-shell'],
       children:[
         node({
-          id:'nav-home',type:'navbar',tag:'nav',name:'Navbar',classes:['site-nav'],
+          id:'nav-home',type:'navbar',tag:'nav',name:'Menu bar',classes:['site-nav'],attributes:{'aria-label':'Main menu'},
           children:[
-            node({id:'brand-home',type:'link',tag:'a',name:'Brand',content:'CoBest Site',attributes:{href:'/'}}),
-            node({id:'nav-links-home',type:'div',tag:'div',name:'Nav Links',classes:['nav-links'],children:[
-              node({id:'nav-link-about',type:'link',tag:'a',name:'Nav Link',content:'About',attributes:{href:'/about'}}),
-              node({id:'nav-link-contact',type:'link',tag:'a',name:'Nav Link',content:'Contact',attributes:{href:'/contact'}}),
+            node({id:'brand-home',type:'link',tag:'a',name:'Logo text',content:P.brand,classes:['brand-link'],attributes:{href:'/'}}),
+            node({id:'nav-links-home',type:'div',tag:'div',name:'Menu links',classes:['nav-links'],children:[
+              node({id:'nav-link-contact',type:'link',tag:'a',name:'Menu link',content:'Contact',classes:['nav-link'],attributes:{href:'#contact'}}),
             ]}),
-            node({id:'nav-mobile-home',type:'button',tag:'button',name:'Mobile Menu Button',content:'☰',classes:['nav-menu-button']}),
+            node({id:'nav-mobile-home',type:'button',tag:'button',name:'Menu button (phones)',content:'☰',classes:['nav-menu-button'],attributes:{type:'button','aria-label':'Open menu','aria-expanded':'false'}}),
           ],
         }),
         node({
           id:'hero-home',type:'section',tag:'section',name:'Hero',classes:['hero'],
           children:[node({
-            id:'hero-inner-home',type:'container',tag:'div',name:'Hero Container',classes:['container'],
+            id:'hero-inner-home',type:'container',tag:'div',name:'Hero content',classes:['container'],
             children:[
-              node({id:'hero-title-home',type:'heading',tag:'h1',name:'Heading',classes:['display'],content:'Build something remarkable.'}),
-              node({id:'hero-copy-home',type:'paragraph',tag:'p',name:'Paragraph',classes:['lead'],content:'This page is rendered from a clean JSON node tree inside an isolated iframe canvas.'}),
-              node({id:'hero-button-home',type:'link',tag:'a',name:'Button',classes:['button'],content:'Start building',attributes:{href:'#contact'}}),
+              node({id:'hero-title-home',type:'heading',tag:'h1',name:'Hero heading',classes:['display'],content:P.heroHeading}),
+              node({id:'hero-copy-home',type:'paragraph',tag:'p',name:'Hero text',classes:['lead'],content:P.heroCopy}),
+              node({id:'hero-button-home',type:'button',tag:'a',name:'Hero button',classes:['button'],content:'Contact us',attributes:{href:'#contact'}}),
             ],
           })],
         }),

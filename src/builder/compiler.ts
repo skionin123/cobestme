@@ -7,9 +7,22 @@ const escapeHtml=(value='')=>String(value).replace(/[&<>"']/g,ch=>({
 const escapeAttr=(value='')=>escapeHtml(value).replace(/\n/g,' ')
 const voidTags=new Set(['img','input','meta','link','br','hr','source','area','base','col','embed','param','track','wbr'])
 
+// CSS values come from project JSON that can be imported or edited. A value
+// containing `}` or `</style>` could otherwise break out of the stylesheet and
+// inject markup or rules into the published page.
+export function sanitizeCssValue(value:unknown){
+  return String(value??'')
+    .replace(/[<>{}]/g,'')
+    .replace(/expression\s*\(/gi,'')
+    .replace(/javascript:/gi,'')
+    .replace(/@import/gi,'')
+    .slice(0,2000)
+}
+export const sanitizeCssName=(value:string)=>String(value).replace(/[^a-zA-Z0-9_-]/g,'')
 const styleObjectToCss=(style:CssProperties={})=>Object.entries(style)
-  .filter(([,value])=>value!=null&&value!=='')
-  .map(([key,value])=>`${key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${value}`)
+  .filter(([key,value])=>value!=null&&value!==''&&sanitizeCssName(key))
+  .map(([key,value])=>`${sanitizeCssName(key).replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${sanitizeCssValue(value)}`)
+  .filter(rule=>!rule.endsWith(':'))
   .join(';')
 
 const mediaQuery:Record<Exclude<BreakpointId,'desktop'>,string>={
@@ -26,14 +39,31 @@ function compileStateSelector(className:string,state:NodeState){
   return `.${escaped}:${state}`
 }
 
+/** The web fonts offered in the editor, loaded the same way everywhere. */
+export const fontLinks=`<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">`
+
+/**
+ * Styles for built-in behaviour: the phone menu opens as a list below the bar,
+ * and forms show their sending / sent / failed states.
+ */
+const behaviourCss='[data-nav-open="true"]{flex-wrap:wrap}'
+  +'[data-nav-open="true"] .nav-links{display:flex;flex-direction:column;align-items:stretch;gap:0;flex-basis:100%;order:10;margin-top:12px;border-top:1px solid var(--line,#e5e7eb)}'
+  +'[data-nav-open="true"] .nav-links>*{padding:14px 2px;border-bottom:1px solid var(--line,#e5e7eb)}'
+  +'[data-form-success],[data-form-error]{display:none}'
+  +'form[data-state="success"] [data-form-success]{display:block}'
+  +'form[data-state="error"] [data-form-error]{display:block}'
+  +'form[data-state="sending"]{opacity:.65}'
+
 // Use the same available font families in the editor, preview and exports.
 // System fallbacks still render when an external font cannot be loaded.
 const webFontImports='@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800;900&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800;900&family=Lora:wght@400;500;600;700&display=swap");'
 export function compileProjectCss(project:BuilderProject){
-  const colorVars=Object.entries(project.globals.colors).map(([key,value])=>`--${key}:${value};`).join('')
-  const textVars=Object.entries(project.globals.textStyles).flatMap(([styleName,props])=>Object.entries(props).map(([key,value])=>`--text-${styleName}-${key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${value};`)).join('')
+  const colorVars=Object.entries(project.globals.colors).map(([key,value])=>`--${sanitizeCssName(key)}:${sanitizeCssValue(value)};`).join('')
+  const textVars=Object.entries(project.globals.textStyles).flatMap(([styleName,props])=>Object.entries(props).map(([key,value])=>`--text-${sanitizeCssName(styleName)}-${sanitizeCssName(key).replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${sanitizeCssValue(value)};`)).join('')
   const rootVars=colorVars+textVars
-  let base=`:root{${rootVars}}*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;min-height:100%}body{overflow-x:hidden}img,video{max-width:100%;display:block}button,input,textarea,select{font:inherit}a{color:inherit}details summary{cursor:pointer}[data-form-success],[data-form-error]{display:none}form[data-state="success"] [data-form-success]{display:block}form[data-state="error"] [data-form-error]{display:block}`
+  let base=`:root{${rootVars}}*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;min-height:100%}body{overflow-x:hidden}img,video{max-width:100%;display:block}button,input,textarea,select{font:inherit}a{color:inherit}details summary{cursor:pointer}iframe{max-width:100%}`+behaviourCss
   const responsive:Record<string,string[]>={tablet:[],mobileLandscape:[],mobilePortrait:[]}
   for(const [className,breakpoints] of Object.entries(project.styles)){
     for(const [breakpoint,states] of Object.entries(breakpoints)){
@@ -64,7 +94,7 @@ function compileInteractionCss(interactions:BuilderInteraction[]){
 @keyframes cb-scale{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes cb-rotate{from{opacity:0;transform:rotate(-6deg)}to{opacity:1;transform:rotate(0)}}`
   for(const ix of interactions){
-    if(ix.trigger==='hover')css+=`[data-ix~="${ix.id}"]:hover{animation:cb-${ix.animation} ${ix.duration}ms ${ix.easing} ${ix.delay}ms both}`
+    if(ix.trigger==='hover')css+=`[data-ix~="${sanitizeCssName(ix.id)}"]:hover{animation:cb-${sanitizeCssName(ix.animation)} ${Number(ix.duration)||0}ms ${sanitizeCssValue(ix.easing)} ${Number(ix.delay)||0}ms both}`
   }
   return css
 }
@@ -74,9 +104,28 @@ function interactionAttrs(nodeId:string,interactions:BuilderInteraction[]):Recor
   return ids.length?{'data-ix':ids.join(' '),'data-node-id':nodeId}:{}
 }
 
+const urlAttributes=new Set(['href','src','action','formaction','poster','data','xlink:href','background','cite','srcset'])
+const validAttributeName=/^[a-zA-Z_:][-a-zA-Z0-9_:.]*$/
+/** Blocks script-capable URLs (javascript:, vbscript:, data:text/html …). */
+export function safeUrl(value:string,allowDataImage=false){
+  const trimmed=String(value||'').trim()
+  // Strip control characters and whitespace browsers ignore inside schemes.
+  const compact=trimmed.replace(/[\u0000-\u0020]+/g,'').toLowerCase()
+  if(/^(javascript|vbscript|livescript):/.test(compact))return ''
+  if(compact.startsWith('data:')){
+    if(allowDataImage&&/^data:image\/(png|jpe?g|gif|webp|avif);/.test(compact))return trimmed
+    return ''
+  }
+  return trimmed
+}
 function attrsToString(attrs:Record<string,string>){
   return Object.entries(attrs)
-    .filter(([key,value])=>value!=null&&value!==''&&!/^on/i.test(key)&&key!=='data-html')
+    .filter(([key,value])=>value!=null&&value!==''&&validAttributeName.test(key)&&!/^on/i.test(key)&&key!=='data-html'&&key.toLowerCase()!=='srcdoc')
+    .map(([key,value])=>{
+      if(!urlAttributes.has(key.toLowerCase()))return [key,value] as const
+      return [key,safeUrl(value,key==='src'||key==='poster'||key==='srcset')] as const
+    })
+    .filter(([,value])=>value!=='')
     .map(([key,value])=>{
       if(value==='true'&&['autoplay','muted','loop','playsinline','allowfullscreen','checked','required','disabled'].includes(key.toLowerCase()))return ` ${key}`
       return ` ${key}="${escapeAttr(value)}"`
@@ -98,7 +147,7 @@ function collectionHtml(collection:CmsCollection|undefined,editorAttrs:string){
     const image=entries.find(x=>x.field.type==='image')?.value
     const description=entries.find(x=>x.field.type==='richText'||x.field.slug==='description')?.value
     const href=`${collection.slug}-${cmsItemSlug(collection,item)}.html`
-    return `<article class="cms-card"><a href="${escapeAttr(href)}">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}">`:''}<h3>${escapeHtml(title)}</h3>${description?`<p>${escapeHtml(description)}</p>`:''}</a></article>`
+    return `<article class="cms-card"><a href="${escapeAttr(href)}">${image&&safeUrl(image,true)?`<img src="${escapeAttr(safeUrl(image,true))}" alt="${escapeAttr(title)}">`:''}<h3>${escapeHtml(title)}</h3>${description?`<p>${escapeHtml(description)}</p>`:''}</a></article>`
   }).join('')
   return `<section${editorAttrs}><div class="cms-grid">${cards||'<p>No CMS items yet.</p>'}</div></section>`
 }
@@ -137,7 +186,9 @@ export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=f
   const attrs=bound.attrs
   const className=(node.classes||[]).join(' ')
   const classAttr=className?` class="${escapeAttr(className)}"`:''
-  const attrText=attrsToString(attrs)
+  let attrText=attrsToString(attrs)
+  // An image without alt text is announced by its file name; empty alt marks it decorative.
+  if(tag.toLowerCase()==='img'&&!String(attrs.alt||'').trim())attrText+=' alt=""'
   const content=bound.content?escapeHtml(bound.content):''
   const children=(node.children||[]).map(child=>renderNodeHtml(child,project,editing,cmsContext)).join('')
   if(voidTags.has(tag.toLowerCase()))return `<${tag}${editorAttrs}${classAttr}${attrText}>`

@@ -1,5 +1,6 @@
 import { createDefaultProject } from './defaultProject'
 import { createElement, createPrebuiltSection } from './elements'
+import { ensureKitStyles } from './kit'
 import { clone, uid, walkNodes } from './tree'
 import type { BuilderProject } from './types'
 
@@ -17,7 +18,7 @@ export interface BuilderTemplate {
 function decorateProject(project:BuilderProject,variant:TemplateCategory){
   const page=project.pages[0]
   walkNodes(page.root,node=>{
-    if(node.name==='Hero Container'&&!node.classes.includes('hero-inner')) node.classes=[...(node.classes||[]),'hero-inner']
+    if(node.name==='Hero content'&&!node.classes.includes('hero-inner')) node.classes=[...(node.classes||[]),'hero-inner']
     if(node.name==='Features') node.classes=[...(node.classes||[]),variant==='Editorial'?'editorial-section':'soft-section']
     if(node.name==='Testimonials') node.classes=[...(node.classes||[]),'editorial-section']
   })
@@ -139,6 +140,10 @@ function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
     project.styles.button.desktop.none={
       ...project.styles.button.desktop.none,borderRadius:'999px',padding:'13px 22px'
     }
+    project.styles['cta-title']={desktop:{none:{
+      fontFamily:'Playfair Display, Georgia, serif',fontWeight:'600',fontSize:'clamp(34px,4.2vw,56px)',lineHeight:'1.04',
+      letterSpacing:'-0.035em',margin:'0',maxWidth:'16ch'
+    }}}
     project.styles['editorial-section']={desktop:{none:{background:'var(--muted)'}}}
   } else {
     project.globals.colors={
@@ -178,6 +183,12 @@ function setBaseStyles(project:BuilderProject, variant:TemplateCategory){
       padding:'clamp(72px,9vw,112px) clamp(24px,6vw,88px)',textAlign:'center',
       background:'var(--ink)',color:'#ffffff'
     }
+    // Centred call to action: keep its text block centred too.
+    project.styles['cta-copy'].desktop.none={...project.styles['cta-copy'].desktop.none,margin:'12px auto 0'}
+    project.styles['cta-title']={desktop:{none:{
+      fontFamily:'Manrope, Arial, sans-serif',fontWeight:'680',fontSize:'clamp(30px,4vw,48px)',lineHeight:'1.08',
+      letterSpacing:'-0.035em',margin:'0 auto',maxWidth:'22ch'
+    }}}
   }
   // Native CoBest styles: layout direction inspired by free MIT-licensed
   // Start Bootstrap Business Frontpage and Agency references, not copied HTML.
@@ -196,18 +207,20 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
   project.name=variant
   setBaseStyles(project,variant)
   const home=project.pages[0]
+  const context={pages:[{name:home.name,slug:home.slug}]}
   home.root.children=[
-    createPrebuiltSection('navbar'),
-    createPrebuiltSection('hero'),
-    ...sections.map(createPrebuiltSection),
-    createPrebuiltSection('footer')
+    createPrebuiltSection('navbar',context),
+    createPrebuiltSection('hero',context),
+    ...sections.map(id=>createPrebuiltSection(id,context)),
+    createPrebuiltSection('footer',context)
   ].map(node=>clone(node))
-  const hero=home.root.children.find(n=>n.name==='Hero')
-  const heading=hero?.children?.[0]?.children?.find(n=>n.type==='heading')
-  const paragraph=hero?.children?.[0]?.children?.find(n=>n.type==='paragraph')
+  const byName=(name:string)=>home.root.children.find(n=>n.name===name)
+  const hero=byName('Hero')
+  const heroInner=hero?.children?.[0]
+  const heading=heroInner?.children?.find(n=>n.type==='heading')
+  const paragraph=heroInner?.children?.find(n=>n.type==='paragraph')
   if(heading)heading.content=headline
   if(paragraph)paragraph.content=copy
-  const heroInner=hero?.children?.[0]
   if(heroInner){
     const eyebrow=createElement('paragraph')
     eyebrow.name='Hero eyebrow'
@@ -217,26 +230,30 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
     const primaryButton=heroInner.children.find(n=>n.type==='button')
     if(primaryButton){primaryButton.content=variant==='Essential'?'Explore services':'See our work';primaryButton.attributes={href:'#services'}}
     const secondary=createElement('link')
-    secondary.name='Secondary hero link'
-    secondary.content='Learn more →'
-    secondary.attributes={href:'#services'}
+    secondary.name='Second hero link'
+    secondary.content='Contact us →'
+    secondary.attributes={href:'#contact'}
     secondary.classes=['secondary-cta']
     heroInner.children.push(secondary)
   }
-  const navbar=home.root.children.find(n=>n.name==='Navbar')
-  const brand=navbar?.children?.find(n=>n.name==='Brand')
+  // Every menu link points at something that exists on the page.
+  const navbar=home.root.children.find(n=>n.type==='navbar')
+  const brand=navbar?.children?.find(n=>n.classes.includes('brand-link'))
   if(brand)brand.content=variant==='Essential'?'YOUR COMPANY':'STUDIO / NAME'
-  const links=navbar?.children?.find(n=>n.name==='Nav Links')
-  if(links){for(const link of links.children||[]){
-    if(link.content==='About'){link.content='Services';link.attributes={href:'#services'}}
-    if(link.content==='Contact'){link.content='Contact';link.attributes={href:'mailto:hello@example.com'}}
-  }}
-  const features=home.root.children.find(n=>n.name==='Features')
+  const links=navbar?.children?.find(n=>n.classes.includes('nav-links'))
+  if(links){
+    links.children=[['Services','#services'],['Contact','#contact']].map(([label,href])=>{
+      const link=createElement('link')
+      link.name='Menu link';link.content=label;link.attributes={href};link.classes=['nav-link']
+      return link
+    })
+  }
+  const features=byName('Features')
   if(features){
     features.attributes={...features.attributes,id:'services'}
-    const title=features.children.find(n=>n.name==='Section Heading')
+    const title=features.children.find(n=>n.type==='heading')
     if(title)title.content=variant==='Essential'?'What we can do for you':'Thoughtful work. Lasting impact.'
-    const grid=features.children.find(n=>n.name==='Features Grid')
+    const grid=features.children.find(n=>n.type==='grid')
     const labels=variant==='Essential'
       ?['What we offer','How we work','Why choose us']
       :['Strategy & direction','Design & experience','End-to-end delivery']
@@ -244,31 +261,27 @@ function templateProject(variant:TemplateCategory,sections:string[],headline:str
       ?['Introduce your core products or services in a few clear sentences.','Explain what makes working with your team easy and effective.','Give customers a practical reason to trust your business.']
       :['Share the ideas and research that shape each project.','Highlight the care and craft behind your best work.','Show how your team turns vision into real-world results.']
     for(const [i,card] of (grid?.children||[]).entries()){
-      const titleNode=card.children.find(n=>n.name==='Feature Heading')
-      const copyNode=card.children.find(n=>n.name==='Feature Copy')
+      const titleNode=card.children.find(n=>n.type==='heading')
+      const copyNode=card.children.find(n=>n.type==='paragraph')
       if(titleNode)titleNode.content=labels[i]||'Our service'
       if(copyNode)copyNode.content=descriptions[i]||'Describe your service.'
     }
   }
-  const testimonials=home.root.children.find(n=>n.name==='Testimonials')
+  const testimonials=byName('Testimonials')
   if(testimonials){
-    testimonials.attributes={...testimonials.attributes,id:'about'}
-    const title=testimonials.children.find(n=>n.name==='Section Heading')
+    testimonials.attributes={...testimonials.attributes,id:'reviews'}
+    const title=testimonials.children.find(n=>n.type==='heading')
     if(title)title.content='What clients say'
-    for(const quote of testimonials.children.filter(n=>n.type==='quote')){
-      quote.content='Replace this with a genuine client testimonial.'
-    }
   }
-  const cta=home.root.children.find(n=>n.name==='CTA')
+  const cta=byName('Call to action')
   if(cta){
-    const title=cta.children.find(n=>n.name==='CTA Heading')
-    const copyNode=cta.children.find(n=>n.name==='CTA Copy')
-    const button=cta.children.find(n=>n.name==='CTA Button')
+    const title=cta.children.find(n=>n.type==='heading')
+    const button=cta.children.find(n=>n.type==='button')
     if(title)title.content=variant==='Essential'?'Let’s work together.':'Have a project in mind?'
-    if(copyNode)copyNode.content='Tell people how to reach your team, then replace this sample contact address with your own.'
-    if(button){button.content='Get in touch';button.attributes={href:'mailto:hello@example.com'}}
+    if(button){button.content='Get in touch';button.attributes={href:'#contact'}}
   }
   decorateProject(project,variant)
+  ensureKitStyles(project,home.root)
   project.id=uid('template')
   project.updatedAt=new Date().toISOString()
   return project
@@ -280,10 +293,10 @@ export const builderTemplates:BuilderTemplate[]=[
     name:'Simple',
     category:'Essential',
     accent:'#2563eb',
-    description:'A clean, neutral foundation with fluid type, disciplined spacing, clear cards, and accessible interaction states.',
+    description:'Clean and modern. Good for services, shops and small businesses.',
     build:()=>templateProject(
       'Essential',
-      ['features','cta'],
+      ['features','cta','contact'],
       'Your business deserves a strong first impression.',
       'Introduce your services, explain what makes your business different, and give visitors a clear next step.'
     )
@@ -293,10 +306,10 @@ export const builderTemplates:BuilderTemplate[]=[
     name:'Professional',
     category:'Editorial',
     accent:'#8d5c3f',
-    description:'A refined serif-led foundation with warm neutrals, hairline borders, strong rhythm, and restrained visual detail.',
+    description:'Elegant, with classic lettering. Good for studios, agencies and portfolios.',
     build:()=>templateProject(
       'Editorial',
-      ['features','testimonials','cta'],
+      ['features','testimonials','cta','contact'],
       'We create work that moves people.',
       'A considered home for independent studios, agencies, and creative brands. Show the work behind your reputation.'
     )

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultProject } from '../src/builder/defaultProject'
 import { compileProjectCss, renderPageBody } from '../src/builder/compiler'
+import { P } from '../src/builder/samples'
 
 describe('builder compiler',()=>{
   it('compiles global variables and responsive breakpoints',()=>{
@@ -15,7 +16,7 @@ describe('builder compiler',()=>{
     const project=createDefaultProject()
     const html=renderPageBody(project,project.activePageId,false)
     expect(html).not.toContain('data-builder-node')
-    expect(html).toContain('Build something remarkable.')
+    expect(html).toContain(P.heroHeading)
   })
 
   it('does emit selection attributes for editor rendering',()=>{

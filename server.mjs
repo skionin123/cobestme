@@ -2,9 +2,11 @@ import { isDeepStrictEqual } from 'node:util'
 import { createServer } from 'node:http'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { extname, join, normalize } from 'node:path'
+import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { calculateCheckout } from './server-commerce.mjs'
+import { clipAddress, clipMetadata, clipText, preparePublishSnapshot, publicStorePayload, publishSummary, sniffMediaType } from './server-publish.mjs'
+import { clientAddress, rateLimitKey } from './server-network.mjs'
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'dist')
 const port = Number(process.env.PORT || 4173)
@@ -33,9 +35,67 @@ const allowedTables = new Set([
   'bookings','product_reviews','store_events'
 ])
 
+const securityHeaders = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'x-frame-options': 'SAMEORIGIN',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(self)',
+  // One week, and this host only. Raise it once HTTPS is confirmed on every
+  // CoBest hostname: a browser that has seen this header refuses plain HTTP
+  // (and certificate warnings) for that long.
+  'strict-transport-security': 'max-age=604800',
+  'content-security-policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+}
+
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+  res.writeHead(status, { ...securityHeaders, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(payload))
+}
+
+class HttpError extends Error {
+  constructor(status, message) { super(message); this.status = status }
+}
+
+// Small in-memory fixed-window limiter. It protects login, signup, password
+// reset and anonymous public forms from brute force and email/spam abuse on a
+// single instance. Use a shared store (e.g. Redis) if the app is scaled out.
+const rateBuckets = new Map()
+// Limits are counted per visitor. server-network.mjs works out who that is,
+// including behind Cloudflare, where many visitors arrive from one address.
+function clientIp(req) {
+  return rateLimitKey(clientAddress(req.headers, req.socket?.remoteAddress))
+}
+function rateLimited(req, name, limit, windowMs) {
+  const key = `${name}:${clientIp(req)}`
+  const now = Date.now()
+  const bucket = rateBuckets.get(key)
+  if (!bucket || bucket.reset <= now) {
+    rateBuckets.set(key, { count: 1, reset: now + windowMs })
+    return false
+  }
+  bucket.count += 1
+  return bucket.count > limit
+}
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, bucket] of rateBuckets) if (bucket.reset <= now) rateBuckets.delete(key)
+}, 60_000).unref()
+
+const rateRules = {
+  '/api/auth/login': [10, 15 * 60_000],
+  '/api/auth/signup': [5, 60 * 60_000],
+  '/api/auth/reset': [5, 60 * 60_000],
+  '/api/auth/refresh': [60, 15 * 60_000],
+  '/api/public/contact': [10, 60 * 60_000],
+  '/api/public/booking': [10, 60 * 60_000],
+  '/api/public/subscribe': [10, 60 * 60_000],
+  '/api/public/review': [10, 60 * 60_000],
+  '/api/public/order-lookup': [20, 15 * 60_000],
+  '/api/public/checkout': [20, 15 * 60_000],
+  '/api/public/paypal-capture': [20, 15 * 60_000],
+  '/api/public/event': [300, 15 * 60_000],
+  '/api/team/accept': [20, 15 * 60_000],
+  '/api/media/upload': [60, 15 * 60_000]
 }
 
 async function readBuffer(req, limit = 12 * 1024 * 1024) {
@@ -43,14 +103,14 @@ async function readBuffer(req, limit = 12 * 1024 * 1024) {
   let size = 0
   for await (const chunk of req) {
     size += chunk.length
-    if (size > limit) throw new Error('Payload too large')
+    if (size > limit) throw new HttpError(413, 'Payload too large.')
     chunks.push(chunk)
   }
   return Buffer.concat(chunks)
 }
 
-async function readJson(req) {
-  const buffer = await readBuffer(req, 2 * 1024 * 1024)
+async function readJson(req, limit = 2 * 1024 * 1024) {
+  const buffer = await readBuffer(req, limit)
   if (!buffer.length) return {}
   try { return JSON.parse(buffer.toString('utf8')) } catch { return null }
 }
@@ -185,17 +245,53 @@ async function createStripePortal({req,customer}) {
   return stripeRequest('/v1/billing_portal/sessions',{method:'POST',params})
 }
 
+// Links in emails and payment redirects must never trust an arbitrary Host
+// header (host-header injection / open redirect). Only known hosts are used.
+const appOrigin = (process.env.APP_ORIGIN || 'https://cobest.me').replace(/\/$/, '')
+const trustedHosts = new Set(['cobest.me', 'www.cobest.me', 'app.cobest.me', 'localhost', '127.0.0.1',
+  ...String(process.env.TRUSTED_HOSTS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)])
 function requestOrigin(req) {
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0]
-  return `${proto}://${req.headers.host || 'cobest.me'}`
+  const host = String(req.headers.host || '').toLowerCase()
+  const hostname = host.split(':')[0]
+  if (!trustedHosts.has(hostname) && !hostname.endsWith('.up.railway.app')) return appOrigin
+  const proto = String(req.headers['x-forwarded-proto'] || (hostname === 'localhost' || hostname === '127.0.0.1' ? 'http' : 'https')).split(',')[0].trim()
+  return `${proto === 'http' ? 'http' : 'https'}://${host}`
+}
+
+// A test deployment (COBEST_TEST_DEPLOYMENT=1) runs new code against the same
+// database as the live website. Real shops must not change from it, so it only
+// publishes or unpublishes shops that were created on the test deployment, or
+// whose name starts with "Test".
+const testDeployment = /^(1|true|yes|on)$/i.test(String(process.env.COBEST_TEST_DEPLOYMENT || '').trim())
+const TEST_DEPLOYMENT_MESSAGE = 'This is the test version of CoBest. To keep your live website safe, it cannot publish or unpublish a shop from the live site. Create a new shop here with the + button next to the shop name, and test with that one.'
+async function blockedOnTestDeployment(token, ownerId, siteId) {
+  if (!testDeployment) return false
+  const site = await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}&select=site_name,settings&limit=1`, { headers: apiHeaders(token) })
+  const row = site.ok && Array.isArray(site.data) ? site.data[0] : null
+  if (!row) return true
+  return !(row.settings?.createdOnTestDeployment === true || /^\s*test/i.test(String(row.site_name || '')))
+}
+
+// Where a shopper returns after paying. A store's own custom domain is used
+// only when that domain is registered to this exact store; otherwise the
+// platform address is used, so a forged Host header cannot redirect shoppers.
+async function storeReturnBase(req, slug) {
+  const hostname = String(req.headers.host || '').toLowerCase().split(':')[0]
+  const platform = trustedHosts.has(hostname) || hostname.endsWith('.up.railway.app')
+  if (!platform && isValidDomain(hostname)) {
+    const match = await supabaseFetch(`/rest/v1/published_stores?custom_domain=eq.${encodeURIComponent(hostname)}&select=slug&limit=1`, { headers: apiHeaders() })
+    if (match.ok && Array.isArray(match.data) && match.data[0]?.slug === slug) return `https://${hostname}/`
+  }
+  return `${requestOrigin(req)}/store/${encodeURIComponent(slug)}`
 }
 
 async function createStripeCheckout({req,order,buyer,total,currency,slug}) {
   if (!stripeSecret) return null
+  const returnBase = await storeReturnBase(req, slug)
   const params = new URLSearchParams()
   params.set('mode','payment')
-  params.set('success_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=success&order=${encodeURIComponent(order.order_number)}`)
-  params.set('cancel_url',`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled&order=${encodeURIComponent(order.order_number)}`)
+  params.set('success_url',`${returnBase}?payment=success&order=${encodeURIComponent(order.order_number)}`)
+  params.set('cancel_url',`${returnBase}?payment=cancelled&order=${encodeURIComponent(order.order_number)}`)
   params.set('customer_email',buyer.email)
   params.set('metadata[order_id]',String(order.id))
   params.set('metadata[order_number]',String(order.order_number))
@@ -229,13 +325,14 @@ async function paypalAccessToken() {
 async function createPayPalCheckout({req,order,total,currency,slug}) {
   const access=await paypalAccessToken()
   if(!access)return null
+  const returnBase=await storeReturnBase(req,slug)
   const response=await fetch(`${paypalBase}/v2/checkout/orders`,{
     method:'POST',
     headers:{authorization:`Bearer ${access}`,'content-type':'application/json','paypal-request-id':`cobest-${order.id}-${Date.now()}`},
     body:JSON.stringify({
       intent:'CAPTURE',
       purchase_units:[{custom_id:String(order.id),invoice_id:String(order.order_number),amount:{currency_code:String(currency||'PHP').toUpperCase(),value:Number(total||0).toFixed(2)}}],
-      payment_source:{paypal:{experience_context:{return_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?paypal=return`,cancel_url:`${requestOrigin(req)}/store/${encodeURIComponent(slug)}?payment=cancelled`,user_action:'PAY_NOW'}}}
+      payment_source:{paypal:{experience_context:{return_url:`${returnBase}?paypal=return`,cancel_url:`${returnBase}?payment=cancelled`,user_action:'PAY_NOW'}}}
     })
   })
   const data=await response.json().catch(()=>({}))
@@ -288,6 +385,10 @@ function safeSlug(value='') {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
 }
 
+function isValidDomain(value='') {
+  return /^(?=.{3,253}$)(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,63}$/.test(String(value))
+}
+
 function isValidEmail(value='') {
   const email=String(value).trim()
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254
@@ -327,6 +428,10 @@ function validateResourceMutation(table, body, method='POST') {
       next.usage_limit = value
     }
   }
+  if (table === 'media_assets') {
+    // Media links are shown as clickable links in the dashboard.
+    if (next.url != null && !/^https?:\/\//i.test(String(next.url).trim())) return { error: 'Media URL must start with http:// or https://.' }
+  }
   if (table === 'orders' && method === 'PATCH') {
     const allowed = new Set(['payment_status','fulfillment_status','tracking_number','carrier','notes'])
     for (const key of Object.keys(next)) if (!allowed.has(key)) delete next[key]
@@ -335,6 +440,14 @@ function validateResourceMutation(table, body, method='POST') {
     if (!Object.keys(next).length) return { error: 'No editable order fields were provided.' }
   }
   return { body: next }
+}
+
+// The owner's (or team member's) view of the row that is currently live.
+// `ok:false` means the lookup itself failed, which is different from "nothing published".
+async function readPublishedRow(token, ownerId, siteId) {
+  const found = await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${Number(siteId)}&owner_user_id=eq.${encodeURIComponent(ownerId)}&select=snapshot,published_at&limit=1`, { headers: apiHeaders(token) })
+  if (!found.ok || !Array.isArray(found.data)) return { ok: false, row: null }
+  return { ok: true, row: found.data[0] || null }
 }
 
 async function getPublishedStore(slug) {
@@ -353,20 +466,24 @@ async function getPublishedStoreByDomain(host) {
 async function handlePublicApi(req, res, url) {
   const storeMatch = url.pathname.match(/^\/api\/public\/store\/([^/]+)$/)
   if (storeMatch && req.method === 'GET') {
-    const store = await getPublishedStore(decodeURIComponent(storeMatch[1]))
+    let slug = ''
+    try { slug = decodeURIComponent(storeMatch[1]) } catch { slug = '' }
+    const store = slug ? await getPublishedStore(clipText(slug, 120)) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...publicStorePayload(store), payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
   if (url.pathname === '/api/public/domain' && req.method === 'GET') {
     const host = String(url.searchParams.get('host') || '').toLowerCase().split(':')[0]
-    const store = host ? await getPublishedStoreByDomain(host) : null
+    const store = host && isValidDomain(host) ? await getPublishedStoreByDomain(host) : null
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
-    return sendJson(res, 200, { ...store, payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
+    return sendJson(res, 200, { ...publicStorePayload(store), payment_options: { stripe: Boolean(stripeSecret), paypal: Boolean(paypalClientId && paypalClientSecret) } })
   }
 
-  const body = req.method === 'POST' ? await readJson(req) : {}
-  if (req.method === 'POST' && body === null) return sendJson(res, 400, { error: 'Invalid JSON.' })
+  // Anonymous visitors only ever send small forms; refuse large bodies early.
+  const body = req.method === 'POST' ? await readJson(req, 256 * 1024) : {}
+  if (req.method === 'POST' && (body === null || typeof body !== 'object' || Array.isArray(body))) return sendJson(res, 400, { error: 'Invalid JSON.' })
+  if (req.method === 'POST') body.slug = clipText(body.slug, 120)
 
   if(url.pathname==='/api/public/customer/link'&&req.method==='POST'){
     const token=authToken(req);const user=await getUser(token)
@@ -386,7 +503,7 @@ async function handlePublicApi(req, res, url) {
     const token=authToken(req);const user=await getUser(token)
     if(!user)return sendJson(res,401,{error:'Customer login required.'})
     const result=await userRpc('update_customer_portal_profile',{
-      p_slug:body.slug,p_name:body.name||'',p_phone:body.phone||'',p_address:body.address||{},
+      p_slug:body.slug,p_name:clipText(body.name,120),p_phone:clipText(body.phone,40),p_address:clipAddress(body.address),
       p_marketing_consent:Boolean(body.marketing_consent)
     },token)
     return sendJson(res,result.status,result.data)
@@ -402,11 +519,16 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/contact' && req.method === 'POST') {
     if (!body?.slug || !body?.email || !body?.message) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
-    const result = await rpc('contact_store', { p_slug: body.slug, p_name: body.name || '', p_email: body.email, p_message: body.message })
+    const contactName = clipText(body.name, 120)
+    const contactMessage = clipText(body.message, 5000)
+    if (!contactMessage) return sendJson(res, 400, { error: 'Store, email, and message are required.' })
+    const result = await rpc('contact_store', { p_slug: body.slug, p_name: contactName, p_email: clipText(body.email, 254), p_message: contactMessage })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New website message from ${body.name||body.email}`,`<p><strong>From:</strong> ${escapeHtml(body.name||'Visitor')} (${escapeHtml(body.email)})</p><p>${escapeHtml(body.message).replaceAll('\n','<br>')}</p>`).catch(()=>{})
+      // Subject lines must not contain line breaks (header injection).
+      const subjectName=(contactName||clipText(body.email,254)).replace(/[\r\n]+/g,' ')
+      if(to&&isValidEmail(to))sendEmail(to,`New website message from ${subjectName}`,`<p><strong>From:</strong> ${escapeHtml(contactName||'Visitor')} (${escapeHtml(body.email)})</p><p>${escapeHtml(contactMessage).replaceAll('\n','<br>')}</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -416,12 +538,15 @@ async function handlePublicApi(req, res, url) {
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const bookingTime=Date.parse(body.start_at)
     if (!Number.isFinite(bookingTime) || bookingTime <= Date.now()) return sendJson(res, 400, { error: 'Booking time must be in the future.' })
-    const result = await rpc('book_store', { p_slug: body.slug, p_name: body.name, p_email: body.email, p_phone: body.phone || '', p_start_at: body.start_at, p_notes: body.notes || '' })
+    const bookingName = clipText(body.name, 120)
+    const bookingNotes = clipText(body.notes, 2000)
+    const bookingStart = new Date(bookingTime).toISOString()
+    const result = await rpc('book_store', { p_slug: body.slug, p_name: bookingName, p_email: clipText(body.email, 254), p_phone: clipText(body.phone, 40), p_start_at: bookingStart, p_notes: bookingNotes })
     if(result.ok&&resendApiKey){
       const store=await getPublishedStore(body.slug)
       const to=store?.settings?.contactEmail
-      if(to)sendEmail(to,`New booking request from ${body.name}`,`<p><strong>Customer:</strong> ${escapeHtml(body.name)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(body.start_at)}</p><p>${escapeHtml(body.notes||'')}</p>`).catch(()=>{})
-      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(body.name)},</p><p>Your booking request for <strong>${escapeHtml(body.start_at)}</strong> has been received.</p>`).catch(()=>{})
+      if(to&&isValidEmail(to))sendEmail(to,`New booking request from ${bookingName.replace(/[\r\n]+/g,' ')}`,`<p><strong>Customer:</strong> ${escapeHtml(bookingName)} (${escapeHtml(body.email)})</p><p><strong>Requested:</strong> ${escapeHtml(bookingStart)}</p><p>${escapeHtml(bookingNotes)}</p>`).catch(()=>{})
+      sendEmail(body.email,'Your booking request was received',`<p>Hi ${escapeHtml(bookingName)},</p><p>Your booking request for <strong>${escapeHtml(bookingStart)}</strong> has been received.</p>`).catch(()=>{})
     }
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -432,16 +557,17 @@ async function handlePublicApi(req, res, url) {
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return sendJson(res, 400, { error: 'Rating must be between 1 and 5.' })
     if (body.email && !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
     const result = await rpc('review_store_product', {
-      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: body.name,
-      p_email: body.email || '', p_rating: rating, p_body: body.body || ''
+      p_slug: body.slug, p_product_id: Number(body.product_id), p_name: clipText(body.name, 120),
+      p_email: clipText(body.email, 254), p_rating: rating, p_body: clipText(body.body, 2000)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
 
   if (url.pathname === '/api/public/event' && req.method === 'POST') {
     if (!body?.slug || !body?.event_type) return sendJson(res, 400, { error: 'Store and event are required.' })
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(String(body.event_type))) return sendJson(res, 400, { error: 'Unknown event.' })
     const result = await rpc('track_store_event', {
-      p_slug: body.slug, p_event_type: body.event_type, p_path: body.path || '', p_metadata: body.metadata || {}
+      p_slug: body.slug, p_event_type: body.event_type, p_path: clipText(body.path, 300), p_metadata: clipMetadata(body.metadata)
     })
     return sendJson(res, result.status, result.ok ? { ok: true } : result.data)
   }
@@ -449,14 +575,14 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/order-lookup' && req.method === 'POST') {
     if (!body?.slug || !body?.order_number || !body?.email) return sendJson(res, 400, { error: 'Store, order number, and email are required.' })
     if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
-    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: body.order_number, p_email: body.email })
+    const result = await rpc('lookup_store_order', { p_slug: body.slug, p_order_number: clipText(body.order_number, 40), p_email: clipText(body.email, 254) })
     if (!result.ok) return sendJson(res, result.status, result.data)
     if (!result.data) return sendJson(res, 404, { error: 'Order not found. Check the order number and email address.' })
     return sendJson(res, 200, { order: result.data })
   }
 
   if (url.pathname === '/api/public/paypal-capture' && req.method === 'POST') {
-    if(!body?.paypal_order_id)return sendJson(res,400,{error:'PayPal order ID is required.'})
+    if(!body?.paypal_order_id||!/^[A-Za-z0-9-]{6,64}$/.test(String(body.paypal_order_id)))return sendJson(res,400,{error:'PayPal order ID is required.'})
     try{const data=await capturePayPal(body.paypal_order_id);return sendJson(res,200,{ok:true,status:data.status})}
     catch(error){return sendJson(res,502,{error:error.message})}
   }
@@ -464,6 +590,10 @@ async function handlePublicApi(req, res, url) {
   if (url.pathname === '/api/public/checkout' && req.method === 'POST') {
     if (!body?.slug || !body?.buyer?.name || !body?.buyer?.email) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     if (!isValidEmail(body.buyer.email)) return sendJson(res, 400, { error: 'Enter a valid buyer email address.' })
+    if (Array.isArray(body.items) && body.items.length > 100) return sendJson(res, 400, { error: 'Too many items in one order.' })
+    body.buyer = { name: clipText(body.buyer.name, 120), email: clipText(body.buyer.email, 254), phone: clipText(body.buyer.phone, 40) }
+    body.discount_code = clipText(body.discount_code, 40)
+    if (!body.buyer.name) return sendJson(res, 400, { error: 'Buyer name and email are required.' })
     const store = await getPublishedStore(body.slug)
     if (!store) return sendJson(res, 404, { error: 'Store not found.' })
     const totals = calculateCheckout(store, body)
@@ -481,7 +611,7 @@ async function handlePublicApi(req, res, url) {
       p_shipping_amount: totals.shippingAmount,
       p_tax_amount: totals.taxAmount,
       p_total: totals.total,
-      p_shipping_address: body.shipping_address || {}
+      p_shipping_address: clipAddress(body.shipping_address)
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     const order=result.data
@@ -513,10 +643,16 @@ async function handlePublicApi(req, res, url) {
 }
 
 async function handleApi(req, res, url) {
+  const rule = req.method === 'POST' ? rateRules[url.pathname] : null
+  if (rule && rateLimited(req, url.pathname, rule[0], rule[1])) {
+    res.setHeader('retry-after', String(Math.ceil(rule[1] / 1000)))
+    return sendJson(res, 429, { error: 'Too many attempts. Please wait a few minutes and try again.' })
+  }
   if (url.pathname === '/api/webhooks/stripe' && req.method === 'POST') {
     const raw=await readBuffer(req,2*1024*1024)
     if(!verifyStripeSignature(raw,req.headers['stripe-signature'])) return sendJson(res,400,{error:'Invalid Stripe signature.'})
-    const event=JSON.parse(raw.toString('utf8'))
+    let event
+    try { event=JSON.parse(raw.toString('utf8')) } catch { return sendJson(res,400,{error:'Invalid JSON.'}) }
     const object=event?.data?.object||{}
     const orderId=Number(object?.metadata?.order_id)
     if(orderId&&event.type==='checkout.session.completed') await internalPaymentUpdate(orderId,'Paid','stripe',object.id||'')
@@ -538,12 +674,15 @@ async function handleApi(req, res, url) {
   if (url.pathname.startsWith('/api/public/')) return handlePublicApi(req, res, url)
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return sendJson(res, 200, { ok: true, backendConfigured: Boolean(supabaseUrl && supabaseAnonKey), version: 'full-feature-foundation' })
+    return sendJson(res, 200, { ok: true, backendConfigured: Boolean(supabaseUrl && supabaseAnonKey), version: 'full-feature-foundation', ...(testDeployment ? { testDeployment: true } : {}) })
   }
 
   if (url.pathname === '/api/auth/signup' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email || !body?.password) return sendJson(res, 400, { error: 'Email and password are required.' })
+    if (!isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    if (String(body.password).length < 8) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' })
+    if (String(body.password).length > 200) return sendJson(res, 400, { error: 'Password is too long.' })
     const result = await supabaseFetch('/auth/v1/signup', {
       method: 'POST', headers: apiHeaders(), body: JSON.stringify({ email: body.email, password: body.password })
     })
@@ -579,7 +718,7 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/auth/reset' && req.method === 'POST') {
     const body = await readJson(req)
     if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
-    const redirectTo = 'https://cobest.me/reset-password'
+    const redirectTo = `${appOrigin}/reset-password`
     const result = await supabaseFetch('/auth/v1/recover', {
       method: 'POST', headers: apiHeaders(), body: JSON.stringify({ email: body.email, redirect_to: redirectTo })
     })
@@ -672,7 +811,7 @@ async function handleApi(req, res, url) {
     const result=await supabaseFetch('/rest/v1/workspaces',{
       method:'POST',headers:apiHeaders(token,{Prefer:'return=representation'}),
       body:JSON.stringify({user_id:ownerId,site_name:siteName,slug,onboarding:{businessName:siteName,pages:['Home']},
-        editor:{hero:{heading:siteName,body:'',button:'Shop now'},sectionOrder:['hero','featured'],header:{menu:['Shop']},footer:{menu:['Shop']}},settings:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
+        editor:{hero:{heading:siteName,body:'',button:'Shop now'},sectionOrder:['hero','featured'],header:{menu:['Shop']},footer:{menu:['Shop']}},settings:testDeployment?{createdOnTestDeployment:true}:{},plan:'Free',currency:'PHP',timezone:'Asia/Manila'})
     })
     return sendJson(res,result.status,result.data)
   }
@@ -691,13 +830,18 @@ async function handleApi(req, res, url) {
       supabaseFetch(`/rest/v1/workspace_members?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,member_user_id,email,role,created_at&order=id.asc`, { headers: apiHeaders(token) }),
       supabaseFetch(`/rest/v1/workspace_invites?owner_user_id=eq.${encodeURIComponent(ownerId)}&select=id,email,role,token,expires_at,accepted_at,created_at&order=id.desc`, { headers: apiHeaders(token) })
     ])
-    return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: invites.ok ? invites.data : [] })
+    // Invitation tokens are bearer credentials. Only people who can invite may see them.
+    const canManage = ['Owner','Admin'].includes(role)
+    const inviteRows = invites.ok && Array.isArray(invites.data) ? invites.data.map(inv => canManage ? inv : { ...inv, token: undefined }) : []
+    return sendJson(res, 200, { owner_id: ownerId, role, members: members.ok ? members.data : [], invites: inviteRows })
   }
 
   if (url.pathname === '/api/team/invite' && req.method === 'POST') {
     if (!['Owner','Admin'].includes(role)) return sendJson(res, 403, { error: 'Only owners and admins can invite team members.' })
     const body = await readJson(req)
-    if (!body?.email) return sendJson(res, 400, { error: 'Email is required.' })
+    if (!body?.email || !isValidEmail(body.email)) return sendJson(res, 400, { error: 'Enter a valid email address.' })
+    // Admins may invite Editors and Viewers; only the Owner may create Admins.
+    if (body.role === 'Admin' && role !== 'Owner') return sendJson(res, 403, { error: 'Only the owner can invite admins.' })
     const inviteRole = ['Admin','Editor','Viewer'].includes(body.role) ? body.role : 'Editor'
     const result = await supabaseFetch('/rest/v1/workspace_invites', {
       method: 'POST',
@@ -753,7 +897,13 @@ async function handleApi(req, res, url) {
         mergedEditor.previousShopDesign=existing.editor.shopDesign
       }
       const mergedSettings={...(existing?.settings||{}),...(body.settings||{})}
+      // The marker is set by the server only: a shop made on the live site
+      // cannot be turned into a "test shop" from the browser.
+      if(existing?.settings?.createdOnTestDeployment===true||(testDeployment&&!siteId))mergedSettings.createdOnTestDeployment=true
+      else delete mergedSettings.createdOnTestDeployment
       const slug = safeSlug(body.slug ?? existing?.slug ?? mergedOnboarding?.businessName ?? user.email?.split('@')[0] ?? 'store')
+      const customDomain = String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim()
+      if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
       const payload = {
         user_id: ownerId,
         onboarding: mergedOnboarding,
@@ -761,8 +911,9 @@ async function handleApi(req, res, url) {
         settings: mergedSettings,
         site_name: body.site_name ?? existing?.site_name ?? mergedOnboarding?.businessName ?? 'Untitled website',
         slug,
-        custom_domain: String(body.custom_domain ?? existing?.custom_domain ?? '').toLowerCase().trim(),
-        plan: body.plan ?? existing?.plan ?? 'Free',
+        custom_domain: customDomain,
+        // Plan changes only come from verified Stripe webhooks, never from the browser.
+        plan: existing?.plan ?? 'Free',
         currency: body.currency ?? existing?.currency ?? 'PHP',
         timezone: body.timezone ?? existing?.timezone ?? 'Asia/Manila',
         updated_at: new Date().toISOString()
@@ -778,22 +929,36 @@ async function handleApi(req, res, url) {
     }
   }
 
+  if (url.pathname === '/api/publish/status' && req.method === 'GET') {
+    const nothingLive = { published: false, published_at: null, ...publishSummary(null) }
+    if (!siteId) return sendJson(res, 200, nothingLive)
+    const live = await readPublishedRow(token, ownerId, siteId)
+    if (!live.ok) return sendJson(res, 502, { error: 'Could not check what is currently live. Please try again.' })
+    if (!live.row) return sendJson(res, 200, nothingLive)
+    return sendJson(res, 200, { published: true, published_at: live.row.published_at || null, ...publishSummary(live.row.snapshot) })
+  }
+
   if (url.pathname === '/api/publish' && req.method === 'POST') {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const body = await readJson(req)
-    if(body?.snapshot?.editor)delete body.snapshot.editor.previousShopDesign
-    for(const project of [body?.snapshot?.visual_project,body?.snapshot?.editor?.visualBuilderProject]){
-      if(project&&typeof project==='object')project.versions=[]
-    }
     if (!body?.snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
+    if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
+    if(await blockedOnTestDeployment(token,ownerId,siteId))return sendJson(res,403,{error:TEST_DEPLOYMENT_MESSAGE})
     const slug = safeSlug(body.slug || body.snapshot?.settings?.slug || body.snapshot?.onboarding?.businessName || user.email?.split('@')[0] || 'store')
     if (!slug) return sendJson(res, 400, { error: 'A store slug is required.' })
     const customDomain = String(body.custom_domain || '').toLowerCase().trim()
-    if(!siteId)return sendJson(res,400,{error:'Create a site before publishing.'})
+    if (customDomain && !isValidDomain(customDomain)) return sendJson(res, 400, { error: 'Enter a valid domain such as shop.example.com.' })
+    // What is live now decides what a partial publish may change: a product or
+    // theme publish must not push the visual editor's draft live, and must not
+    // drop custom pages that are already published.
+    const live = await readPublishedRow(token, ownerId, siteId)
+    if (!live.ok) return sendJson(res, 502, { error: 'Could not check what is currently live, so nothing was published. Please try again.' })
+    const snapshot = preparePublishSnapshot(body.snapshot, live.row?.snapshot || null)
+    if (!snapshot) return sendJson(res, 400, { error: 'Published snapshot is required.' })
     const result = await supabaseFetch('/rest/v1/published_stores?on_conflict=workspace_id', {
       method: 'POST',
       headers: apiHeaders(token, { Prefer: 'resolution=merge-duplicates,return=representation' }),
-      body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot: body.snapshot, published_at: new Date().toISOString() })
+      body: JSON.stringify({ owner_user_id: ownerId, workspace_id: siteId, slug, custom_domain: customDomain, snapshot, published_at: new Date().toISOString() })
     })
     if (!result.ok) return sendJson(res, result.status, result.data)
     const publishedWorkspace=await supabaseFetch(`/rest/v1/workspaces?id=eq.${siteId}&user_id=eq.${encodeURIComponent(ownerId)}`, {
@@ -804,12 +969,13 @@ async function handleApi(req, res, url) {
     if(!publishedWorkspace.ok||!Array.isArray(publishedWorkspace.data)||!publishedWorkspace.data.length){
       return sendJson(res, 502, { error: 'The published design was stored, but the site status could not be confirmed. Please try publishing again.' })
     }
-    return sendJson(res, 200, { ok: true, slug, custom_domain: customDomain, store_url: `/store/${slug}` })
+    return sendJson(res, 200, { ok: true, slug, custom_domain: customDomain, store_url: `/store/${slug}`, ...publishSummary(snapshot) })
   }
 
   if (url.pathname === '/api/unpublish' && req.method === 'POST') {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
+    if(await blockedOnTestDeployment(token,ownerId,siteId))return sendJson(res,403,{error:TEST_DEPLOYMENT_MESSAGE})
     await supabaseFetch(`/rest/v1/published_stores?workspace_id=eq.${siteId}&owner_user_id=eq.${encodeURIComponent(ownerId)}`, {
       method: 'DELETE', headers: apiHeaders(token, { Prefer: 'return=minimal' })
     })
@@ -823,11 +989,24 @@ async function handleApi(req, res, url) {
     if(role==='Viewer')return sendJson(res,403,{error:'Viewer access is read-only.'})
     const buffer = await readBuffer(req)
     if (!buffer.length) return sendJson(res, 400, { error: 'File is empty.' })
-    const rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin'))
-    const fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
+    let rawName = 'upload.bin'
+    try { rawName = decodeURIComponent(String(req.headers['x-file-name'] || 'upload.bin')).slice(0, 200) } catch {}
+    let fileName = rawName.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)
     if(!siteId)return sendJson(res,400,{error:'No active site.'})
+    // Files are served publicly from storage. Never accept HTML, SVG or scripts,
+    // which would turn the media bucket into a stored-XSS host. The type is
+    // read from the file's own bytes, not from what the browser claims.
+    const allowedMedia = new Set(['image/png','image/jpeg','image/webp','image/gif','image/avif','video/mp4','video/webm','application/pdf'])
+    const contentType = sniffMediaType(buffer)
+    if (!allowedMedia.has(contentType)) return sendJson(res, 415, { error: 'Upload a PNG, JPG, WebP, GIF, AVIF, MP4, WebM or PDF file.' })
+    // The stored name always ends in an extension that matches the real content.
+    const extensions = {
+      'image/png': ['png'], 'image/jpeg': ['jpg','jpeg'], 'image/webp': ['webp'], 'image/gif': ['gif'], 'image/avif': ['avif'],
+      'video/mp4': ['mp4','m4v','mov'], 'video/webm': ['webm'], 'application/pdf': ['pdf']
+    }[contentType]
+    const currentExtension = (fileName.match(/\.([a-z0-9]{1,5})$/i)?.[1] || '').toLowerCase()
+    if (!extensions.includes(currentExtension)) fileName = `${fileName.replace(/\.[a-z0-9]{1,5}$/i, '') || 'upload'}.${extensions[0]}`
     const storagePath = `${ownerId}/${siteId}/${Date.now()}-${fileName}`
-    const contentType = String(req.headers['content-type'] || 'application/octet-stream')
     const upload = await fetch(`${supabaseUrl}/storage/v1/object/cobest-media/${encodeURI(storagePath)}`, {
       method: 'POST',
       headers: { apikey: supabaseAnonKey, authorization: `Bearer ${token}`, 'content-type': contentType, 'x-upsert': 'false' },
@@ -887,6 +1066,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST') {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
+      for (const key of ['id','user_id','owner_user_id','site_id','created_at','updated_at']) delete body[key]
       const validated = validateResourceMutation(table, body, 'POST')
       if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}`, {
@@ -898,7 +1078,7 @@ async function handleApi(req, res, url) {
     if (req.method === 'PATCH' && id) {
       const body = await readJson(req)
       if (!body) return sendJson(res, 400, { error: 'Invalid JSON.' })
-      delete body.user_id; delete body.owner_user_id; delete body.id; delete body.site_id
+      for (const key of ['id','user_id','owner_user_id','site_id','created_at']) delete body[key]
       const validated = validateResourceMutation(table, body, 'PATCH')
       if (validated.error) return sendJson(res, 400, { error: validated.error })
       const result = await supabaseFetch(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&${ownerColumn}=eq.${encodeURIComponent(ownerId)}${siteId?`&site_id=eq.${siteId}`:''}`, {
@@ -928,9 +1108,13 @@ createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url)
 
-    const urlPath = decodeURIComponent(url.pathname)
+    let urlPath = '/'
+    try { urlPath = decodeURIComponent(url.pathname) } catch { urlPath = '/' }
+    if (urlPath.includes('\0')) urlPath = '/'
     const safePath = normalize(urlPath).replace(/^([.][.][/\\])+/, '')
     let filePath = join(root, safePath === '/' ? 'index.html' : safePath)
+    // Never serve anything outside the build directory.
+    if (filePath !== root && !filePath.startsWith(root + sep)) filePath = join(root, 'index.html')
     try {
       const info = await stat(filePath)
       if (info.isDirectory()) filePath = join(filePath, 'index.html')
@@ -939,15 +1123,29 @@ createServer(async (req, res) => {
     }
     const body = await readFile(filePath)
     const extension = extname(filePath)
-    const headers = { 'content-type': mime[extension] || 'application/octet-stream' }
+    const headers = { ...securityHeaders, 'content-type': mime[extension] || 'application/octet-stream' }
     if (extension === '.html') headers['cache-control'] = 'no-store, max-age=0, must-revalidate'
     else if (url.pathname.startsWith('/assets/')) headers['cache-control'] = 'public, max-age=31536000, immutable'
     res.writeHead(200, headers)
     res.end(body)
   } catch (error) {
+    if (error instanceof HttpError) {
+      if (!res.headersSent) return sendJson(res, error.status, { error: error.message })
+      return
+    }
     console.error(error)
-    if ((req.url || '').startsWith('/api/')) return sendJson(res, 500, { error: error?.message || 'Server error' })
+    // Do not leak internal error details to clients.
+    if (res.headersSent) return res.end()
+    if ((req.url || '').startsWith('/api/')) return sendJson(res, 500, { error: 'Something went wrong. Please try again.' })
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('Server error')
   }
-}).listen(port, '0.0.0.0', () => console.log(`CoBest listening on ${port}`))
+}).listen(port, '0.0.0.0', () => {
+  console.log(`CoBest listening on ${port}${testDeployment ? ' (test deployment)' : ''}`)
+  // One line in the deploy log that says whether the database can be reached,
+  // so a wrong or missing setting is visible straight after a deploy.
+  if (!supabaseUrl || !supabaseAnonKey) { console.log('Database check: SUPABASE_URL or SUPABASE_ANON_KEY is not set'); return }
+  fetch(`${supabaseUrl}/auth/v1/health`, { headers: { apikey: supabaseAnonKey }, signal: AbortSignal.timeout(8000) })
+    .then(response => console.log(`Database check: ${response.ok ? 'connected' : 'answered with status ' + response.status}`))
+    .catch(() => console.log('Database check: could not connect'))
+})

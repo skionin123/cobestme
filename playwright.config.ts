@@ -7,6 +7,9 @@ export default defineConfig({
   expect:{timeout:10_000},
   fullyParallel:false,
   workers:1,
+  // The editing page is re-rendered after each change, so a check can land in
+  // the middle of that on a slow CI machine. One retry there; none locally.
+  retries:process.env.CI?1:0,
   reporter:'line',
   use:{
     baseURL:'http://127.0.0.1:5174',

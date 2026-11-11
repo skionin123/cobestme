@@ -5,7 +5,7 @@ import {
   Menu, Monitor, Package, Palette, Pencil, Plus, Search, Settings, ShoppingBag, SlidersHorizontal,
   Smartphone, Sparkles, Store, Tablet, Trash2, Type, Upload, Users, X
 } from 'lucide-react'
-import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
+import { acceptSessionFromHash, acceptTeamInvite, createResource, createSite, deleteSite, getActiveSiteId, getPublishStatus, getWorkspace, isAuthenticated, listResource, listSites, logout, publishStore, resetPassword, saveWorkspace, setActiveSiteId, signIn, signUp, updatePassword } from './api.js'
 import { AnalyticsAdvanced, BillingManager, BlogManager, CampaignsManager, CollectionsManager, CustomersManager, DiscountsManager, InboxManager, IntegrationsPanel, MediaManager, OrdersManager, ProductsManager, PublishingSettings, SitesManager, TaxonomyManager, TeamManager } from './AdminAdvanced.jsx'
 import StorefrontEditor from './StorefrontEditor.jsx'
 const VisualBuilder = React.lazy(()=>import('./builder/VisualBuilder'))
@@ -14,6 +14,7 @@ const StoreOverview = React.lazy(()=>import('./StoreOverview'))
 const CatalogCategories = React.lazy(()=>import('./CatalogCategories'))
 const SalesReport = React.lazy(()=>import('./SalesReport'))
 import { chooseLatestProject, loadProject } from './builder/persistence'
+import { safeHref } from './builder/sanitize'
 
 const APP_NAME = 'CoBest'
 
@@ -990,7 +991,7 @@ function EditorBlock({block,products=[],device='desktop'}){
   const cls=`sf-custom-block builder-effect-${block.hoverEffect||'none'} builder-animation-${block.animation||'none'}`
   if(block.type==='spacer') return <section className={cls+' sf-block-spacer'} style={{...shellStyle,minHeight:`${block.padding??56}px`}}/>
   if(block.type==='products') return <section className={cls+' sf-block-products'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><div className="sf-custom-heading"><h2>{block.title||'Products'}</h2><span>{visibleProducts.length} items</span></div><div className="sf-custom-products" style={{gridTemplateColumns:`repeat(${Math.max(1,Math.min(4,columns))},minmax(0,1fr))`,gap:`${block.gap??24}px`}}>{visibleProducts.map((p,i)=><article key={p.id}><div className={`sf-product-image product-art-${(i%4)+1}`}>{p.image_url?<img src={p.image_url} alt={p.name}/>:<div/>}</div><h3>{p.name}</h3><p>{formatPrice(p.price)}</p></article>)}</div>{!visibleProducts.length&&<p className="field-help">No active products yet. Activate products in Catalog to populate this section.</p>}</div></section>
-  if(block.type==='cta') return <section className={cls+' sf-block-cta'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><p>{block.body}</p><a href={block.buttonLink||'#'}>{block.buttonLabel||'Learn more'}</a></div></section>
+  if(block.type==='cta') return <section className={cls+' sf-block-cta'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><p>{block.body}</p><a href={safeHref(block.buttonLink)}>{block.buttonLabel||'Learn more'}</a></div></section>
   if(block.type==='testimonial'||block.type==='quote') return <section className={cls+' sf-block-quote'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><blockquote>{block.body||block.title}</blockquote>{block.title&&block.body&&<cite>{block.title}</cite>}</div></section>
   if(block.type==='pricing') return <section className={cls+' sf-block-pricing'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><div className="builder-card-grid">{(items.length?items:['Starter','Professional','Business']).map((x,i)=><article key={x+i}><small>PLAN {i+1}</small><h3>{x}</h3><strong>{i===0?'Free':'Custom'}</strong><button>Choose plan</button></article>)}</div></div></section>
   if(block.type==='faq') return <section className={cls+' sf-block-faq'} style={shellStyle}><div className="sf-custom-inner" style={{maxWidth:`${block.maxWidth||1180}px`}}><h2>{block.title}</h2><div className="builder-faq-list">{(items.length?items:['What is included?','How does it work?']).map((x,i)=><details key={x+i}><summary>{x}</summary><p>Edit this answer in the section settings.</p></details>)}</div></div></section>
@@ -1148,6 +1149,8 @@ export default function App() {
   const [page,setPage] = useState('dashboard')
   const [cloudReady,setCloudReady] = useState(false)
   const [catalogReady,setCatalogReady] = useState(false)
+  // What visitors see right now (which homepage, whether custom pages are live).
+  const [liveInfo,setLiveInfo] = useState(null)
   const [cloudLoadError,setCloudLoadError] = useState('')
   const [loadAttempt,setLoadAttempt] = useState(0)
   const safeOnboarding = normalizeOnboarding(onboarding)
@@ -1266,6 +1269,13 @@ export default function App() {
     return ()=>clearTimeout(timer)
   },[onboarding,editor,page,cloudReady])
 
+  useEffect(()=>{
+    if(!cloudReady||!workspace?.id||!isAuthenticated()){setLiveInfo(null);return}
+    let active=true
+    getPublishStatus().then(info=>{if(active)setLiveInfo(info)}).catch(()=>{if(active)setLiveInfo(null)})
+    return()=>{active=false}
+  },[cloudReady,workspace?.id])
+
   const complete = () => {
     const featurePages=[]
     if(safeOnboarding.features.includes('Contact forms')) featurePages.push('Contact')
@@ -1362,30 +1372,54 @@ export default function App() {
     return saved
   }
 
-  const publishVisualProject=async project=>{
-    if(!isAuthenticated())throw new Error('Please sign in to publish your website.')
-    if(!workspace?.id)throw new Error('Create or select a website before publishing.')
-    await persistVisualProject(project)
-    const settings={...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}
-    const snapshot={
+  // Everything a publish sends. The Advanced editor's draft is never part of
+  // it: only `visual_project` goes live, and only when that editor publishes.
+  const publishSnapshot=(activeProducts,extra={})=>{
+    const publicEditor={...safeEditor}
+    delete publicEditor.visualBuilderProject
+    delete publicEditor.previousShopDesign
+    return {
       onboarding:safeOnboarding,
-      editor:{...safeEditor,visualBuilderProject:project},
-      visual_project:project,
-      products,
+      editor:publicEditor,
+      products:activeProducts,
       discounts,
       collections,
       blog_posts:blogPosts.filter(x=>x.status==='Published'),
       reviews:reviews.filter(x=>x.status==='Approved'),
       media:mediaAssets,
-      pages:project.pages.filter(p=>!p.isCollectionTemplate).map(p=>p.name),
-      settings
+      pages:safeOnboarding.pages,
+      settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName},
+      ...extra
     }
+  }
+  const rememberLive=result=>{
+    if(result&&(result.home_source==='custom'||result.home_source==='storefront')){
+      setLiveInfo({published:true,home_source:result.home_source,has_custom_pages:!!result.has_custom_pages,
+        custom_page_names:Array.isArray(result.custom_page_names)?result.custom_page_names:[],storefront_theme:result.storefront_theme||''})
+      return
+    }
+    // Never guess which homepage is live: ask the server.
+    getPublishStatus().then(setLiveInfo).catch(()=>setLiveInfo(null))
+  }
+
+  const publishVisualProject=async(project,{homeSource}={})=>{
+    if(!isAuthenticated())throw new Error('Please sign in to publish your website.')
+    if(!workspace?.id)throw new Error('Create or select a website before publishing.')
+    await persistVisualProject(project)
+    const snapshot=publishSnapshot(products.filter(product=>product.status==='Active'),{
+      // Version history stays in the editor; visitors only need the pages.
+      visual_project:{...project,versions:[]},
+      home_source:homeSource==='storefront'?'storefront':'custom',
+      pages:project.pages.filter(p=>!p.isCollectionTemplate).map(p=>p.name)
+    })
     const result=await publishStore({slug:workspace?.slug,custom_domain:workspace?.custom_domain,snapshot})
     if(!result?.ok||!result?.store_url)throw new Error('Publishing was not confirmed. Check your site settings and try again.')
+    rememberLive(result)
+    setWorkspace(prev=>({...prev,is_published:true,slug:result.slug||prev?.slug}))
     return result
   }
 
-  const storeSnapshot={onboarding:safeOnboarding,editor:safeEditor,products,discounts,collections,blog_posts:blogPosts.filter(x=>x.status==='Published'),reviews:reviews.filter(x=>x.status==='Approved'),media:mediaAssets,pages:safeOnboarding.pages,settings:{...(workspace?.settings||{}),currency:workspace?.currency||'PHP',timezone:workspace?.timezone||'Asia/Manila',siteName:safeOnboarding.businessName}}
+  const storeSnapshot=publishSnapshot(products)
   const createShop=async name=>{
     const site=await createSite({site_name:name})
     if(!site?.id)throw new Error('Could not confirm shop creation. Refresh to check your shops.')
@@ -1398,13 +1432,17 @@ export default function App() {
     setEditor(prev=>({...prev,shopDesign:design,previousShopDesign:saved.editor?.previousShopDesign}))
     setWorkspace(prev=>({...prev,...saved}))
   }
-  const publishShop=async(design)=>{
+  // `homeSource` is only sent when the owner chose a homepage; otherwise the
+  // server keeps whichever homepage is live.
+  const publishShop=async(design,{homeSource}={})=>{
     if(!workspace?.id||!cloudReady||!catalogReady)throw new Error('Reload your shop before publishing.')
     const catalog=await listResource('products')
     if(!Array.isArray(catalog))throw new Error('Could not load the latest products for publishing.')
-    const snapshot={...storeSnapshot,editor:design?{...safeEditor,shopDesign:design}:safeEditor,products:catalog.filter(product=>product.status==='Active')}
+    const snapshot=publishSnapshot(catalog.filter(product=>product.status==='Active'),homeSource?{home_source:homeSource}:{})
+    if(design)snapshot.editor={...snapshot.editor,shopDesign:design}
     const result=await publishStore({slug:workspace.slug,custom_domain:workspace.custom_domain,snapshot})
     if(!result?.ok||!result.store_url)throw new Error('Publishing was not confirmed. Try again.')
+    rememberLive(result)
     setWorkspace(prev=>({...prev,is_published:true,slug:result.slug}))
     return result.store_url
   }
@@ -1418,7 +1456,7 @@ export default function App() {
   let content = null
   const previewTheme=['market','atelier','blank'].find(id=>page==='shop-design-'+id)
   if(page==='shop-design'||previewTheme) content=cloudReady&&workspace?.id
-    ? <StorefrontEditor key={workspace.id+':'+page} initialTheme={previewTheme} backLabel={previewTheme?'Website themes':'Store overview'} name={workspace.site_name} design={safeEditor.shopDesign} previousDesign={safeEditor.previousShopDesign} products={products} currency={workspace.currency} onSave={saveShopDesign} onPublish={publishShop} onBack={()=>setPage(previewTheme?'website':'dashboard')}/>
+    ? <StorefrontEditor key={workspace.id+':'+page} initialTheme={previewTheme} backLabel={previewTheme?'Website themes':'Store overview'} name={workspace.site_name} design={safeEditor.shopDesign} previousDesign={safeEditor.previousShopDesign} products={products} currency={workspace.currency} liveInfo={liveInfo} onSave={saveShopDesign} onPublish={publishShop} onBack={()=>setPage(previewTheme?'website':'dashboard')}/>
     : <div className="page-wrap"><p>Create or load your shop to edit its design.</p><Button onClick={()=>setPage('dashboard')}>Store overview</Button></div>
   if(page==='website') content=<React.Suspense fallback={<div className="page-wrap">Loading your website…</div>}><WebsiteStart hasShop={!!workspace?.id} products={products} design={safeEditor.shopDesign} onPreview={id=>setPage('shop-design-'+id)} project={safeEditor.visualBuilderProject||null} siteName={workspace?.site_name||'My website'} loading={!cloudReady} onChoose={chooseWebsiteTemplate} onEdit={()=>setPage('editor')} onPublish={()=>setPage('settings')}/></React.Suspense>
   if(page==='dashboard') content=<React.Suspense fallback={<div className="page-wrap">Loading store overview…</div>}><StoreOverview loadError={cloudLoadError} onRetry={()=>setLoadAttempt(n=>n+1)} workspace={workspace} ready={cloudReady} publishReady={catalogReady} onCreate={createShop} onAdd={addProduct} onPublish={publishShop} products={products} orders={orders} customers={customers} currency={workspace?.currency||'PHP'} project={safeEditor.visualBuilderProject} onNavigate={setPage}/></React.Suspense>
@@ -1444,9 +1482,9 @@ export default function App() {
   if(page==='integrations') content=<IntegrationsPanel/>
   if(page==='editor') content=!cloudReady
     ? <div className="page-wrap"><div className="panel">{cloudLoadError||'Loading your website workspace…'}</div></div>
-    : <React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject} onBack={()=>setPage('dashboard')}/></React.Suspense>
+    : <React.Suspense fallback={<div className="page-wrap"><div className="panel">Loading visual builder…</div></div>}><VisualBuilder projectKey={String(workspace?.id||getActiveSiteId()||'local-default')} initialProject={safeEditor.visualBuilderProject||null} onCloudSave={persistVisualProject} onPublish={publishVisualProject} liveInfo={liveInfo} hasShopHome={Boolean(safeEditor.shopDesign)||products.some(product=>product.status==='Active')} onBack={()=>setPage('dashboard')}/></React.Suspense>
   if(page==='storefront') content=<StorefrontPage data={safeOnboarding} products={products} editor={safeEditor} onCreateCustomer={addCustomer} onCreateOrder={addOrder}/>
-  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={storeSnapshot}/>
+  if(page==='settings') content=<PublishingSettings workspace={workspace} onWorkspace={setWorkspace} snapshot={storeSnapshot} liveInfo={liveInfo} onPublished={rememberLive} onUnpublished={()=>setLiveInfo(info=>info?{...info,published:false}:info)} onEditPages={()=>setPage('editor')}/>
   if(page==='inbox') content=<InboxManager subscribers={subscribers} contacts={contacts} bookings={bookings} reviews={reviews} setReviews={setReviews}/>
   if(page==='help') content=<div className="page-wrap"><div className="page-head"><div><p className="overline">HELP</p><h1>CoBest controls</h1><p>Use the left navigation to manage the website and commerce workspace.</p></div></div><div className="panel"><h3>Quick actions</h3><div className="workspace-grid"><button onClick={()=>setPage('processes')}><Sparkles size={20}/><div><strong>Setup & workflow</strong><p>See the end-to-end process and recommended next action.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('themes')}><Palette size={20}/><div><strong>Theme library</strong><p>Choose the visual starting point for the store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('editor')}><Pencil size={20}/><div><strong>Edit website</strong><p>Open the live visual editor.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('storefront')}><Eye size={20}/><div><strong>View store</strong><p>Preview the customer-facing store.</p></div><ArrowRight size={15}/></button><button onClick={()=>setPage('products')}><Package size={20}/><div><strong>Products</strong><p>Manage products and inventory.</p></div><ArrowRight size={15}/></button></div></div></div>
   return <AppShell page={previewTheme?'shop-design':page} setPage={setPage} businessName={safeOnboarding.businessName} onRestart={start} onSignOut={signOut} sites={sites} activeSiteId={getActiveSiteId()} onSiteChange={switchSite} onCreateSite={addSite} cloudError={cloudLoadError}>{content}</AppShell>

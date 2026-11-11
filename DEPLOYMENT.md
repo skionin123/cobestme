@@ -26,3 +26,15 @@ Test the Railway URL first. Then connect `app.cobest.me` for the application. Ke
 ## 4. Before charging customers
 
 Connect and test production authentication, a persistent database, payment subscriptions, checkout, transactional email, backups, and error monitoring.
+
+## 5. Test link (try changes before they go live)
+
+A second Railway service can run a branch of this repository so changes can be tried before they are merged into `main`.
+
+- Give the test service the same `SUPABASE_URL` and `SUPABASE_ANON_KEY` as the live service (Railway reference variables such as `${{cobestme.SUPABASE_URL}}` keep them in step).
+- Also set `COBEST_TEST_DEPLOYMENT=1` on the test service **only**.
+- Do not copy `COBEST_INTERNAL_SECRET` or any payment keys: payments and plan changes then stay switched off on the test link.
+
+The test link uses the same accounts and data as the live website. With `COBEST_TEST_DEPLOYMENT=1` the server refuses to publish or unpublish a shop that was created on the live website, so testing cannot change what real visitors see. Shops created on the test link (or named "Test …") publish normally. Everything else — products, orders, drafts — is the real data of the signed-in account, so use a test shop for experiments.
+
+Delete the test service in Railway when it is no longer needed.
