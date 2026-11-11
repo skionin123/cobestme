@@ -33,6 +33,28 @@ describe('what goes live when a merchant publishes',()=>{
     expect(out.visual_project.versions).toEqual([])
   })
 
+  it('stores the live pages and the homepage choice under both names, and never the draft',()=>{
+    const out=preparePublishSnapshot({editor:{shopDesign,visualBuilderProject:visual('Unfinished draft')},visual_project:visual('Live home'),home_source:'storefront'},null)
+    expect(out.visual_project.pages[0].name).toBe('Live home')
+    expect(out.editor.visualBuilderProject.pages[0].name).toBe('Live home')
+    expect(out.editor.visualBuilderProject.versions).toEqual([])
+    expect(out.editor.homeSource).toBe('storefront')
+    expect(JSON.stringify(out)).not.toContain('Unfinished draft')
+    // A later shop publish carries both copies over, again without the draft.
+    const later=preparePublishSnapshot({products:[],editor:{shopDesign,visualBuilderProject:visual('Newer draft')}},out)
+    expect(later.visual_project.pages[0].name).toBe('Live home')
+    expect(later.editor.visualBuilderProject.pages[0].name).toBe('Live home')
+    expect(later.editor.homeSource).toBe('storefront')
+    expect(JSON.stringify(later)).not.toContain('Newer draft')
+  })
+
+  it('does not let the browser set the homepage through the editor settings',()=>{
+    const existing=preparePublishSnapshot({editor:{shopDesign},visual_project:visual(),home_source:'storefront'},null)
+    const out=preparePublishSnapshot({products:[],editor:{shopDesign,homeSource:'custom'}},existing)
+    expect(out.home_source).toBe('storefront')
+    expect(out.editor.homeSource).toBe('storefront')
+  })
+
   it('makes the custom homepage live only when asked',()=>{
     const out=preparePublishSnapshot({editor:{shopDesign},visual_project:visual(),home_source:'custom'},{editor:{shopDesign},home_source:'storefront'})
     expect(out.home_source).toBe('custom')
@@ -80,6 +102,46 @@ describe('homepage rule for stores published before home_source existed',()=>{
     expect(homeSourceOf({home_source:'custom'})).toBe('storefront')
     expect(homeSourceOf(null)).toBe('storefront')
     expect(liveVisualProject({visual_project:{pages:[]}})).toBeNull()
+  })
+})
+
+describe('the live site does not depend on which keys the database passes on',()=>{
+  // The function that serves published stores lives in the database, not in
+  // this repository. Whether it returns the whole snapshot or only the parts
+  // the first version of the public page used, visitors must see the same.
+  const published=preparePublishSnapshot({editor:{shopDesign},visual_project:visual('About us'),home_source:'storefront',products:[]},null)
+  const onlyOldKeys=(snapshot:any)=>{const {visual_project:_pages,home_source:_home,...rest}=snapshot;return rest}
+
+  it('keeps the shop as the homepage and still finds the custom pages',()=>{
+    for(const stored of [published,onlyOldKeys(published)]){
+      expect(homeSourceOf(stored)).toBe('storefront')
+      expect(liveVisualProject(stored).pages[0].name).toBe('About us')
+      expect(publishSummary(stored)).toMatchObject({home_source:'storefront',has_custom_pages:true,custom_page_names:['About us']})
+    }
+  })
+  it('keeps a custom homepage custom',()=>{
+    const custom=preparePublishSnapshot({editor:{shopDesign},visual_project:visual('Home'),home_source:'custom'},null)
+    expect(homeSourceOf(onlyOldKeys(custom))).toBe('custom')
+  })
+  it('sends visitors one copy of the pages either way',()=>{
+    for(const stored of [published,onlyOldKeys(published)]){
+      const out=publicStorePayload({slug:'bread',...stored})
+      expect(out.home_source).toBe('storefront')
+      expect(out.visual_project.pages[0].name).toBe('About us')
+      expect(out.editor.visualBuilderProject).toBeUndefined()
+      expect(out.editor.homeSource).toBeUndefined()
+      expect(out.editor.shopDesign).toEqual(shopDesign)
+      expect(JSON.stringify(out).split('About us')).toHaveLength(2)
+    }
+  })
+  it('shows stores published by the previous version exactly as before',()=>{
+    // Old publishes carried the editor copy only; with a shop design the shop was the homepage.
+    const oldShop={editor:{shopDesign,visualBuilderProject:visual('Old pages')},products:[]}
+    expect(publicStorePayload(oldShop)).toMatchObject({home_source:'storefront',visual_project:{pages:[{name:'Old pages'}]}})
+    // Without a shop design the pages were the homepage.
+    expect(publicStorePayload({editor:{visualBuilderProject:visual('Old home')}}).home_source).toBe('custom')
+    // A store with no custom pages has none afterwards either.
+    expect(publicStorePayload({editor:{shopDesign}}).visual_project).toBeUndefined()
   })
 })
 

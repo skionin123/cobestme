@@ -5,8 +5,14 @@
 // - "storefront": the shop homepage made with the Storefront editor / shop flow.
 // - "custom":     the Home page designed in the Advanced (visual) editor.
 // - A snapshot's `visual_project` is the visual-editor project that is LIVE.
-//   `editor.visualBuilderProject` is the merchant's DRAFT and must never go
-//   live as a side effect of another publish (product update, theme change…).
+// - In the WORKSPACE, `editor.visualBuilderProject` is the merchant's DRAFT. It
+//   must never go live as a side effect of another publish (product update,
+//   theme change…), so the copy the browser sends is always thrown away.
+// - In a PUBLISHED snapshot the live project is stored under both names, and
+//   the homepage choice under both `home_source` and `editor.homeSource`.
+//   Every version of the public page - and of the database function that
+//   serves snapshots - has read at least one of each pair, so the live site
+//   does not depend on which top-level keys that function passes on.
 
 const HOME_SOURCES = new Set(['storefront', 'custom'])
 const isObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -21,10 +27,10 @@ export function liveVisualProject(snapshot) {
 /** Which homepage visitors see for a published snapshot. */
 export function homeSourceOf(snapshot) {
   if (!isObject(snapshot)) return 'storefront'
-  if (HOME_SOURCES.has(snapshot.home_source)) {
-    return snapshot.home_source === 'custom' && !liveVisualProject(snapshot) ? 'storefront' : snapshot.home_source
-  }
-  // Snapshots published before `home_source` existed.
+  const stated = HOME_SOURCES.has(snapshot.home_source) ? snapshot.home_source
+    : HOME_SOURCES.has(snapshot.editor?.homeSource) ? snapshot.editor.homeSource : ''
+  if (stated) return stated === 'custom' && !liveVisualProject(snapshot) ? 'storefront' : stated
+  // Snapshots published before the homepage choice existed.
   if (snapshot.editor?.shopDesign && !snapshot.visual_project) return 'storefront'
   return liveVisualProject(snapshot) ? 'custom' : 'storefront'
 }
@@ -41,7 +47,10 @@ export function preparePublishSnapshot(incoming, existing = null) {
   if (!isObject(incoming)) return null
   const next = { ...incoming }
   const editor = isObject(incoming.editor) ? { ...incoming.editor } : {}
+  // Whatever the browser put here is the draft (or an attempt to set the
+  // homepage directly): neither is ever taken from the browser.
   delete editor.visualBuilderProject
+  delete editor.homeSource
   delete editor.previousShopDesign
   next.editor = editor
 
@@ -49,8 +58,11 @@ export function preparePublishSnapshot(incoming, existing = null) {
     ? incoming.visual_project
     : null
   const visual = explicit || liveVisualProject(existing)
-  if (visual) next.visual_project = { ...visual, versions: [] }
-  else delete next.visual_project
+  if (visual) {
+    const live = { ...visual, versions: [] }
+    next.visual_project = live
+    editor.visualBuilderProject = live
+  } else delete next.visual_project
 
   let home
   if (HOME_SOURCES.has(incoming.home_source)) home = incoming.home_source
@@ -58,6 +70,7 @@ export function preparePublishSnapshot(incoming, existing = null) {
   else home = isObject(existing) ? homeSourceOf(existing) : 'storefront'
   if (home === 'custom' && !visual) home = 'storefront'
   next.home_source = home
+  editor.homeSource = home
 
   if (Array.isArray(incoming.products)) next.products = incoming.products.filter(product => isObject(product) && product.status === 'Active')
   return next
@@ -83,11 +96,18 @@ export function publicStorePayload(store) {
   const { discounts, ...rest } = store
   const out = { ...rest }
   if (Array.isArray(out.products)) out.products = out.products.filter(product => isObject(product) && product.status === 'Active')
+  // Visitors get the live pages once, as `visual_project`, whichever of the
+  // two stored copies the database function returned.
+  const visual = liveVisualProject(store)
   if (isObject(out.editor)) {
     const editor = { ...out.editor }
     delete editor.previousShopDesign
+    delete editor.visualBuilderProject
+    delete editor.homeSource
     out.editor = editor
   }
+  if (visual) out.visual_project = visual
+  else delete out.visual_project
   out.home_source = homeSourceOf(store)
   return out
 }
