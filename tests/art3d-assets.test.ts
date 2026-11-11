@@ -61,7 +61,7 @@ describe('3D pictures',()=>{
   })
 })
 
-describe('motion can always be paused',()=>{
+describe('motion plays by itself and can always be paused',()=>{
   const css=read('../src/art3d.css')+read('../src/landing.css')
 
   it('only animates while motion is switched on',()=>{
@@ -72,9 +72,15 @@ describe('motion can always be paused',()=>{
     expect(animated.filter(selector=>selector.split(',').some(part=>!part.includes('html[data-motion="on"]')))).toEqual([])
   })
 
-  it('starts paused when the device asks for less motion',()=>{
+  it('plays by itself on every device: only a saved Pause stops it',()=>{
+    expect(art).toContain("return savedChoice()==='off'?'off':'on'")
+  })
+
+  it('does not follow the pointer or the scroll on devices that ask for less motion',()=>{
     expect(art).toContain("window.matchMedia('(prefers-reduced-motion: reduce)')")
-    expect(art).toContain("savedChoice()||(lessMotion?.matches?'off':'on')")
+    expect(art).toContain("return !!lessMotion?.matches&&savedChoice()!=='on'")
+    expect(art).toContain("if(pointer&&!calm)window.addEventListener('pointermove'")
+    expect(art).toContain("if(scroll&&!calm){window.addEventListener('scroll'")
   })
 })
 
