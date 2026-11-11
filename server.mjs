@@ -1138,4 +1138,12 @@ createServer(async (req, res) => {
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('Server error')
   }
-}).listen(port, '0.0.0.0', () => console.log(`CoBest listening on ${port}`))
+}).listen(port, '0.0.0.0', () => {
+  console.log(`CoBest listening on ${port}${testDeployment ? ' (test deployment)' : ''}`)
+  // One line in the deploy log that says whether the database can be reached,
+  // so a wrong or missing setting is visible straight after a deploy.
+  if (!supabaseUrl || !supabaseAnonKey) { console.log('Database check: SUPABASE_URL or SUPABASE_ANON_KEY is not set'); return }
+  fetch(`${supabaseUrl}/auth/v1/health`, { headers: { apikey: supabaseAnonKey }, signal: AbortSignal.timeout(8000) })
+    .then(response => console.log(`Database check: ${response.ok ? 'connected' : 'answered with status ' + response.status}`))
+    .catch(() => console.log('Database check: could not connect'))
+})
