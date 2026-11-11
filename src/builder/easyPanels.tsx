@@ -1,38 +1,32 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import {
-  AlignLeft, Box, ChevronDown, ChevronRight, ChevronUp, Columns3, Copy, CornerLeftUp, EyeOff, Eye,
+  AlignLeft, Box, ChevronDown, ChevronRight, ChevronUp, Columns3, Copy, EyeOff, Eye,
   FileText, GripVertical, Heading1, Image as ImageIcon, LayoutGrid, Link2, MousePointerClick,
-  Plus, Square, Trash2, Upload, X, Video, Quote, Rows3, ClipboardCopy
+  Plus, Square, Trash2, Upload, X, Video, Quote, Rows3, ListChecks
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { isAuthenticated, uploadMedia } from '../api.js'
-import { DesignControls, fontChoices } from './DesignControls'
-import { createElement, createPrebuiltSection, sectionCatalog } from './elements'
-import { applyTemplate, builderTemplates } from './templates'
-import { ImageSettings, InteractionsPanel, SettingsPanel, StylePanel } from './panels'
-import { useBuilderStore } from './store'
-import { canAcceptChildren, findNode, findParent, slugify, uid } from './tree'
 import { safeUrl } from './compiler'
+import { fontChoices } from './DesignControls'
+import { createElement, sectionCatalog } from './elements'
+import { applyTemplate, builderTemplates } from './templates'
+import { useBuilderStore } from './store'
+import { findNode, slugify, uid } from './tree'
 import {
-  activePage, elementInsertTarget, friendlyType, linkTypes, sectionInsertTarget, siblingPosition, textTypes
+  activePage, createSectionFor, elementInsertTarget, sectionInsertTarget, typeLabel, type DropZone
 } from './editorModel'
 import type { BuilderAsset, BuilderNode, BuilderNodeType } from './types'
 
 /* ───────────────────────── Add panel ───────────────────────── */
 
-const sectionBlurb:Record<string,string>={
-  navbar:'Logo and menu links',hero:'Big headline and button',features:'Three key benefits',
-  testimonials:'Customer quotes',pricing:'Plans and prices',faq:'Questions and answers',
-  cta:'Short call to action',contact:'Contact form',footer:'Bottom links and copyright',
-}
-
 function SectionThumb({id}:{id:string}){
   const line=(w:string,h=4,extra='')=><i className={'ee-thumb-line '+extra} style={{width:w,height:h}}/>
   if(id==='navbar')return <div className="ee-thumb ee-thumb-row">{line('22%',6,'dark')}<span className="ee-thumb-gap"/>{line('12%')}{line('12%')}{line('12%')}</div>
   if(id==='hero')return <div className="ee-thumb ee-thumb-hero">{line('70%',9,'dark')}{line('55%')}{line('40%')}<i className="ee-thumb-btn"/></div>
+  if(id==='about')return <div className="ee-thumb ee-thumb-form"><div>{line('70%',6,'dark')}{line('90%')}{line('60%')}</div><div><i className="ee-thumb-photo"/></div></div>
   if(id==='features')return <div className="ee-thumb ee-thumb-cols">{[0,1,2].map(i=><div key={i}><i className="ee-thumb-dot"/>{line('80%',4,'dark')}{line('60%')}</div>)}</div>
+  if(id==='gallery')return <div className="ee-thumb ee-thumb-cols">{[0,1,2].map(i=><div key={i}><i className="ee-thumb-photo"/></div>)}</div>
   if(id==='testimonials')return <div className="ee-thumb ee-thumb-cols">{[0,1].map(i=><div key={i} className="card">{line('85%')}{line('70%')}{line('40%',4,'dark')}</div>)}</div>
   if(id==='pricing')return <div className="ee-thumb ee-thumb-cols">{[0,1,2].map(i=><div key={i} className={'card '+(i===1?'accent':'')}>{line('50%',3)}{line('40%',7,'dark')}{line('70%',3)}</div>)}</div>
   if(id==='faq')return <div className="ee-thumb ee-thumb-list">{[0,1,2].map(i=><div key={i}>{line('70%',4,'dark')}<span>+</span></div>)}</div>
@@ -44,8 +38,8 @@ function SectionThumb({id}:{id:string}){
 const elementTiles:[BuilderNodeType,string,LucideIcon][]=[
   ['heading','Heading',Heading1],['paragraph','Text',AlignLeft],['button','Button',MousePointerClick],
   ['image','Image',ImageIcon],['link','Link',Link2],['quote','Quote',Quote],
-  ['container','Container',Square],['flex','Row',Rows3],['grid','Grid',LayoutGrid],
-  ['columns','Columns',Columns3],['div','Box',Box],['video','Video',Video],
+  ['video','Video',Video],['form','Form',ListChecks],['container','Container',Square],
+  ['flex','Row',Rows3],['grid','Grid',LayoutGrid],['columns','Columns',Columns3],['div','Box',Box],
 ]
 
 function nativeDragStart(kind:'new-element'|'new-section',type:string){
@@ -57,62 +51,64 @@ function nativeDragStart(kind:'new-element'|'new-section',type:string){
   }
 }
 
-export function EasyAddPanel(){
+export function EasyAddPanel({onAdded,touch=false}:{onAdded?:()=>void;touch?:boolean}){
   const project=useBuilderStore(s=>s.project)
   const selectedId=useBuilderStore(s=>s.selectedNodeId)
   const addNode=useBuilderStore(s=>s.addNode)
   const [query,setQuery]=useState('')
   const q=query.trim().toLowerCase()
-  const sectionsWithNav=[{id:'navbar',label:'Navigation'},...sectionCatalog.map(s=>({id:s.id as string,label:s.label as string}))]
   const sectionTarget=sectionInsertTarget(project,selectedId)
   const sampleTarget=elementInsertTarget(project,selectedId,createElement('heading'))
   const addSection=(id:string)=>{
-    const node=createPrebuiltSection(id)
-    const target=sectionInsertTarget(useBuilderStore.getState().project,useBuilderStore.getState().selectedNodeId)
+    const state=useBuilderStore.getState()
+    const node=createSectionFor(state.project,id)
+    const target=sectionInsertTarget(state.project,state.selectedNodeId,id)
     addNode(target.parentId,node,target.index)
+    onAdded?.()
   }
   const addElement=(type:BuilderNodeType)=>{
     const node=createElement(type)
     const state=useBuilderStore.getState()
     const target=elementInsertTarget(state.project,state.selectedNodeId,node)
-    if(target)addNode(target.parentId,node,target.index)
+    if(target){addNode(target.parentId,node,target.index);onAdded?.()}
   }
+  const sections=sectionCatalog.filter(s=>!q||(s.label+' '+s.hint).toLowerCase().includes(q))
+  const elements=elementTiles.filter(([,label])=>!q||label.toLowerCase().includes(q))
   return <div className="ee-panel">
     <div className="ee-panel-head">
       <h2>Add to page</h2>
-      <p>Click to add, or drag onto the page.</p>
-      <input className="ee-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search sections and elements" aria-label="Search sections and elements"/>
+      <p>{touch?'Tap to add it to the page.':'Click to add, or drag onto the page.'}</p>
+      <input className="ee-input" type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search sections and elements" aria-label="Search sections and elements"/>
     </div>
-    <section className="ee-group" aria-label="Sections">
-      <div className="ee-group-title"><strong>Sections</strong><span>Adds {sectionTarget.description}</span></div>
+    {sections.length>0&&<section className="ee-group" aria-label="Sections">
+      <div className="ee-group-title"><strong>Ready-made sections</strong><span>Adds {sectionTarget.description}</span></div>
       <div className="ee-section-grid">
-        {sectionsWithNav.filter(s=>!q||s.label.toLowerCase().includes(q)).map(s=>
-          <button key={s.id} type="button" draggable onDragStart={nativeDragStart('new-section',s.id)} onClick={()=>addSection(s.id)}
+        {sections.map(s=>
+          <button key={s.id} type="button" draggable={!touch} onDragStart={nativeDragStart('new-section',s.id)} onClick={()=>addSection(s.id)}
             className="ee-section-card ee-palette-item" title={'Add '+s.label+' section'}>
             <SectionThumb id={s.id}/>
-            <strong>{s.label}</strong><span>{sectionBlurb[s.id]}</span>
+            <strong>{s.label}</strong><span>{s.hint}</span>
           </button>)}
       </div>
-    </section>
-    <section className="ee-group" aria-label="Elements">
-      <div className="ee-group-title"><strong>Elements</strong><span>{sampleTarget?'Adds '+sampleTarget.description:'Select a section first'}</span></div>
+    </section>}
+    {elements.length>0&&<section className="ee-group" aria-label="Elements">
+      <div className="ee-group-title"><strong>Single elements</strong><span>{sampleTarget?'Adds '+sampleTarget.description:'Select a section first'}</span></div>
       <div className="ee-element-grid">
-        {elementTiles.filter(([,label])=>!q||label.toLowerCase().includes(q)).map(([type,label,Icon])=>
-          <button key={type} type="button" draggable onDragStart={nativeDragStart('new-element',type)} onClick={()=>addElement(type)}
+        {elements.map(([type,label,Icon])=>
+          <button key={type} type="button" draggable={!touch} onDragStart={nativeDragStart('new-element',type)} onClick={()=>addElement(type)}
             className="ee-element-tile ee-palette-item" title={'Add '+label}>
             <Icon size={18}/><span>{label}</span>
           </button>)}
       </div>
-    </section>
+    </section>}
+    {!sections.length&&!elements.length&&<p className="ee-muted">Nothing matches “{query}”.</p>}
   </div>
 }
 
 /* ───────────────────────── Layers ───────────────────────── */
 
-function DropSlot({id}:{id:string}){
-  const {setNodeRef,isOver}=useDroppable({id,data:{kind:'drop-line'}})
-  return <div ref={setNodeRef} className={'ee-drop-slot '+(isOver?'is-over':'')}/>
-}
+/** Where the layer being dragged would land, shown as a line or highlight. */
+export const LayerDropContext=React.createContext<{anchorId:string;zone:DropZone}|null>(null)
 
 function LayerRow({node,depth}:{node:BuilderNode;depth:number}){
   const selected=useBuilderStore(s=>s.selectedNodeId)
@@ -120,37 +116,34 @@ function LayerRow({node,depth}:{node:BuilderNode;depth:number}){
   const selectNode=useBuilderStore(s=>s.selectNode)
   const hoverNode=useBuilderStore(s=>s.hoverNode)
   const updateNode=useBuilderStore(s=>s.updateNode)
+  const hint=React.useContext(LayerDropContext)
   const [open,setOpen]=useState(depth<2)
   const isRoot=depth===0
-  const {attributes,listeners,setNodeRef,transform,isDragging}=useDraggable({id:'node:'+node.id,data:{kind:'node',nodeId:node.id,type:node.name},disabled:isRoot})
-  const accepts=canAcceptChildren(node)
-  const {setNodeRef:dropRef,isOver}=useDroppable({id:'inside:'+node.id,data:{kind:'node-inside'},disabled:!accepts})
+  const {attributes,listeners,setNodeRef:dragRef,isDragging}=useDraggable({id:'node:'+node.id,data:{kind:'node',nodeId:node.id,type:node.name},disabled:isRoot||!!node.locked})
+  const {setNodeRef:dropRef}=useDroppable({id:'row:'+node.id,data:{kind:'layer-row',nodeId:node.id}})
   const kids=node.children||[]
+  const zone=hint&&hint.anchorId===node.id?hint.zone:null
   useEffect(()=>{
     // Reveal the selected layer by opening its ancestors.
     if(selected&&selected!==node.id&&findNode(node,selected))setOpen(true)
   },[selected,node])
   return <div className="ee-layer">
-    {!isRoot&&<DropSlot id={'before:'+node.id}/>}
-    <div ref={dropRef} className={'ee-layer-drop '+(isOver?'is-over':'')}>
-      <div ref={setNodeRef} style={{transform:CSS.Translate.toString(transform),opacity:isDragging?.4:1,paddingLeft:6+depth*14}}
-        className={'ee-layer-row '+(selected===node.id?'is-selected ':'')+(hovered===node.id?'is-hovered ':'')+(node.hidden?'is-hidden':'')}
-        onMouseEnter={()=>hoverNode(node.id)} onMouseLeave={()=>hoverNode(null)}>
-        <button type="button" className="ee-layer-toggle" aria-label={open?'Collapse':'Expand'} onClick={()=>setOpen(o=>!o)} disabled={!kids.length}>
-          {kids.length?(open?<ChevronDown size={13}/>:<ChevronRight size={13}/>):null}
-        </button>
-        {!isRoot&&<span className="ee-layer-grip" {...listeners} {...attributes} aria-label={'Drag '+node.name}><GripVertical size={13}/></span>}
-        <button type="button" className="ee-layer-name" aria-label={'Select '+node.name+' layer'} onClick={()=>selectNode(node.id)}>
-          <span>{isRoot?'Page':node.name}</span><small>{isRoot?'':friendlyType[node.type]||node.type}</small>
-        </button>
-        {!isRoot&&<button type="button" className="ee-layer-eye" aria-label={node.hidden?'Show '+node.name:'Hide '+node.name}
-          title={node.hidden?'Show on website':'Hide from website'} onClick={()=>updateNode(node.id,{hidden:!node.hidden})}>
-          {node.hidden?<EyeOff size={13}/>:<Eye size={13}/>}
-        </button>}
-      </div>
+    <div ref={dropRef} style={{paddingLeft:6+depth*14,opacity:isDragging?.4:1}}
+      className={'ee-layer-row '+(selected===node.id?'is-selected ':'')+(hovered===node.id?'is-hovered ':'')+(node.hidden?'is-hidden ':'')+(zone?'drop-'+zone:'')}
+      onMouseEnter={()=>hoverNode(node.id)} onMouseLeave={()=>hoverNode(null)}>
+      <button type="button" className="ee-layer-toggle" aria-label={open?'Collapse '+node.name:'Expand '+node.name} onClick={()=>setOpen(o=>!o)} disabled={!kids.length}>
+        {kids.length?(open?<ChevronDown size={13}/>:<ChevronRight size={13}/>):null}
+      </button>
+      {!isRoot&&<span ref={dragRef} className="ee-layer-grip" {...listeners} {...attributes} aria-label={'Drag '+node.name+' to move it'}><GripVertical size={14}/></span>}
+      <button type="button" className="ee-layer-name" aria-label={'Select '+node.name+' layer'} onClick={()=>selectNode(node.id)}>
+        <span>{isRoot?'Page':node.name}</span><small>{isRoot?'':typeLabel(node)}</small>
+      </button>
+      {!isRoot&&<button type="button" className="ee-layer-eye" aria-label={node.hidden?'Show '+node.name:'Hide '+node.name}
+        title={node.hidden?'Show on website':'Hide from website'} onClick={()=>updateNode(node.id,{hidden:!node.hidden})}>
+        {node.hidden?<EyeOff size={13}/>:<Eye size={13}/>}
+      </button>}
     </div>
     {open&&kids.map(child=><LayerRow key={child.id} node={child} depth={depth+1}/>)}
-    {!isRoot&&<DropSlot id={'after:'+node.id}/>}
   </div>
 }
 
@@ -158,7 +151,7 @@ export function EasyLayersPanel(){
   const project=useBuilderStore(s=>s.project)
   const page=activePage(project)
   return <div className="ee-panel">
-    <div className="ee-panel-head"><h2>Layers</h2><p>Everything on “{page.name}”. Drag to reorder. Hidden items stay in the editor but not on the website.</p></div>
+    <div className="ee-panel-head"><h2>Layers</h2><p>Everything on “{page.name}”, top to bottom. Drag the handle to reorder. Hidden items stay here but not on the website.</p></div>
     <div className="ee-layers"><LayerRow node={page.root} depth={0}/></div>
   </div>
 }
@@ -176,8 +169,9 @@ export function EasyPagesPanel(){
   const updatePageSeo=useBuilderStore(s=>s.updatePageSeo)
   const [name,setName]=useState('')
   const [adding,setAdding]=useState(false)
+  const [inMenu,setInMenu]=useState(true)
   const page=activePage(project)
-  const create=()=>{const value=name.trim();if(!value)return;addPage(value);setName('');setAdding(false)}
+  const create=()=>{const value=name.trim();if(!value)return;addPage(value,{addToMenu:inMenu});setName('');setAdding(false);setInMenu(true)}
   const slugTaken=(slug:string)=>project.pages.some(p=>p.id!==page.id&&p.slug.replace(/\/+$/,'')===slug.replace(/\/+$/,''))
   const [slugDraft,setSlugDraft]=useState(page.slug)
   useEffect(()=>setSlugDraft(page.slug),[page.id,page.slug])
@@ -194,8 +188,9 @@ export function EasyPagesPanel(){
     <div className="ee-panel-head ee-row"><div><h2>Pages</h2><p>{project.pages.length} page{project.pages.length===1?'':'s'} on this website.</p></div>
       <button type="button" className="ee-btn ee-btn-soft" onClick={()=>setAdding(true)} aria-label="Add page"><Plus size={14}/> Page</button></div>
     {adding&&<div className="ee-inline-form">
-      <input autoFocus className="ee-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Page name, e.g. About us"
+      <input autoFocus className="ee-input" value={name} maxLength={80} onChange={e=>setName(e.target.value)} placeholder="Page name, e.g. About us"
         aria-label="New page name" onKeyDown={e=>{if(e.key==='Enter')create();if(e.key==='Escape')setAdding(false)}}/>
+      <label className="ee-check"><input type="checkbox" checked={inMenu} onChange={e=>setInMenu(e.target.checked)}/> Add a link to this page in the menu</label>
       <div className="ee-row"><button type="button" className="ee-btn ee-btn-primary" onClick={create} disabled={!name.trim()}>Create page</button>
         <button type="button" className="ee-btn" onClick={()=>setAdding(false)}>Cancel</button></div>
     </div>}
@@ -291,7 +286,7 @@ export function EasyMediaPanel(){
     {project.assets.length===0
       ?<button type="button" className="ee-dropzone" onClick={()=>fileRef.current?.click()}><ImageIcon size={22}/><strong>Upload your photos</strong><span>PNG, JPG, WebP or GIF · up to 10 MB</span></button>
       :<div className="ee-media-grid">{project.assets.map(asset=><figure key={asset.id}>
-        <button type="button" onClick={()=>useAsset(asset)} aria-label={'Use '+asset.name}><img src={asset.url} alt=""/></button>
+        <button type="button" onClick={()=>useAsset(asset)} aria-label={'Use '+asset.name}><img src={safeUrl(asset.url,true)} alt=""/></button>
         <figcaption title={asset.name}>{asset.name}</figcaption>
         <button type="button" className="ee-media-remove" aria-label={'Remove '+asset.name} onClick={()=>{if(confirm('Remove '+asset.name+' from the media library? Images already on the page stay.'))removeAsset(asset.id)}}><X size={12}/></button>
       </figure>)}</div>}
@@ -333,183 +328,5 @@ export function EasyThemePanel(){
         <i style={{background:`linear-gradient(135deg,${t.accent},${t.accent}33)`}}/><span><strong>{t.name}</strong><small>{t.description}</small></span>
       </button>)}</div>
     </section>
-  </div>
-}
-
-/* ───────────────────────── Inspector ───────────────────────── */
-
-type InspectorTab='content'|'design'|'advanced'
-
-function LinkEditor({node}:{node:BuilderNode}){
-  const pages=useBuilderStore(s=>s.project.pages)
-  const updateAttr=useBuilderStore(s=>s.updateNodeAttribute)
-  const removeAttr=useBuilderStore(s=>s.removeNodeAttribute)
-  const href=node.attributes.href||''
-  const pageMatch=pages.find(p=>!p.isCollectionTemplate&&p.slug===href)
-  const kind=pageMatch?'page':href.startsWith('mailto:')?'email':href.startsWith('tel:')?'phone':href.startsWith('#')&&href.length>1?'section':href&&href!=='#'?'url':'none'
-  const [draft,setDraft]=useState(href)
-  useEffect(()=>setDraft(href),[node.id,href])
-  const unsafe=draft.trim()!==''&&safeUrl(draft)===''
-  const commit=(value:string)=>{if(safeUrl(value)!==''||value==='')updateAttr(node.id,'href',value.trim())}
-  return <div className="ee-field-group">
-    <label className="ee-field"><span>When clicked, go to</span>
-      <select className="ee-input" aria-label="Link type" value={kind} onChange={e=>{
-        const v=e.target.value
-        if(v==='none')commit('#')
-        else if(v==='page')commit(pages[0]?.slug||'/')
-        else if(v==='email')commit('mailto:')
-        else if(v==='phone')commit('tel:')
-        else if(v==='section')commit('#contact')
-        else commit('https://')
-      }}>
-        <option value="none">Nothing yet</option><option value="page">A page on this website</option><option value="url">Another website</option>
-        <option value="section">A section on this page</option><option value="email">Send an email</option><option value="phone">Call a phone number</option>
-      </select></label>
-    {kind==='page'&&<label className="ee-field"><span>Page</span><select className="ee-input" aria-label="Link page" value={href} onChange={e=>commit(e.target.value)}>
-      {pages.filter(p=>!p.isCollectionTemplate).map(p=><option key={p.id} value={p.slug}>{p.name} ({p.slug})</option>)}</select></label>}
-    {['url','email','phone','section'].includes(kind)&&<label className="ee-field"><span>{kind==='email'?'Email address':kind==='phone'?'Phone number':kind==='section'?'Section ID (e.g. #contact)':'Web address'}</span>
-      <input className={'ee-input '+(unsafe?'is-invalid':'')} aria-label="Link destination" value={kind==='email'?draft.replace(/^mailto:/,''):kind==='phone'?draft.replace(/^tel:/,''):draft}
-        placeholder={kind==='email'?'hello@yourbusiness.com':kind==='phone'?'+63 900 000 0000':kind==='section'?'#contact':'https://'}
-        onChange={e=>{const raw=e.target.value;const next=kind==='email'?'mailto:'+raw.trim():kind==='phone'?'tel:'+raw.replace(/[^\d+]/g,''):raw;setDraft(next)}}
-        onBlur={()=>commit(draft)} onKeyDown={e=>{if(e.key==='Enter')(e.target as HTMLInputElement).blur()}}/>
-      {unsafe&&<small className="warn">This kind of link is blocked for safety.</small>}
-    </label>}
-    {kind==='url'&&<label className="ee-check"><input type="checkbox" checked={node.attributes.target==='_blank'} onChange={e=>{
-      if(e.target.checked){updateAttr(node.id,'target','_blank');updateAttr(node.id,'rel','noopener noreferrer')}else{removeAttr(node.id,'target');removeAttr(node.id,'rel')}
-    }}/> Open in a new tab</label>}
-  </div>
-}
-
-function TextEditor({node}:{node:BuilderNode}){
-  const updateNode=useBuilderStore(s=>s.updateNode)
-  const multiline=node.type==='paragraph'||node.type==='quote'
-  return <label className="ee-field"><span>{node.type==='heading'?'Heading text':node.type==='button'||node.type==='submit'?'Button label':node.type==='link'?'Link text':'Text'}</span>
-    {multiline
-      ?<textarea className="ee-input" rows={5} value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})} aria-label="Element text"/>
-      :<input className="ee-input" value={node.content||''} onChange={e=>updateNode(node.id,{content:e.target.value})} aria-label="Element text"/>}
-    <small>Tip: double-click text on the page to type directly.</small>
-  </label>
-}
-
-function ChildrenList({node}:{node:BuilderNode}){
-  const selectNode=useBuilderStore(s=>s.selectNode)
-  const addNode=useBuilderStore(s=>s.addNode)
-  const quick:[BuilderNodeType,string][]=[['heading','Heading'],['paragraph','Text'],['button','Button'],['image','Image']]
-  return <div className="ee-field-group">
-    <span className="ee-field-label">Inside this {friendlyType[node.type]?.toLowerCase()||'box'}</span>
-    {node.children.length?<ul className="ee-children">{node.children.map(child=><li key={child.id}>
-      <button type="button" onClick={()=>selectNode(child.id)}><span>{child.name}</span><small>{friendlyType[child.type]||child.type}</small><ChevronRight size={13}/></button>
-    </li>)}</ul>:<p className="ee-muted">Empty. Add something below.</p>}
-    <div className="ee-quick-add">{quick.map(([type,label])=><button key={type} type="button" className="ee-btn ee-btn-soft" onClick={()=>addNode(node.id,createElement(type))}><Plus size={12}/> {label}</button>)}</div>
-  </div>
-}
-
-function ContentTab({node}:{node:BuilderNode}){
-  const updateNode=useBuilderStore(s=>s.updateNode)
-  const updateAttr=useBuilderStore(s=>s.updateNodeAttribute)
-  return <div className="ee-tab-body">
-    {node.type==='heading'&&<div className="ee-field"><span>Heading size</span><div className="ee-segment" role="group" aria-label="Heading level">
-      {['h1','h2','h3','h4'].map(level=><button type="button" key={level} aria-pressed={node.tag===level} onClick={()=>updateNode(node.id,{tag:level})}>{level.toUpperCase()}</button>)}
-    </div><small>Use one H1 per page for the main title.</small></div>}
-    {textTypes.has(node.type)&&<TextEditor node={node}/>}
-    {linkTypes.has(node.type)&&<LinkEditor node={node}/>}
-    {node.type==='image'&&<div className="ee-legacy-light"><ImageSettings node={node}/></div>}
-    {(node.type==='video'||node.type==='backgroundVideo')&&<label className="ee-field"><span>Video address</span>
-      <input className="ee-input" value={node.attributes.src||''} onChange={e=>updateAttr(node.id,'src',e.target.value)} placeholder="https://www.youtube.com/embed/…"/>
-      <small>Use an embed link (YouTube “Share › Embed”) or an .mp4 address.</small></label>}
-    {node.type==='form'&&<label className="ee-field"><span>Send form to</span>
-      <input className="ee-input" value={node.attributes.action||''} onChange={e=>updateAttr(node.id,'action',e.target.value)} placeholder="Leave empty to show a thank-you message"/>
-      <small>Test a submission after publishing.</small></label>}
-    {['input','textarea','select'].includes(node.type)&&<>
-      <label className="ee-field"><span>Field label (shown to screen readers)</span><input className="ee-input" value={node.attributes['aria-label']||node.attributes.placeholder||''} onChange={e=>updateAttr(node.id,'aria-label',e.target.value)}/></label>
-      <label className="ee-field"><span>Placeholder</span><input className="ee-input" value={node.attributes.placeholder||''} onChange={e=>updateAttr(node.id,'placeholder',e.target.value)}/></label>
-      <label className="ee-check"><input type="checkbox" checked={node.attributes.required==='true'} onChange={e=>updateAttr(node.id,'required',e.target.checked?'true':'')}/> Required</label>
-    </>}
-    {node.type==='html'&&<label className="ee-field"><span>Custom HTML</span>
-      <textarea className="ee-input ee-code" rows={8} value={node.attributes['data-html']||node.content||''} onChange={e=>updateAttr(node.id,'data-html',e.target.value)} spellCheck={false}/>
-      <small className="warn">Only paste code from sources you trust. It runs on your published website.</small></label>}
-    {canAcceptChildren(node)&&<ChildrenList node={node}/>}
-  </div>
-}
-
-function PageOverview(){
-  const project=useBuilderStore(s=>s.project)
-  const selectNode=useBuilderStore(s=>s.selectNode)
-  const page=activePage(project)
-  return <div className="ee-tab-body">
-    <div className="ee-empty-inspector">
-      <MousePointerClick size={26}/>
-      <h3>Click anything on the page to edit it</h3>
-      <p>Text, images, buttons and colors open here. Double-click text to type directly on the page.</p>
-    </div>
-    <div className="ee-field-group"><span className="ee-field-label">Sections on this page</span>
-      {page.root.children.length?<ul className="ee-children">{page.root.children.map(child=><li key={child.id}>
-        <button type="button" onClick={()=>selectNode(child.id)}><span>{child.name}</span><small>{friendlyType[child.type]||child.type}</small><ChevronRight size={13}/></button>
-      </li>)}</ul>:<p className="ee-muted">No sections yet. Open “Add” on the left.</p>}
-    </div>
-    <div className="ee-shortcuts"><strong>Shortcuts</strong>
-      <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</span><span><kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate</span>
-      <span><kbd>Del</kbd> Delete</span><span><kbd>Esc</kbd> Deselect</span><span><kbd>Ctrl</kbd>+<kbd>S</kbd> Save</span>
-    </div>
-  </div>
-}
-
-export function EasyInspector({onCopy}:{onCopy:()=>void}){
-  const project=useBuilderStore(s=>s.project)
-  const selectedId=useBuilderStore(s=>s.selectedNodeId)
-  const breakpoint=useBuilderStore(s=>s.breakpoint)
-  const selectNode=useBuilderStore(s=>s.selectNode)
-  const updateNode=useBuilderStore(s=>s.updateNode)
-  const duplicateNode=useBuilderStore(s=>s.duplicateNode)
-  const deleteNode=useBuilderStore(s=>s.deleteNode)
-  const moveNode=useBuilderStore(s=>s.moveNode)
-  const page=activePage(project)
-  const node=findNode(page.root,selectedId)
-  const isContainer=!!node&&canAcceptChildren(node)
-  const defaultTab:InspectorTab=node&&isContainer&&!textTypes.has(node.type)?'design':'content'
-  const [tab,setTab]=useState<InspectorTab>(defaultTab)
-  useEffect(()=>setTab(defaultTab),[selectedId])
-  useEffect(()=>{
-    // Other parts of the editor (context menu, publish review) can open a tab.
-    const open=(event:Event)=>{const next=(event as CustomEvent).detail;if(next==='content'||next==='design'||next==='advanced')setTab(next)}
-    window.addEventListener('cobest-inspector-tab',open)
-    return()=>window.removeEventListener('cobest-inspector-tab',open)
-  },[])
-  const pos=useMemo(()=>node?siblingPosition(page.root,node.id):null,[page.root,node])
-  if(!node||node.id===page.root.id)return <div className="ee-inspector"><div className="ee-inspector-head"><span className="ee-badge">Page</span><h2>{page.name}</h2></div><PageOverview/></div>
-  const parent=findParent(page.root,node.id)
-  const locked=!!node.locked
-  return <div className="ee-inspector">
-    <div className="ee-inspector-head">
-      <span className="ee-badge">{friendlyType[node.type]||node.type}</span>
-      <input className="ee-name-input" aria-label="Element name" value={node.name} onChange={e=>updateNode(node.id,{name:e.target.value})}/>
-      <div className="ee-actions" role="toolbar" aria-label="Element actions">
-        <button type="button" title="Move up" aria-label="Move up" disabled={locked||!pos||pos.index===0} onClick={()=>pos&&moveNode(node.id,pos.parent.id,pos.index-1)}><ChevronUp size={15}/></button>
-        <button type="button" title="Move down" aria-label="Move down" disabled={locked||!pos||pos.index>=pos.count-1} onClick={()=>pos&&moveNode(node.id,pos.parent.id,pos.index+2)}><ChevronDown size={15}/></button>
-        <button type="button" title="Select the box around this" aria-label="Select parent" disabled={!parent||parent.id===page.root.id} onClick={()=>parent&&selectNode(parent.id)}><CornerLeftUp size={15}/></button>
-        <button type="button" title="Hide on website" aria-label={node.hidden?'Show element':'Hide element'} onClick={()=>updateNode(node.id,{hidden:!node.hidden})}>{node.hidden?<EyeOff size={15}/>:<Eye size={15}/>}</button>
-        <button type="button" title="Duplicate (Ctrl+D)" aria-label="Duplicate element" disabled={locked} onClick={()=>duplicateNode(node.id)}><Copy size={15}/></button>
-        <button type="button" title="Copy (Ctrl+C)" aria-label="Copy element" disabled={locked} onClick={onCopy}><ClipboardCopy size={15}/></button>
-        <button type="button" title="Delete (Del)" aria-label="Delete element" className="danger" disabled={locked} onClick={()=>deleteNode(node.id)}><Trash2 size={15}/></button>
-      </div>
-      {node.hidden&&<p className="ee-note">Hidden: this element won’t appear on your published website.</p>}
-    </div>
-    <div className="ee-tabs" role="tablist" aria-label="Inspector">
-      {(['content','design','advanced'] as InspectorTab[]).map(id=><button key={id} role="tab" type="button" aria-selected={tab===id} onClick={()=>setTab(id)}>
-        {id==='content'?'Content':id==='design'?'Design':'Advanced'}</button>)}
-    </div>
-    {tab==='content'&&<ContentTab node={node}/>}
-    {tab==='design'&&<div className="ee-tab-body">
-      <p className={'ee-device-note '+(breakpoint==='desktop'?'':'is-device')}>{breakpoint==='desktop'
-        ?'Editing for all devices. Switch to Tablet or Mobile at the top to adjust only smaller screens.'
-        :'Editing only '+(breakpoint==='tablet'?'tablet':'mobile')+' and smaller. Desktop stays the same.'}</p>
-      <div className="ee-legacy-light"><DesignControls/></div>
-    </div>}
-    {tab==='advanced'&&<div className="ee-tab-body">
-      <p className="ee-muted">For designers: classes, exact sizes, positions, element ID and animations.</p>
-      <div className="ee-pro"><StylePanel/></div>
-      <div className="ee-pro"><SettingsPanel/></div>
-      <div className="ee-pro"><InteractionsPanel/></div>
-    </div>}
   </div>
 }

@@ -18,23 +18,25 @@ test.describe('CoBest editor workflow',()=>{
     for(const name of ['Add','Layers','Pages','Media','Theme'])await expect(panel(page,name)).toBeVisible()
     const guide=page.getByRole('region',{name:'Website setup steps'})
     for(const step of ['Add sections','Make it yours','Check on mobile','Publish'])await expect(guide.getByText(step,{exact:true})).toBeVisible()
-    await expect(page.getByRole('tab',{name:'Advanced'})).toBeVisible()
+    // Nothing is selected at first: the inspector explains what to do.
+    await expect(page.getByText('Click anything on the page to edit it')).toBeVisible()
 
     // 1. Add sections with one click; each lands after the current section.
     const frame=canvas(page)
-    await page.locator('.ee-section-card',{hasText:'Features grid'}).click()
-    await page.locator('.ee-section-card',{hasText:'Contact'}).click()
+    await page.locator('.ee-section-card',{hasText:'Features'}).click()
+    await page.locator('.ee-section-card',{hasText:'Contact form'}).click()
     await page.locator('.ee-section-card',{hasText:'Footer'}).click()
     await expect(guide.getByRole('button',{name:/Step 1: Add sections \(done\)/})).toBeVisible()
 
     // 2. Edit text from the inspector; one Undo reverts the whole edit.
     const title=frame.locator('[data-builder-node="hero-title-home"]')
     await title.click()
+    for(const name of ['Content','Design','Advanced'])await expect(page.getByRole('tab',{name})).toBeVisible()
     await page.getByRole('tab',{name:'Content'}).click()
     await page.getByLabel('Element text').fill('Fresh flowers, delivered today')
     await expect(title).toHaveText('Fresh flowers, delivered today')
     await page.getByRole('button',{name:'Undo'}).click()
-    await expect(title).toHaveText('Build something remarkable.')
+    await expect(title).toHaveText('A clear headline about what you offer')
     await page.getByRole('button',{name:'Redo'}).click()
     await expect(title).toHaveText('Fresh flowers, delivered today')
     await page.getByRole('group',{name:'Heading level'}).getByRole('button',{name:'H2'}).click()
@@ -50,14 +52,15 @@ test.describe('CoBest editor workflow',()=>{
     await page.getByRole('button',{name:'Undo'}).click()
 
     // Links: choose a page, or a safe external address.
-    await frame.getByText('Start building').click()
+    const heroButton=frame.locator('[data-builder-node="hero-button-home"]')
+    await heroButton.click()
     await page.getByRole('tab',{name:'Content'}).click()
     await page.getByLabel('Link type').selectOption('url')
     await page.getByLabel('Link destination').fill('javascript:alert(1)')
     await expect(page.getByText('blocked for safety')).toBeVisible()
     await page.getByLabel('Link destination').fill('https://example.com/shop')
     await page.getByLabel('Link destination').blur()
-    await expect(frame.getByText('Start building')).toHaveAttribute('href','https://example.com/shop')
+    await expect(heroButton).toHaveAttribute('href','https://example.com/shop')
 
     // Pages: new pages get the site navigation, a heading and a unique address.
     await panel(page,'Pages').click()
@@ -119,7 +122,7 @@ test.describe('CoBest editor workflow',()=>{
 
   test('keeps long pages scrollable to the bottom',async({page})=>{
     await page.goto('/e2e.html')
-    const card=page.locator('.ee-section-card',{hasText:'Features grid'})
+    const card=page.locator('.ee-section-card',{hasText:'Features'})
     for(let i=0;i<12;i++)await card.click()
     const stage=page.locator('.ee-stage')
     await expect.poll(()=>stage.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true)

@@ -19,13 +19,14 @@ describe('MVP builder surface',()=>{
   })
 
   it('keeps basic page path management in the Pages workflow',()=>{
-    const panels=readFileSync(new URL('../src/builder/panels.tsx',import.meta.url),'utf8')
-    expect(panels).toContain("prompt('Page path',page.slug)")
-    const settingsStart=panels.indexOf('export function SettingsPanel')
-    const settingsEnd=panels.indexOf('export function InteractionsPanel',settingsStart)
-    const settings=panels.slice(settingsStart,settingsEnd)
-    expect(settings).not.toContain('Page SEO')
-    expect(settings).not.toContain('Custom attributes')
+    const panels=readFileSync(new URL('../src/builder/easyPanels.tsx',import.meta.url),'utf8')
+    const inspector=readFileSync(new URL('../src/builder/inspector.tsx',import.meta.url),'utf8')
+    // The web address of a page is edited in the Pages panel, next to its search title.
+    expect(panels).toContain('aria-label="Page URL"')
+    expect(panels).toContain('Title in Google and browser tab')
+    // The element inspector stays about the element.
+    expect(inspector).not.toContain('Page SEO')
+    expect(inspector).not.toContain('Custom attributes')
   })
 
   it('keeps a small set of plain-language editor panels',()=>{

@@ -3,6 +3,7 @@ import { createDefaultProject } from '../src/builder/defaultProject'
 import { exportFiles, makeZip } from '../src/builder/export'
 import { createCanvasDocument } from '../src/builder/canvas'
 import { createElement } from '../src/builder/elements'
+import { P } from '../src/builder/samples'
 
 describe('builder export',()=>{
   it('creates the expected clean site files',()=>{
@@ -38,8 +39,8 @@ describe('builder export',()=>{
     const html=String(files['index.html'])
     const css=String(files['styles.css'])
 
-    expect(preview).toContain('Build something remarkable.')
-    expect(html).toContain('Build something remarkable.')
+    expect(preview).toContain(P.heroHeading)
+    expect(html).toContain(P.heroHeading)
     expect(preview).toContain('font-size:52px')
     expect(css).toContain('font-size:52px')
     expect(css).toContain('@media(max-width:478px)')

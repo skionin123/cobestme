@@ -1,5 +1,6 @@
 import React from 'react'
 import { geometryClass } from './geometry'
+import { samplePhotoUrl, samplePhotos } from './samples'
 import { findNode } from './tree'
 import { useBuilderStore } from './store'
 import type { BreakpointId, BuilderProject, CssProperties } from './types'
@@ -50,10 +51,24 @@ export function safeBackgroundUrl(value:string):string|null{
 }
 
 const control='vb-basic-input'
-function NumberField({name,value,unit='px',min=0,max=1000,onChange}:{name:string;value:string;unit?:string;min?:number;max?:number;onChange:(v:number)=>void}){
+function NumberField({name,value,unit='px',min=0,max=1000,step=1,onChange}:{name:string;value:string;unit?:string;min?:number;max?:number;step?:number;onChange:(v:number)=>void}){
+  // Whole numbers for sizes; one decimal where it matters (line height).
+  const precision=step<1?10:1
+  const tidy=(n:number)=>Number.isFinite(n)?Math.min(max,Math.max(min,Math.round(n*precision)/precision)):min
+  const shown=String(tidy(parseFloat(value)||0))
+  // While typing, keep exactly what was typed. "24" must not turn into "84"
+  // because the first digit alone was below the smallest allowed value.
+  const [draft,setDraft]=React.useState<string|null>(null)
+  const commit=(raw:string,force:boolean)=>{
+    const n=Number(raw)
+    if(raw.trim()===''||!Number.isFinite(n))return
+    if(force||(n>=min&&n<=max))onChange(tidy(n))
+  }
   return <label className="vb-basic-field"><span>{name}</span><div className="vb-basic-numeric">
-    <input aria-label={name} type="number" min={min} max={max} value={String(parseFloat(value)||0)}
-      onChange={e=>onChange(clip(Number(e.target.value),min,max))}/><small>{unit}</small>
+    <input aria-label={name} type="number" inputMode="decimal" min={min} max={max} step={step} value={draft??shown}
+      onChange={e=>{setDraft(e.target.value);commit(e.target.value,false)}}
+      onBlur={()=>{if(draft!==null)commit(draft,true);setDraft(null)}}
+      onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}}/><small>{unit}</small>
   </div></label>
 }
 export function DesignControls(){
@@ -112,7 +127,7 @@ export function DesignControls(){
       <div className="vb-design-columns">
         <NumberField name="Letter spacing" value={read('letterSpacing')||'0px'} min={-10} max={50}
           onChange={n=>apply('Change letter spacing',{letterSpacing:n+'px'})}/>
-        <NumberField name="Line height" value={read('lineHeight')||'1.4'} unit="×" min={1} max={3}
+        <NumberField name="Line height" value={read('lineHeight')||'1.4'} unit="×" min={0.8} max={3} step={0.1}
           onChange={n=>apply('Change line height',{lineHeight:String(n)})}/>
       </div>
       <div className="vb-design-columns">
@@ -139,7 +154,7 @@ export function DesignControls(){
           onClick={()=>{
             if(m==='solid')apply('Solid background',{backgroundImage:'none',backgroundColor:bg})
             else if(m==='gradient')backgroundGradient('linear')
-            else apply('Image background',{backgroundImage:'url("https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=80")'})
+            else apply('Image background',{backgroundImage:'url("'+samplePhotoUrl(samplePhotos.background,1400)+'")',backgroundSize:'cover',backgroundPosition:'center'})
           }}>{m==='solid'?'Solid':m==='gradient'?'Gradient':'Image'}</button>)}
       </div>
       {mode==='solid'&&<><div className="vb-basic-color"><label><span>Background color</span>
@@ -207,7 +222,7 @@ export function DesignControls(){
         onChange={n=>apply('Content gap',{gap:n+'px'})}/>}
     </section>}
     {frame&&<section className="vb-design-group">
-      <div className="vb-design-heading"><strong>Responsive layout</strong><small>{breakpoint}</small></div>
+      <div className="vb-design-heading"><strong>Layout on this screen size</strong><small>{breakpoint==='desktop'?'All devices':breakpoint==='tablet'?'Tablet and smaller':'Phones'}</small></div>
       {(node.type==='flex'||node.type==='grid'||node.type==='container'||node.type==='div')&&
         <label className="vb-basic-field"><span>Stack direction</span><select className={control}
           aria-label="Stack direction" value={read('flexDirection')||''}

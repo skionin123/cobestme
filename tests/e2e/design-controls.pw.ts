@@ -51,7 +51,7 @@ test('section backgrounds and adding a ready-made section',async({page})=>{
 
   // Sections are added right after the section being edited.
   await expect(page.getByText('Adds after “Hero”')).toBeVisible()
-  await page.locator('.ee-section-card',{hasText:'FAQ accordion'}).click()
+  await page.locator('.ee-section-card',{hasText:'FAQ'}).click()
   const faq=canvas(page).locator('[data-builder-name="FAQ"]')
   await expect(faq).toBeVisible()
   const order=await canvas(page).locator('main > [data-builder-node]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLElement).dataset.builderName))

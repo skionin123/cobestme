@@ -39,6 +39,23 @@ function compileStateSelector(className:string,state:NodeState){
   return `.${escaped}:${state}`
 }
 
+/** The web fonts offered in the editor, loaded the same way everywhere. */
+export const fontLinks=`<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">`
+
+/**
+ * Styles for built-in behaviour: the phone menu opens as a list below the bar,
+ * and forms show their sending / sent / failed states.
+ */
+const behaviourCss='[data-nav-open="true"]{flex-wrap:wrap}'
+  +'[data-nav-open="true"] .nav-links{display:flex;flex-direction:column;align-items:stretch;gap:0;flex-basis:100%;order:10;margin-top:12px;border-top:1px solid var(--line,#e5e7eb)}'
+  +'[data-nav-open="true"] .nav-links>*{padding:14px 2px;border-bottom:1px solid var(--line,#e5e7eb)}'
+  +'[data-form-success],[data-form-error]{display:none}'
+  +'form[data-state="success"] [data-form-success]{display:block}'
+  +'form[data-state="error"] [data-form-error]{display:block}'
+  +'form[data-state="sending"]{opacity:.65}'
+
 // Use the same available font families in the editor, preview and exports.
 // System fallbacks still render when an external font cannot be loaded.
 const webFontImports='@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800;900&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800;900&family=Lora:wght@400;500;600;700&display=swap");'
@@ -46,7 +63,7 @@ export function compileProjectCss(project:BuilderProject){
   const colorVars=Object.entries(project.globals.colors).map(([key,value])=>`--${sanitizeCssName(key)}:${sanitizeCssValue(value)};`).join('')
   const textVars=Object.entries(project.globals.textStyles).flatMap(([styleName,props])=>Object.entries(props).map(([key,value])=>`--text-${sanitizeCssName(styleName)}-${sanitizeCssName(key).replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${sanitizeCssValue(value)};`)).join('')
   const rootVars=colorVars+textVars
-  let base=`:root{${rootVars}}*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;min-height:100%}body{overflow-x:hidden}img,video{max-width:100%;display:block}button,input,textarea,select{font:inherit}a{color:inherit}details summary{cursor:pointer}[data-form-success],[data-form-error]{display:none}form[data-state="success"] [data-form-success]{display:block}form[data-state="error"] [data-form-error]{display:block}`
+  let base=`:root{${rootVars}}*{box-sizing:border-box}html{scroll-behavior:smooth}html,body{margin:0;min-height:100%}body{overflow-x:hidden}img,video{max-width:100%;display:block}button,input,textarea,select{font:inherit}a{color:inherit}details summary{cursor:pointer}iframe{max-width:100%}`+behaviourCss
   const responsive:Record<string,string[]>={tablet:[],mobileLandscape:[],mobilePortrait:[]}
   for(const [className,breakpoints] of Object.entries(project.styles)){
     for(const [breakpoint,states] of Object.entries(breakpoints)){
@@ -169,7 +186,9 @@ export function renderNodeHtml(node:BuilderNode,project:BuilderProject,editing=f
   const attrs=bound.attrs
   const className=(node.classes||[]).join(' ')
   const classAttr=className?` class="${escapeAttr(className)}"`:''
-  const attrText=attrsToString(attrs)
+  let attrText=attrsToString(attrs)
+  // An image without alt text is announced by its file name; empty alt marks it decorative.
+  if(tag.toLowerCase()==='img'&&!String(attrs.alt||'').trim())attrText+=' alt=""'
   const content=bound.content?escapeHtml(bound.content):''
   const children=(node.children||[]).map(child=>renderNodeHtml(child,project,editing,cmsContext)).join('')
   if(voidTags.has(tag.toLowerCase()))return `<${tag}${editorAttrs}${classAttr}${attrText}>`

@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 import { createDefaultProject } from './defaultProject'
-import { createPrebuiltSection } from './elements'
+import { createElement } from './elements'
 import { duplicateWithIndependentGeometry } from './duplicate'
+import { ensureKitStyles } from './kit'
+import { P } from './samples'
 import { canAcceptChild, clone, findNode, findParent, insertNode, moveNode, regenerateNodeIds, removeNode, replaceComponentInstances, slugify, uid, updateNode, walkNodes } from './tree'
 import type {
   BuilderAsset,
   BuilderComponent,
   BuilderInteraction,
   BuilderNode,
-  BuilderPage,
   BuilderProject,
   BuilderProjectSnapshot,
   BuilderVersion,
@@ -39,7 +40,7 @@ interface BuilderState {
   mutate:(label:string,mutation:(draft:BuilderProject)=>void)=>void
   renameProject:(name:string)=>void
   setActivePage:(pageId:string)=>void
-  addPage:(name:string)=>void
+  addPage:(name:string,options?:{addToMenu?:boolean})=>void
   renamePage:(pageId:string,name:string)=>void
   duplicatePage:(pageId:string)=>void
   deletePage:(pageId:string)=>void
@@ -78,7 +79,7 @@ interface BuilderState {
 }
 
 const snapshotWithoutVersions=(project:BuilderProject):BuilderProjectSnapshot=>{
-  const {versions,...rest}=clone(project)
+  const {versions:_versions,...rest}=clone(project)
   return rest
 }
 
@@ -112,8 +113,11 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
   // Typing in a text field or dragging a slider fires many small edits. Group
   // rapid edits with the same label into one undo step and one version, so
   // Undo reverts the whole word/drag instead of a single character.
+  // One-off actions (add, move, delete, duplicate…) are never grouped: each is
+  // its own Undo step, however quickly one follows another.
   let lastCommit:{label:string;target:string|null;at:number}|null=null
-  const commit=(label:string,mutation:(draft:BuilderProject)=>void)=>{
+  const oneOff=/^(Add|Delete|Duplicate|Remove|Reorder|Paste|Create|Insert|Link|Reset)\b/
+  const commit=(label:string,mutation:(draft:BuilderProject)=>void,single=oneOff.test(label))=>{
     const state=get()
     const previous=clone(state.project)
     const draft=clone(state.project)
@@ -122,8 +126,8 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     advanceRevision(state.project,draft)
     const now=Date.now()
     const target=state.selectedNodeId
-    const grouped=!!lastCommit&&lastCommit.label===label&&lastCommit.target===target&&now-lastCommit.at<1200
-    lastCommit={label,target,at:now}
+    const grouped=!single&&!!lastCommit&&lastCommit.label===label&&lastCommit.target===target&&now-lastCommit.at<1200
+    lastCommit=single?null:{label,target,at:now}
     if(grouped&&state.history.length){
       draft.versions=previous.versions||[]
       set({project:draft,future:[],saveStatus:'dirty'})
@@ -146,13 +150,24 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     for(let i=2;i<100;i++)if(!taken.has(base+'-'+i))return base+'-'+i
     return base+'-'+Date.now().toString(36)
   }
-  const findFirst=(node:BuilderNode,test:(n:BuilderNode)=>boolean):BuilderNode|null=>{
-    if(test(node))return node
-    for(const child of node.children||[]){const found=findFirst(child,test);if(found)return found}
-    return null
-  }
-
   const currentPage=(project:BuilderProject)=>project.pages.find(p=>p.id===project.activePageId)||project.pages[0]
+
+  const isMenuLink=(node:BuilderNode)=>node.type==='link'&&(node.classes.includes('nav-link')||node.classes.includes('footer-link'))
+  /** Add a link to a new page to the menu bar of every page. */
+  const addMenuLinks=(project:BuilderProject,label:string,href:string)=>{
+    for(const page of project.pages){
+      walkNodes(page.root,node=>{
+        if(!node.classes.includes('nav-links'))return
+        if(node.children.some(child=>child.attributes?.href===href))return
+        const sample=node.children.find(child=>child.type==='link')
+        const link=createElement('link')
+        link.name='Menu link';link.content=label;link.attributes={href}
+        link.classes=sample?sample.classes.filter(name=>!name.startsWith('cb-geometry-')):['nav-link']
+        if(!link.classes.length)link.classes=['nav-link']
+        node.children.push(link)
+      })
+    }
+  }
 
   return {
     project:createDefaultProject(),
@@ -180,25 +195,32 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
     },
     renameProject:name=>commit('Rename project',draft=>{draft.name=name}),
     setActivePage:pageId=>{
-      const project=get().project
-      const page=project.pages.find(p=>p.id===pageId)
-      if(!page)return
-      commit('Switch page',draft=>{draft.activePageId=pageId})
-      set({selectedNodeId:page.root.id})
+      const state=get()
+      const page=state.project.pages.find(p=>p.id===pageId)
+      if(!page||state.project.activePageId===pageId)return
+      // Looking at another page is not an edit, so it is not an Undo step and
+      // does not create a version.
+      lastCommit=null
+      set({project:{...state.project,activePageId:pageId},selectedNodeId:page.root.id,hoveredNodeId:null,selectedComputed:{}})
     },
-    addPage:name=>{
-      const clean=name.trim()||'Untitled'
+    addPage:(name,options={})=>{
+      const clean=name.trim().slice(0,80)||'Untitled'
       const id=uid('page')
       const slug=uniqueSlug(get().project,'/'+(slugify(clean)||'page'))
-      // New pages reuse the site's navigation and footer so visitors can move
-      // between pages, plus a simple heading section ready to edit.
+      // New pages reuse the site's menu bar and footer so visitors can move
+      // between pages, plus a simple heading ready to edit.
       const home=get().project.pages.find(p=>p.slug==='/')||get().project.pages[0]
       const nav=home?.root.children.find(n=>n.type==='navbar')
       const footer=home?.root.children.find(n=>n.type==='footer')
-      const intro=createPrebuiltSection('cta')
+      const intro=createElement('section')
       intro.name=clean+' intro'
-      const heading=findFirst(intro,n=>n.type==='heading')
-      if(heading)heading.content=clean
+      const container=createElement('container')
+      const heading=createElement('heading')
+      heading.tag='h1';heading.name='Page heading';heading.content=clean;heading.classes=['section-title']
+      const copy=createElement('paragraph')
+      copy.name='Intro text';copy.content=P.newPageCopy;copy.classes=['lead']
+      container.children=[heading,copy]
+      intro.children=[container]
       const root:BuilderNode={id:uid('root'),type:'div',tag:'main',name:'Page',classes:['page-shell'],attributes:{},children:[
         ...(nav?[regenerateNodeIds(nav,'node')]:[]),
         intro,
@@ -207,8 +229,10 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       commit('Add page',draft=>{
         draft.pages.push({id,name:clean,slug,seo:{title:clean,description:'',slug},root})
         draft.activePageId=id
+        ensureKitStyles(draft,root)
+        if(options.addToMenu!==false)addMenuLinks(draft,clean,slug)
       })
-      set({selectedNodeId:heading?.id||root.id})
+      set({selectedNodeId:heading.id})
     },
     renamePage:(pageId,name)=>commit('Rename page',draft=>{
       // Renaming never changes the web address: links to this page keep working.
@@ -216,6 +240,10 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       const previous=page.name
       page.name=name
       if(!page.seo.title||page.seo.title===previous)page.seo.title=name
+      // Menu links that still carry the old page name follow the rename.
+      if(name.trim())for(const item of draft.pages)walkNodes(item.root,node=>{
+        if(isMenuLink(node)&&node.attributes.href===page.slug&&node.content===previous)node.content=name
+      })
     }),
     duplicatePage:pageId=>{
       const source=get().project.pages.find(p=>p.id===pageId);if(!source)return
@@ -235,6 +263,14 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       commit('Delete page',draft=>{
         draft.pages=draft.pages.filter(p=>p.id!==pageId)
         if(draft.activePageId===pageId)draft.activePageId=draft.pages[0].id
+        // Menu and footer links to the deleted page would lead nowhere.
+        for(const item of draft.pages){
+          const prune=(node:BuilderNode)=>{
+            node.children=(node.children||[]).filter(child=>!(isMenuLink(child)&&child.attributes.href===page.slug))
+            node.children.forEach(prune)
+          }
+          prune(item.root)
+        }
       })
       const next=get().project.pages.find(p=>p.id===get().project.activePageId)
       set({selectedNodeId:next?.root.id||null})
@@ -261,6 +297,8 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       commit('Add element',draft=>{
         const draftPage=currentPage(draft)
         draftPage.root=insertNode(draftPage.root,parentId,node,index)
+        // Ready-made sections bring their own look the first time they are used.
+        ensureKitStyles(draft,node)
       })
       set({selectedNodeId:node.id})
     },
@@ -322,10 +360,11 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
       let containsParent=false
       walkNodes(moving,node=>{if(node.id===parentId)containsParent=true})
       if(containsParent)return
+      // Moving a layer is one action, so it is one Undo step.
       commit('Move element',draft=>{
         const draftPage=currentPage(draft)
         draftPage.root=moveNode(draftPage.root,nodeId,parentId,index)
-      })
+      },true)
     },
     addClass:(nodeId,className)=>commit('Add class',draft=>{
       const page=currentPage(draft)
@@ -420,7 +459,17 @@ export const useBuilderStore=create<BuilderState>((set,get)=>{
         selectedNodeId:restored.pages.find(p=>p.id===restored.activePageId)?.root.id||null,
       })
     },
-    importProject:project=>set({project:clone(project),history:[],future:[],selectedNodeId:project.pages.find(p=>p.id===project.activePageId)?.root.id||null,saveStatus:'dirty'}),
+    importProject:project=>{
+      // Restoring a backup can be undone, and the design it replaces is kept
+      // as a version. The website keeps its own identity (id).
+      const state=get()
+      const next=clone(project)
+      next.id=state.project.id
+      next.versions=[makeVersion(state.project,'Before restoring a backup'),...(state.project.versions||[])].slice(0,20)
+      advanceRevision(state.project,next)
+      lastCommit=null
+      set({project:next,history:[...state.history,clone(state.project)].slice(-100),future:[],selectedNodeId:null,hoveredNodeId:null,saveStatus:'dirty'})
+    },
     undo:()=>{
       lastCommit=null
       const state=get();const previous=state.history.at(-1);if(!previous)return

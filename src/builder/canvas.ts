@@ -1,5 +1,6 @@
 import type { BuilderProject } from './types'
-import { compileInteractionRuntime, compileProjectCss, renderPageBody } from './compiler'
+import { compileProjectCss, fontLinks, renderPageBody } from './compiler'
+import { siteRuntime } from './runtime'
 
 export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'|'tablet'|'mobileLandscape'|'mobilePortrait'='desktop',editing=true){
   const rawCss=compileProjectCss(project)
@@ -12,26 +13,35 @@ export function createCanvasDocument(project:BuilderProject,breakpoint:'desktop'
   const emptyState=editing&&activePage?.root?.children?.length===0
     ? '<div class="builder-empty-state"><strong>Start building your page</strong><span>Pick a section from Add on the left, or drag one here.</span></div>'
     : ''
-  const interactionRuntime=compileInteractionRuntime(project)
+  // While editing, the page must not behave like a live website (links, menus
+  // and forms stay still). Outside editing it runs the normal website script.
+  const websiteScript=editing?'':siteRuntime(project,'preview')
   return `<!doctype html>
 <html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Manrope:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+${fontLinks}
 <style>
 ${css}
 html.builder-editing,html.builder-editing body{overflow:hidden}
 /* Only the exact hovered node gets a preview outline. :hover on all
    ancestors previously made nested headings and containers look selected. */
 html.builder-editing [data-builder-node].builder-hovered:not(.builder-selected){
-  outline:1px dashed rgba(99,102,241,.44);outline-offset:2px
+  outline:1.5px dashed rgba(37,99,235,.6);outline-offset:2px
 }
 html.builder-editing [data-builder-node].builder-selected{
-  outline:2px solid #6366f1!important;outline-offset:2px
+  outline:2px solid #2563eb!important;outline-offset:2px
 }
+/* Everything stays visible and still while editing. */
+html.builder-editing iframe,html.builder-editing video{pointer-events:none}
+html.builder-editing [data-builder-node][hidden]{display:block!important;opacity:.6}
+html.builder-editing img.builder-broken-image{min-width:120px;min-height:90px;background:#eef0f4 linear-gradient(135deg,transparent 46%,#c9ced8 46%,#c9ced8 54%,transparent 54%);outline:1px dashed #9aa3b2;outline-offset:-1px}
+html.builder-editing [data-form-success],html.builder-editing [data-form-error]{display:block;opacity:.85;outline:1px dashed #9aa3b2;outline-offset:2px}
+html.builder-editing [data-form-success]::before,html.builder-editing [data-form-error]::before{display:block;font:600 10px/1.6 Inter,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+html.builder-editing [data-form-success]::before{content:"Shown after sending"}
+html.builder-editing [data-form-error]::before{content:"Shown if sending fails"}
+html.builder-editing [contenteditable="true"],html.builder-editing [contenteditable="plaintext-only"]{outline:2px solid #2563eb!important;outline-offset:3px;cursor:text;background:rgba(37,99,235,.06)}
 html.builder-editing [data-builder-node][data-builder-type="container"]:empty,
 html.builder-editing [data-builder-node][data-builder-type="div"]:empty,
 html.builder-editing [data-builder-node][data-builder-type="grid"]:empty,
@@ -98,7 +108,11 @@ ${body}${emptyState}
   let hovered = null
   let label = null
   let nodeDragging = false
+  let textEditing = false
   let snappingEnabled = true
+  // The canvas is shown scaled down ("Fit"). Toolbar and handles are scaled
+  // back up so they stay easy to see and grab.
+  let uiScale = 1
   let snapGuides=[]
   const clearSnapGuides=()=>{snapGuides.forEach(item=>item.remove());snapGuides=[]}
   const showSnapGuides=(x,y)=>{
@@ -164,9 +178,12 @@ ${body}${emptyState}
     const movable=el.dataset.builderName!=='Page'
     label=document.createElement('div')
     label.className='builder-node-label'
-    const toolbarWidth=movable?185:110
+    const toolbarWidth=(movable?185:110)*uiScale
+    const toolbarHeight=36*uiScale
+    label.style.transformOrigin='0 0'
+    label.style.transform='scale('+uiScale+')'
     label.style.left=Math.max(6,Math.min(rect.left+Math.max(0,rect.width/2-toolbarWidth/2),window.innerWidth-toolbarWidth-6))+'px'
-    label.style.top=(rect.top>=44?rect.top-36:Math.min(window.innerHeight-36,rect.bottom+7))+'px'
+    label.style.top=(rect.top>=toolbarHeight+8?rect.top-toolbarHeight:Math.min(window.innerHeight-toolbarHeight,rect.bottom+7))+'px'
     const labelName=document.createElement('span')
     labelName.className='builder-label-title'
     labelName.textContent=el.dataset.builderName||el.tagName.toLowerCase()
@@ -331,16 +348,17 @@ ${body}${emptyState}
     }
     // Transparent 36px hover targets at all four corners replace the old
     // always-visible bottom-right square. Edges remain directly draggable.
-    const edgeInset=40
+    const edgeInset=40*uiScale
+    const grip=10*uiScale
     const sideHeight=Math.max(8,rect.height-edgeInset*2)
     const sideTop=rect.top+(rect.height-sideHeight)/2
     const horizontalWidth=Math.max(8,rect.width-edgeInset*2)
     const horizontalLeft=rect.left+(rect.width-horizontalWidth)/2
-    handle('resize',rect.left-5,sideTop,'builder-resize-edge','left',10,sideHeight)
-    handle('resize',rect.right-5,sideTop,'builder-resize-edge','right',10,sideHeight)
-    handle('resize',horizontalLeft,rect.top-5,'builder-resize-edge','top',horizontalWidth,10)
-    handle('resize',horizontalLeft,rect.bottom-5,'builder-resize-edge','bottom',horizontalWidth,10)
-    const size=36
+    handle('resize',rect.left-grip/2,sideTop,'builder-resize-edge','left',grip,sideHeight)
+    handle('resize',rect.right-grip/2,sideTop,'builder-resize-edge','right',grip,sideHeight)
+    handle('resize',horizontalLeft,rect.top-grip/2,'builder-resize-edge','top',horizontalWidth,grip)
+    handle('resize',horizontalLeft,rect.bottom-grip/2,'builder-resize-edge','bottom',horizontalWidth,grip)
+    const size=36*uiScale
     const anchor=(value,limit)=>Math.max(0,Math.min(value-size/2,limit-size))
     const corners=[
       ['nw',rect.left,rect.top],
@@ -371,6 +389,16 @@ ${body}${emptyState}
     const bottoms=Array.from(document.querySelectorAll('[data-builder-node]')).map(el=>el.getBoundingClientRect().bottom+window.scrollY+40)
     const height=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,...bottoms,120)
     send('canvas-resize',{height})
+  }
+  const nodeAt=event=>{
+    const el=event.target&&event.target.closest?event.target.closest('[data-builder-node]'):null
+    if(!el)return null
+    const embeds=el.querySelectorAll('iframe[data-builder-node],video[data-builder-node]')
+    for(const embed of embeds){
+      const box=embed.getBoundingClientRect()
+      if(event.clientX>=box.left&&event.clientX<=box.right&&event.clientY>=box.top&&event.clientY<=box.bottom)return embed
+    }
+    return el
   }
   let dropMarker=null
   const removeDropMarker=()=>{if(dropMarker){dropMarker.remove();dropMarker=null}}
@@ -462,7 +490,7 @@ ${body}${emptyState}
   },true)
   document.addEventListener('mousemove', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
-    const el=event.target.closest?.('[data-builder-node]')
+    const el=nodeAt(event)
     const id=el?.dataset?.builderNode||null
     if(id===hovered)return
     hovered=id
@@ -471,7 +499,9 @@ ${body}${emptyState}
   document.addEventListener('mouseleave',()=>send('hover',{id:null}))
   document.addEventListener('click', event => {
     if(!document.documentElement.classList.contains('builder-editing'))return
-    const el=event.target.closest?.('[data-builder-node]')
+    // Let the caret move normally while text is being typed on the page.
+    if(event.target&&event.target.isContentEditable)return
+    const el=nodeAt(event)
     if(!el)return
     event.preventDefault()
     event.stopPropagation()
@@ -489,20 +519,35 @@ ${body}${emptyState}
     const type=el.dataset.builderType||''
     if(!['heading','paragraph','button','link'].includes(type))return
     event.preventDefault();event.stopPropagation()
-    el.contentEditable='true'
+    if(el.isContentEditable)return
+    const original=el.textContent||''
+    // Plain text only: pasted formatting must not sneak into the page.
+    try{el.contentEditable='plaintext-only'}catch{el.contentEditable='true'}
     el.focus()
     const range=document.createRange();range.selectNodeContents(el);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range)
+    removeLabel();clearHandles()
+    textEditing=true
+    let cancelled=false
+    const keys=keyEvent=>{
+      // Enter finishes; Escape puts the old text back.
+      if(keyEvent.key==='Enter'&&!keyEvent.shiftKey){keyEvent.preventDefault();el.blur()}
+      if(keyEvent.key==='Escape'){keyEvent.preventDefault();keyEvent.stopPropagation();cancelled=true;el.textContent=original;el.blur()}
+    }
     const finish=()=>{
       el.contentEditable='false'
-      send('text-change',{id:el.dataset.builderNode,content:el.textContent||''})
-      requestAnimationFrame(reportSize)
+      textEditing=false
       el.removeEventListener('blur',finish)
+      el.removeEventListener('keydown',keys)
+      const next=(el.textContent||'').split(String.fromCharCode(160)).join(' ')
+      if(!cancelled&&next!==original)send('text-change',{id:el.dataset.builderNode,content:next})
+      requestAnimationFrame(()=>{reportSize();if(selected===el.dataset.builderNode)drawLabel(el)})
     }
+    el.addEventListener('keydown',keys)
     el.addEventListener('blur',finish)
   }, true)
   document.addEventListener('contextmenu',event=>{
     if(!document.documentElement.classList.contains('builder-editing'))return
-    const el=event.target.closest?.('[data-builder-node]')
+    const el=nodeAt(event)
     if(!el)return
     event.preventDefault()
     send('context',{id:el.dataset.builderNode,x:event.clientX,y:event.clientY})
@@ -512,6 +557,14 @@ ${body}${emptyState}
     const msg=event.data||{}
     if(msg.source!=='cobest-editor')return
     if(msg.type==='snapping'){snappingEnabled=msg.enabled!==false;clearSnapGuides();return}
+    if(msg.type==='zoom'){
+      const next=Math.min(3,Math.max(1,1/Math.max(.1,Number(msg.scale)||1)))
+      if(Math.abs(next-uiScale)>.01){
+        uiScale=next
+        if(!nodeDragging)drawLabel(selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null)
+      }
+      return
+    }
     if(msg.type==='external-drag-leave'){
       removeDropMarker()
       return
@@ -536,7 +589,7 @@ ${body}${emptyState}
       const selectedEl=selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null
       // Hover-only updates must not rebuild the resize handles under the
       // pointer; that would cancel a drag that is just starting.
-      if(!nodeDragging&&!sameSelection)drawLabel(selectedEl)
+      if(!nodeDragging&&!sameSelection&&!textEditing)drawLabel(selectedEl)
       if(!sameSelection)reportComputed(selected)
       if(msg.reveal&&selectedEl){const r=selectedEl.getBoundingClientRect();send('reveal',{top:r.top+window.scrollY,height:r.height})}
     }
@@ -546,36 +599,21 @@ ${body}${emptyState}
       else {apply(selected,'builder-selected');apply(hovered,'builder-hovered');drawLabel(selected?document.querySelector('[data-builder-node="'+CSS.escape(selected)+'"]'):null);requestAnimationFrame(reportSize)}
     }
   })
-  document.querySelectorAll('.nav-menu-button').forEach(button=>button.addEventListener('click',event=>{
-    if(document.documentElement.classList.contains('builder-editing'))return
-    event.preventDefault();const nav=button.closest('nav');const links=nav?.querySelector('.nav-links');if(!links)return;
-    const open=links.dataset.open==='true';links.dataset.open=String(!open);links.style.display=open?'':'flex'
-  }))
-  document.querySelectorAll('[data-tabs]').forEach(tabs=>{
-    const buttons=[...tabs.querySelectorAll('[data-tab]')],panes=[...tabs.querySelectorAll('[data-pane]')]
-    panes.forEach((pane,index)=>pane.hidden=index!==0)
-    buttons.forEach((button,index)=>button.addEventListener('click',event=>{if(document.documentElement.classList.contains('builder-editing'))return;event.preventDefault();buttons.forEach(x=>x.removeAttribute('aria-selected'));panes.forEach(x=>x.hidden=true);button.setAttribute('aria-selected','true');if(panes[index])panes[index].hidden=false}))
-  })
-  document.querySelectorAll('[data-slider]').forEach(slider=>{
-    const slides=[...slider.children];let index=0;const show=()=>slides.forEach((x,i)=>x.hidden=i!==index);show()
-    slider.addEventListener('click',event=>{if(document.documentElement.classList.contains('builder-editing'))return;event.preventDefault();index=(index+1)%slides.length;show()})
-  })
-  document.querySelectorAll('[data-dropdown]').forEach(dropdown=>{
-    const toggle=dropdown.querySelector('[data-dropdown-toggle]'),list=dropdown.querySelector('[data-dropdown-list]')
-    toggle?.addEventListener('click',event=>{if(document.documentElement.classList.contains('builder-editing'))return;event.preventDefault();if(list)list.hidden=!list.hidden})
-  })
-  document.querySelectorAll('[data-lightbox]').forEach(link=>link.addEventListener('click',event=>{
-    if(document.documentElement.classList.contains('builder-editing'))return
-    event.preventDefault();const src=link.getAttribute('href');if(!src)return
-    const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.86);display:grid;place-items:center;padding:30px;cursor:zoom-out'
-    const img=document.createElement('img');img.src=src;img.style.cssText='max-width:min(1200px,92vw);max-height:90vh;object-fit:contain';overlay.appendChild(img);overlay.onclick=()=>overlay.remove();document.body.appendChild(overlay)
-  }))
-  document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{
-    if(document.documentElement.classList.contains('builder-editing')){event.preventDefault();return}
-    const action=form.getAttribute('action');if(!action||action==='#'){event.preventDefault();form.dataset.state='success'}
-  }));
-  ${interactionRuntime}
+  if(document.documentElement.classList.contains('builder-editing')){
+    // A picture that cannot load would shrink to nothing and become
+    // impossible to click. Keep a placeholder box in its place.
+    const markBroken=image=>image.classList.toggle('builder-broken-image',image.complete&&image.naturalWidth===0)
+    document.addEventListener('error',event=>{if(event.target&&event.target.tagName==='IMG'){event.target.classList.add('builder-broken-image');requestAnimationFrame(reportSize)}},true)
+    document.addEventListener('load',event=>{if(event.target&&event.target.tagName==='IMG')event.target.classList.remove('builder-broken-image')},true)
+    document.querySelectorAll('img[data-builder-node]').forEach(markBroken)
+    // Show every answer, tab and slide so all text can be clicked and edited.
+    document.querySelectorAll('details').forEach(item=>{item.open=true})
+    document.addEventListener('submit',event=>event.preventDefault(),true)
+  }
 })()
+</script>
+<script>
+${websiteScript}
 </script>
 </body>
 </html>`

@@ -11,7 +11,7 @@ test('right-click shows plain-language element tools',async({page})=>{
   await page.getByRole('button',{name:'Show canvas at actual size'}).click()
   const heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click({button:'right'})
-  const menu=page.getByRole('menu',{name:/Element actions for Heading/})
+  const menu=page.getByRole('menu',{name:/Element actions for Hero heading/})
   await expect(menu).toBeVisible()
   const bounds=await menu.boundingBox()
   expect(bounds!.x).toBeGreaterThanOrEqual(0)
@@ -21,7 +21,7 @@ test('right-click shows plain-language element tools',async({page})=>{
   await expect(menu.getByRole('menuitem',{name:/^Select “/})).toBeVisible()
   await menu.getByRole('menuitem',{name:/^Edit/}).click()
   await expect(page.getByRole('tab',{name:'Content'})).toHaveAttribute('aria-selected','true')
-  await expect(page.getByLabel('Element text')).toHaveValue('Build something remarkable.')
+  await expect(page.getByLabel('Element text')).toHaveValue('A clear headline about what you offer')
 
   await heading.click({button:'right'})
   await page.getByRole('menuitem',{name:/^Select “/}).click()
@@ -30,7 +30,7 @@ test('right-click shows plain-language element tools',async({page})=>{
 
   await heading.click({button:'right'})
   await page.getByRole('menuitem',{name:/^Show in Layers/}).click()
-  await expect(page.getByRole('button',{name:'Select Heading layer'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Select Hero heading layer'})).toBeVisible()
 })
 
 test('images can be uploaded, replaced from the library and given alt text',async({page})=>{
@@ -46,6 +46,8 @@ test('images can be uploaded, replaced from the library and given alt text',asyn
   await page.getByRole('menuitem',{name:/^Replace image/}).click()
   await expect(page.getByRole('region',{name:'Image settings'})).toBeVisible()
 
+  // Uploading is the main path; pasting an address is tucked under "more".
+  await page.getByText('Use an image address instead').click()
   const testUrl='https://example.com/cobest-image-test.png'
   await page.getByRole('textbox',{name:'Image URL'}).fill(testUrl)
   await expect(image).toHaveAttribute('src',testUrl)

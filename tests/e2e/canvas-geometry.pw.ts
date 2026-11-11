@@ -20,6 +20,8 @@ async function pointerDrag(page:Page,selector:ReturnType<ReturnType<typeof frame
 test('canvas Move and resize persist into preview, undo, and a reload',async({page})=>{
   await page.goto('/e2e.html')
   await page.getByRole('button',{name:'Show canvas at actual size'}).click()
+  // Exact distances: switch off snapping to nearby edges for this check.
+  await page.getByRole('button',{name:'Toggle alignment snapping'}).click()
   let heading=frame(page).locator('[data-builder-node="hero-title-home"]')
   await heading.click()
   await expect(frame(page).getByRole('button',{name:'Drag to move the selected element'})).toBeVisible()
