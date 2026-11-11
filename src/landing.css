@@ -48,9 +48,12 @@
 /* ---- The 3D scene: a phone with real thickness, a turning card, spinning
    coins and floating pictures, each at its own depth. The stage turns slowly
    and follows the pointer and the scroll (see useScene3D). ---- */
+.lp-hero-art{position:relative;min-width:0}
 .lp-scene{position:relative;height:560px;perspective:1500px;--px:0;--py:0;--scroll:0;--lp-scale:1}
 .lp-stage-scale,.lp-stage-tilt,.lp-stage{position:absolute;inset:0;transform-style:preserve-3d}
 .lp-stage-scale{transform:scale(var(--lp-scale))}
+/* Follows the pointer and the scroll. On devices that ask for less motion
+   these stay at zero, so the scene only turns by itself (see Art3D.jsx). */
 .lp-stage-tilt{transform:translate3d(0,calc(var(--scroll) * -30px),0) rotateX(calc(var(--py) * -5deg + var(--scroll) * 8deg)) rotateY(calc(var(--px) * 9deg + var(--scroll) * -16deg));transition:transform .55s cubic-bezier(.2,.8,.2,1)}
 .lp-stage{transform:rotateX(7deg) rotateY(-18deg) rotateZ(2deg)}
 .lp-scene-shadow{position:absolute;left:50%;bottom:-4px;width:calc(300px * var(--lp-scale));height:calc(44px * var(--lp-scale));margin-left:calc(-150px * var(--lp-scale));border-radius:50%;background:radial-gradient(closest-side,rgba(14,26,58,.3),rgba(14,26,58,0))}
@@ -121,6 +124,13 @@ html[data-motion="on"] .lp-card3d-spin{animation:lp-turn 14s linear infinite}
 html[data-motion="on"] .lp-coin-spin{animation:lp-coin var(--coin-speed,3.4s) linear var(--coin-delay,0s) infinite}
 html[data-motion="on"] .lp-order{animation:lp-pop .7s cubic-bezier(.2,.9,.3,1.25) 1.1s both,lp-bob 5s ease-in-out 1.8s infinite}
 .lp-scene.is-offscreen *{animation-play-state:paused!important}
+/* Pause or play, on the picture itself. While it plays this is a small round
+   button; while it is paused it says what it does. */
+.lp .lp-scene-toggle{position:absolute;right:0;bottom:0;z-index:3;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;min-width:44px;padding:0 18px 0 14px;border:1px solid var(--lp-line);border-radius:999px;background:#fff;color:var(--lp-navy);font:700 14px/1 Manrope,'DM Sans',system-ui,sans-serif;text-decoration:none;box-shadow:0 12px 26px -14px rgba(14,26,58,.5);cursor:pointer}
+.lp .lp-scene-toggle:hover{border-color:var(--lp-blue);color:var(--lp-blue)}
+html[data-motion="on"] .lp .lp-scene-toggle{width:44px;padding:0;color:var(--lp-muted)}
+html[data-motion="on"] .lp .lp-scene-toggle:hover{color:var(--lp-blue)}
+html[data-motion="on"] .lp .lp-scene-toggle .motion-toggle-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @keyframes lp-rise{from{opacity:0;transform:translateY(36px)}}
 @keyframes lp-sway{
   0%,100%{transform:rotateX(7deg) rotateY(-25deg) rotateZ(2deg) translate3d(0,0,0)}
@@ -238,7 +248,8 @@ html[data-motion="on"] .lp-final-inner:has(.lp-btn:hover) .lp-final-art,html[dat
   .lp-nav-actions{margin-left:auto}
   .lp-hero-grid{grid-template-columns:1fr;gap:16px;min-height:0;padding-block:48px 24px}
   .lp-hero-copy{max-width:640px}
-  .lp-scene{height:540px;max-width:560px;width:100%;margin-inline:auto;--lp-scale:.94}
+  .lp-hero-art{max-width:560px;width:100%;margin-inline:auto}
+  .lp-scene{height:540px;--lp-scale:.94}
 }
 @media (max-width:1024px){
   .lp-features-grid,.lp-faq-grid{grid-template-columns:1fr;gap:36px}

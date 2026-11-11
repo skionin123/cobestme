@@ -1,6 +1,7 @@
 /* CoBest's moving 3D pictures (see Art3D.jsx).
-   Motion runs only while <html data-motion="on">: the person can pause it,
-   and devices that ask for less motion start paused. */
+   Motion runs only while <html data-motion="on">: the person can pause it.
+   On devices that ask for less motion (<html data-calm>) the pictures still
+   move by themselves, but nothing follows the pointer or the scroll. */
 
 .i3d{position:relative;display:inline-block;flex:none;width:var(--i3d-size,64px);height:var(--i3d-size,64px);perspective:520px;vertical-align:middle;line-height:0;-webkit-user-select:none;user-select:none}
 .i3d-lift{position:absolute;inset:0;display:block;transform-style:preserve-3d}

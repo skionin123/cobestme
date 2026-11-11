@@ -66,7 +66,8 @@ function Coin3D({size=56,speed=3.4,delay=0}){
   </span></span>
 }
 
-/** The hero picture: a 3D scene that turns slowly and follows the pointer and the scroll. */
+/** The hero picture: a 3D scene that turns slowly and follows the pointer and the scroll.
+    On devices that ask for less motion it only turns slowly (see Art3D.jsx). */
 function HeroScene(){
   const scene=useRef(null)
   useScene3D(scene,{scroll:true})
@@ -124,7 +125,7 @@ export default function Landing({ onStart, onLogin }){
             </div>
             <ul className="lp-assurance"><li><Check size={16} aria-hidden="true"/>Free to start</li><li><Check size={16} aria-hidden="true"/>No coding</li><li><Check size={16} aria-hidden="true"/>Prices in pesos</li></ul>
           </div>
-          <HeroScene/>
+          <div className="lp-hero-art"><HeroScene/><MotionToggle icon className="lp-scene-toggle"/></div>
         </div>
       </section>
 

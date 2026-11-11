@@ -11,9 +11,14 @@ export const art3dSrc=name=>`/images/3d/${name}.webp`
 export const art3dMovingSrc=name=>MOVING.has(name)?`/images/3d/${name}-anim.webp`:''
 
 /* ---- Motion on or off ---------------------------------------------------
-   Motion is on unless the person paused it here, or their device asks for
-   less motion and they have not chosen "play" here. The choice is kept in
-   this browser and written to <html data-motion> so CSS can follow it. */
+   Motion plays unless the person paused it here. The choice is kept in this
+   browser and written to <html data-motion> so CSS can follow it.
+
+   Devices that ask for less motion get the calm version, marked with
+   <html data-calm>: everything still moves by itself, but nothing follows
+   the pointer or the scroll, which is the kind of motion that makes some
+   people dizzy. Pressing Play here is an explicit choice and gives the
+   full version. */
 const MOTION_KEY='cobest-motion'
 const listeners=new Set()
 const lessMotion=typeof window!=='undefined'&&window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null
@@ -22,10 +27,16 @@ function savedChoice(){
 }
 export function getMotion(){
   if(typeof window==='undefined')return 'off'
-  return savedChoice()||(lessMotion?.matches?'off':'on')
+  return savedChoice()==='off'?'off':'on'
+}
+export function getCalm(){
+  return !!lessMotion?.matches&&savedChoice()!=='on'
 }
 function applyMotion(){
-  if(typeof document!=='undefined')document.documentElement.dataset.motion=getMotion()
+  if(typeof document!=='undefined'){
+    document.documentElement.dataset.motion=getMotion()
+    document.documentElement.toggleAttribute('data-calm',getCalm())
+  }
   listeners.forEach(listener=>listener())
 }
 export function setMotion(value){
@@ -45,17 +56,22 @@ if(typeof window!=='undefined'){
 export function useMotion(){
   return useSyncExternalStore(subscribe,getMotion,()=>'off')
 }
+/** True while the calm version is showing. */
+export function useCalm(){
+  return useSyncExternalStore(subscribe,getCalm,()=>false)
+}
 /** People who asked their browser to save data get the small still pictures. */
 const savingData=()=>typeof navigator!=='undefined'&&navigator.connection?.saveData===true
 
-/** A button that pauses or plays every animation on CoBest's own pages. */
+/** A button that pauses or plays every animation on CoBest's own pages.
+    compact: icon only. icon: icon and words. */
 export function MotionToggle({className='',icon=false,compact=false}){
   const motion=useMotion()
   const Icon=motion==='on'?Pause:Play
   const label=motion==='on'?'Pause animations':'Play animations'
   return <button type="button" className={('motion-toggle '+(compact?'is-compact ':'')+className).trim()}
-    aria-label={compact?label:undefined} title={compact?label:undefined}
-    onClick={()=>setMotion(motion==='on'?'off':'on')}>{(icon||compact)&&<Icon size={compact?16:18} aria-hidden="true"/>}{!compact&&label}</button>
+    aria-label={compact?label:undefined} title={compact||icon?label:undefined}
+    onClick={()=>setMotion(motion==='on'?'off':'on')}>{(icon||compact)&&<Icon size={compact?16:18} aria-hidden="true"/>}{!compact&&<span className="motion-toggle-label">{label}</span>}</button>
 }
 
 /* ---- One 3D picture -----------------------------------------------------
@@ -151,9 +167,11 @@ export function EmptyArt(){
 /* ---- Pointer and scroll for 3D scenes ------------------------------------
    Writes --px and --py (-1 to 1, where the pointer is) and --scroll (0 to 1,
    how far the element has scrolled away) on the element, and marks it
-   "is-offscreen" so its animations can rest while nobody can see them. */
+   "is-offscreen" so its animations can rest while nobody can see them.
+   The calm version leaves all three at zero. */
 export function useScene3D(ref,{pointer=true,scroll=false}={}){
   const motionOn=useMotion()==='on'
+  const calm=useCalm()
   useEffect(()=>{
     const node=ref.current
     if(!node||typeof window==='undefined')return undefined
@@ -179,8 +197,9 @@ export function useScene3D(ref,{pointer=true,scroll=false}={}){
     }
     const reset=()=>{px=0;py=0;progress=0;write()}
     if(!motionOn){reset();return undefined}
-    if(pointer)window.addEventListener('pointermove',onPointer,{passive:true})
-    if(scroll){window.addEventListener('scroll',onScroll,{passive:true});onScroll()}
+    if(calm)reset()
+    if(pointer&&!calm)window.addEventListener('pointermove',onPointer,{passive:true})
+    if(scroll&&!calm){window.addEventListener('scroll',onScroll,{passive:true});onScroll()}
     let observer
     if('IntersectionObserver' in window){
       observer=new IntersectionObserver(entries=>entries.forEach(entry=>node.classList.toggle('is-offscreen',!entry.isIntersecting)))
@@ -193,7 +212,7 @@ export function useScene3D(ref,{pointer=true,scroll=false}={}){
       if(frame)window.cancelAnimationFrame(frame)
       node.classList.remove('is-offscreen')
     }
-  },[ref,motionOn,pointer,scroll])
+  },[ref,motionOn,calm,pointer,scroll])
 }
 
 /* ---- Pictures that drift around the log-in and sign-up cards ------------ */
